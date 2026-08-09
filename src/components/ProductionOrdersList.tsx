@@ -5,9 +5,10 @@ import { Search, Edit, Eye, Filter } from 'lucide-react';
 
 interface ProductionOrdersListProps {
   onEdit: (id: string) => void;
+  onView: (id: string) => void;
 }
 
-export function ProductionOrdersList({ onEdit }: ProductionOrdersListProps) {
+export function ProductionOrdersList({ onEdit, onView }: ProductionOrdersListProps) {
   const [orders, setOrders] = useState<ProductionOrder[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('الكل');
@@ -17,10 +18,12 @@ export function ProductionOrdersList({ onEdit }: ProductionOrdersListProps) {
   }, []);
 
   const filteredOrders = orders.filter(order => {
+    const term = searchTerm.toLowerCase().trim();
     const matchesSearch = 
-      order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.styleName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      order.customerName.toLowerCase().includes(searchTerm.toLowerCase());
+      !term ||
+      order.orderNumber.toLowerCase().includes(term) ||
+      order.styleName.toLowerCase().includes(term) ||
+      order.customerName.toLowerCase().includes(term);
     
     const matchesStatus = statusFilter === 'الكل' || order.status === statusFilter;
     
@@ -45,7 +48,7 @@ export function ProductionOrdersList({ onEdit }: ProductionOrdersListProps) {
           </div>
           
           <div className="relative w-full sm:w-48">
-            <Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+            <Filter className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4 pointer-events-none" />
             <select
               className="w-full pl-4 pr-10 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none bg-white"
               value={statusFilter}
@@ -69,7 +72,7 @@ export function ProductionOrdersList({ onEdit }: ProductionOrdersListProps) {
               <th className="px-6 py-4 text-sm font-semibold text-slate-600">القصة</th>
               <th className="px-6 py-4 text-sm font-semibold text-slate-600">النوع</th>
               <th className="px-6 py-4 text-sm font-semibold text-slate-600">العميل</th>
-              <th className="px-6 py-4 text-sm font-semibold text-slate-600">العدد</th>
+              <th className="px-6 py-4 text-sm font-semibold text-slate-600">العدد الإجمالي</th>
               <th className="px-6 py-4 text-sm font-semibold text-slate-600">الحالة</th>
               <th className="px-6 py-4 text-sm font-semibold text-slate-600 text-center">إجراءات</th>
             </tr>
@@ -77,7 +80,7 @@ export function ProductionOrdersList({ onEdit }: ProductionOrdersListProps) {
           <tbody className="divide-y divide-slate-100">
             {filteredOrders.length > 0 ? (
               filteredOrders.map((order) => {
-                // Calculate total quantity safely
+                // Calculate total quantity safely from variants
                 const total = order.sizes.reduce((sum, size) => 
                   sum + size.variants.reduce((vSum, v) => vSum + (Number(v.quantity) || 0), 0)
                 , 0);
@@ -86,14 +89,14 @@ export function ProductionOrdersList({ onEdit }: ProductionOrdersListProps) {
                   <tr key={order.id} className="hover:bg-slate-50 transition-colors">
                     <td className="px-6 py-4 text-sm font-medium text-slate-900">{order.orderNumber}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">{order.orderDate}</td>
-                    <td className="px-6 py-4 text-sm text-slate-900">{order.styleName}</td>
+                    <td className="px-6 py-4 text-sm text-slate-900 font-medium">{order.styleName}</td>
                     <td className="px-6 py-4 text-sm text-slate-600">
                       <span className="bg-slate-100 text-slate-700 px-2.5 py-0.5 rounded-full text-xs font-medium">
                         {order.category}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-slate-600">{order.customerName}</td>
-                    <td className="px-6 py-4 text-sm font-medium text-indigo-600">{total}</td>
+                    <td className="px-6 py-4 text-sm font-bold text-indigo-600">{total}</td>
                     <td className="px-6 py-4 text-sm">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                         order.status === 'مسودة' ? 'bg-amber-100 text-amber-700' :
@@ -104,24 +107,27 @@ export function ProductionOrdersList({ onEdit }: ProductionOrdersListProps) {
                       </span>
                     </td>
                     <td className="px-6 py-4 text-sm text-center">
-                      {order.status === 'مسودة' ? (
-                        <button
-                          onClick={() => onEdit(order.id)}
-                          className="text-indigo-600 hover:text-indigo-900 p-1 rounded-md hover:bg-indigo-50 transition-colors inline-flex items-center gap-1"
-                          title="تعديل"
-                        >
-                          <Edit className="w-4 h-4" />
-                          <span className="sr-only">تعديل</span>
-                        </button>
-                      ) : (
-                        <button
-                          className="text-slate-400 hover:text-slate-600 p-1 rounded-md hover:bg-slate-50 transition-colors inline-flex items-center gap-1"
-                          title="عرض (غير متاح في الإصدار الحالي)"
-                          disabled
-                        >
-                          <Eye className="w-4 h-4" />
-                        </button>
-                      )}
+                      <div className="flex items-center justify-center gap-2">
+                        {order.status === 'مسودة' ? (
+                          <button
+                            onClick={() => onEdit(order.id)}
+                            className="text-indigo-600 hover:text-indigo-900 p-1.5 rounded-md hover:bg-indigo-50 transition-colors inline-flex items-center gap-1 font-medium text-xs"
+                            title="تعديل المسودة"
+                          >
+                            <Edit className="w-4 h-4" />
+                            <span>تعديل</span>
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => onView(order.id)}
+                            className="text-slate-600 hover:text-slate-900 p-1.5 rounded-md hover:bg-slate-100 transition-colors inline-flex items-center gap-1 font-medium text-xs"
+                            title="عرض التفاصيل"
+                          >
+                            <Eye className="w-4 h-4" />
+                            <span>عرض</span>
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );

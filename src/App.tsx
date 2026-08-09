@@ -9,27 +9,40 @@ type ViewState = 'dashboard' | 'list' | 'form';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>('dashboard');
-  const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
+  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [isViewOnlyMode, setIsViewOnlyMode] = useState<boolean>(false);
 
   useEffect(() => {
-    // Initialize dummy data when the app loads (per requirements)
     initializeDummyData();
   }, []);
 
   const handleNavigate = (view: ViewState) => {
     setCurrentView(view);
     if (view !== 'form') {
-      setEditingOrderId(null);
+      setSelectedOrderId(null);
+      setIsViewOnlyMode(false);
+    } else {
+      // Navigating to new form
+      setSelectedOrderId(null);
+      setIsViewOnlyMode(false);
     }
   };
 
   const handleEditOrder = (id: string) => {
-    setEditingOrderId(id);
+    setSelectedOrderId(id);
+    setIsViewOnlyMode(false);
+    setCurrentView('form');
+  };
+
+  const handleViewOrder = (id: string) => {
+    setSelectedOrderId(id);
+    setIsViewOnlyMode(true);
     setCurrentView('form');
   };
 
   const handleFormSaved = () => {
-    setEditingOrderId(null);
+    setSelectedOrderId(null);
+    setIsViewOnlyMode(false);
     setCurrentView('list');
   };
 
@@ -39,11 +52,12 @@ export default function App() {
         <Dashboard onNavigate={handleNavigate} />
       )}
       {currentView === 'list' && (
-        <ProductionOrdersList onEdit={handleEditOrder} />
+        <ProductionOrdersList onEdit={handleEditOrder} onView={handleViewOrder} />
       )}
       {currentView === 'form' && (
         <ProductionOrderForm 
-          orderId={editingOrderId} 
+          orderId={selectedOrderId} 
+          isViewOnly={isViewOnlyMode}
           onSaved={handleFormSaved} 
         />
       )}

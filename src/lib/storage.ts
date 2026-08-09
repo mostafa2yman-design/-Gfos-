@@ -56,6 +56,16 @@ export const getOrderById = (id: string): ProductionOrder | undefined => {
   }
 };
 
+export const deleteOrder = (id: string) => {
+  try {
+    const orders = getOrders();
+    const updatedOrders = orders.filter(o => o.id !== id);
+    saveOrders(updatedOrders);
+  } catch (error) {
+    console.error('Failed to delete order:', error);
+  }
+};
+
 export const generateOrderNumber = (): string => {
   try {
     const orders = getOrders();

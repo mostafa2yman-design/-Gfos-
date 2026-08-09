@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { getOrders } from '../lib/storage';
+import { getOrders, deleteOrder } from '../lib/storage';
 import { ProductionOrder } from '../types';
-import { Search, Edit, Eye, Filter } from 'lucide-react';
+import { Search, Edit, Eye, Filter, Trash2 } from 'lucide-react';
 
 interface ProductionOrdersListProps {
   onEdit: (id: string) => void;
@@ -16,6 +16,13 @@ export function ProductionOrdersList({ onEdit, onView }: ProductionOrdersListPro
   useEffect(() => {
     setOrders(getOrders());
   }, []);
+
+  const handleDelete = (id: string, orderNumber: string) => {
+    if (window.confirm(`هل أنت متأكد من حذف الأمر ${orderNumber} نهائياً؟`)) {
+      deleteOrder(id);
+      setOrders(getOrders());
+    }
+  };
 
   const filteredOrders = orders.filter(order => {
     const term = searchTerm.toLowerCase().trim();
@@ -125,6 +132,15 @@ export function ProductionOrdersList({ onEdit, onView }: ProductionOrdersListPro
                           >
                             <Eye className="w-4 h-4" />
                             <span>عرض</span>
+                          </button>
+                        )}
+                        {['مسودة', 'أمر إنتاج معتمد', 'أمر قص', 'القص الفعلي مدخل'].includes(order.status) && (
+                          <button
+                            onClick={() => handleDelete(order.id, order.orderNumber)}
+                            className="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-50 transition-colors inline-flex items-center gap-1 font-medium text-xs"
+                            title="حذف الأمر"
+                          >
+                            <Trash2 className="w-4 h-4" />
                           </button>
                         )}
                       </div>

@@ -3,8 +3,10 @@ import { ProductionOrder, PREDEFINED_SIZES, Variant } from '../types';
 import { OrderBasicInfo } from './form/OrderBasicInfo';
 import { SizeCard } from './form/SizeCard';
 import { OrderSummary } from './form/OrderSummary';
+import { BomSection } from './form/BomSection';
 import { generateOrderNumber, saveOrder, getOrderById } from '../lib/storage';
-import { Save, AlertCircle, Plus, CheckCircle2, ArrowRight } from 'lucide-react';
+import { getBomTemplateForStyle } from '../lib/bom';
+import { Save, AlertCircle, Plus, CheckCircle2, ArrowRight, Check } from 'lucide-react';
 
 interface ProductionOrderFormProps {
   orderId?: string | null;
@@ -60,9 +62,21 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
 
   const isReadOnly = isViewOnly || order.status !== 'مسودة';
 
-  const handleBasicInfoChange = (field: string, value: string) => {
+  const handleBasicInfoChange = (field: keyof ProductionOrder, value: string) => {
     if (isReadOnly) return;
-    setOrder(prev => ({ ...prev, [field]: value }));
+    setOrder(prev => {
+      const next = { ...prev, [field]: value };
+      
+      // Auto-load BOM if styleName changes and matches a template
+      if (field === 'styleName') {
+        const bom = getBomTemplateForStyle(value);
+        if (bom) {
+          next.materials = bom.materials;
+          next.accessories = bom.accessories;
+        }
+      }
+      return next;
+    });
     setError(null);
   };
 
@@ -222,6 +236,30 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
     }
   };
 
+  const handleApproveOrder = () => {
+    if (isReadOnly) return;
+    if (validate()) {
+      if (!window.confirm('هل أنت متأكد من اعتماد أمر الإنتاج؟ لن تتمكن من تعديل البيانات الأساسية بعد الاعتماد.')) return;
+      const orderToSave: ProductionOrder = { 
+        ...order, 
+        status: 'أمر إنتاج معتمد' as const,
+        productionApprovedBy: 'المستخدم الحالي', // In a real app, from auth
+        productionApprovedAt: new Date().toISOString()
+      };
+      saveOrder(orderToSave);
+      setSuccess('تم اعتماد أمر الإنتاج بنجاح.');
+      setError(null);
+      setTimeout(() => {
+        onSaved();
+      }, 1200);
+    }
+  };
+
+  const handleBomChange = (field: 'materials' | 'accessories', value: any[]) => {
+    if (isReadOnly) return;
+    setOrder(prev => ({ ...prev, [field]: value }));
+  };
+
   const usedSizes = order.sizes.map(s => s.size);
   const availableSizes = PREDEFINED_SIZES.filter(s => !usedSizes.includes(s));
 
@@ -260,13 +298,22 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
               إغلاق
             </button>
           ) : (
-            <button
-              onClick={handleSaveDraft}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm font-medium"
-            >
-              <Save className="w-4 h-4" />
-              حفظ كمسودة
-            </button>
+            <>
+              <button
+                onClick={handleSaveDraft}
+                className="flex items-center gap-2 bg-white text-indigo-700 border border-indigo-200 px-5 py-2.5 rounded-lg hover:bg-indigo-50 transition-colors shadow-sm font-medium"
+              >
+                <Save className="w-4 h-4" />
+                حفظ كمسودة
+              </button>
+              <button
+                onClick={handleApproveOrder}
+                className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm font-medium"
+              >
+                <Check className="w-4 h-4" />
+                اعتماد أمر الإنتاج
+              </button>
+            </>
           )}
         </div>
       </div>
@@ -351,6 +398,8 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
               )}
             </div>
           </div>
+          
+          <BomSection order={order} onChange={handleBomChange} readOnly={isReadOnly} />
         </div>
 
         <div className="xl:col-span-1">

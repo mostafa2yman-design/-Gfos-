@@ -4,9 +4,9 @@ import { OrderBasicInfo } from './form/OrderBasicInfo';
 import { SizeCard } from './form/SizeCard';
 import { OrderSummary } from './form/OrderSummary';
 import { BomSection } from './form/BomSection';
-import { generateOrderNumber, saveOrder, getOrderById } from '../lib/storage';
+import { generateOrderNumber, saveOrder, getOrderById, deleteOrder } from '../lib/storage';
 import { getBomTemplateForStyle } from '../lib/bom';
-import { Save, AlertCircle, Plus, CheckCircle2, ArrowRight, Check } from 'lucide-react';
+import { Save, AlertCircle, Plus, CheckCircle2, ArrowRight, Check, Trash2 } from 'lucide-react';
 
 interface ProductionOrderFormProps {
   orderId?: string | null;
@@ -92,11 +92,13 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
 
   const handleRemoveSize = (sizeIndex: number) => {
     if (isReadOnly) return;
-    setOrder(prev => ({
-      ...prev,
-      sizes: prev.sizes.filter((_, idx) => idx !== sizeIndex)
-    }));
-    setError(null);
+    if (window.confirm('هل أنت متأكد من حذف هذا المقاس بجميع ألوانه وكمياته؟')) {
+      setOrder(prev => ({
+        ...prev,
+        sizes: prev.sizes.filter((_, idx) => idx !== sizeIndex)
+      }));
+      setError(null);
+    }
   };
 
   const handleCopySize = (sourceIndex: number, targetSizeName: string) => {
@@ -223,21 +225,37 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
     return true;
   };
 
+  const handleDeleteOrder = () => {
+    if (!orderId) return;
+    if (window.confirm('هل أنت متأكد من حذف أمر الإنتاج؟\n\nسيتم حذف أمر الإنتاج وجميع بياناته التابعة التي لم تدخل في التنفيذ الفعلي. لا يمكن التراجع عن هذه العملية.')) {
+      const success = deleteOrder(order.id);
+      if (success) {
+        onSaved(); // Close the form and go back to list
+      } else {
+        setError('تعذر حذف أمر الإنتاج، حاول مرة أخرى.');
+      }
+    }
+  };
+
   const handleSaveDraft = () => {
-    if (isReadOnly) return;
+    if (isReadOnly && order.status !== 'مسودة') return;
     if (validate()) {
       const orderToSave: ProductionOrder = { ...order, status: 'مسودة' as const };
-      saveOrder(orderToSave);
-      setSuccess('تم حفظ الأمر كمسودة بنجاح.');
-      setError(null);
-      setTimeout(() => {
-        onSaved();
-      }, 1200);
+      const success = saveOrder(orderToSave);
+      if (success) {
+        setSuccess('تم حفظ الأمر كمسودة بنجاح.');
+        setError(null);
+        setTimeout(() => {
+          onSaved();
+        }, 1200);
+      } else {
+        setError('تعذر حفظ الأمر كمسودة، حاول مرة أخرى.');
+      }
     }
   };
 
   const handleApproveOrder = () => {
-    if (isReadOnly) return;
+    if (isReadOnly && order.status !== 'مسودة') return;
     if (validate()) {
       if (!window.confirm('هل أنت متأكد من اعتماد أمر الإنتاج؟ لن تتمكن من تعديل البيانات الأساسية بعد الاعتماد.')) return;
       const orderToSave: ProductionOrder = { 
@@ -246,12 +264,20 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
         productionApprovedBy: 'المستخدم الحالي', // In a real app, from auth
         productionApprovedAt: new Date().toISOString()
       };
-      saveOrder(orderToSave);
-      setSuccess('تم اعتماد أمر الإنتاج بنجاح.');
-      setError(null);
-      setTimeout(() => {
-        onSaved();
-      }, 1200);
+      const success = saveOrder(orderToSave);
+      if (success) {
+        setSuccess('تم اعتماد أمر الإنتاج بنجاح.');
+        setError(null);
+        
+        // Update local state to reflect approval
+        setOrder(orderToSave);
+        
+        setTimeout(() => {
+          onSaved();
+        }, 1200);
+      } else {
+        setError('تعذر حفظ اعتماد أمر الإنتاج، حاول مرة أخرى.');
+      }
     }
   };
 
@@ -290,6 +316,15 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
           </div>
         </div>
         <div className="flex gap-3">
+          {orderId && ['مسودة', 'أمر إنتاج معتمد', 'أمر قص', 'القص الفعلي مدخل'].includes(order.status) && (
+            <button
+              onClick={handleDeleteOrder}
+              className="flex items-center gap-2 bg-white text-red-600 border border-red-200 px-4 py-2.5 rounded-lg hover:bg-red-50 transition-colors shadow-sm font-medium"
+            >
+              <Trash2 className="w-4 h-4" />
+              حذف أمر الإنتاج
+            </button>
+          )}
           {isReadOnly ? (
             <button
               onClick={onSaved}

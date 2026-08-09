@@ -15,15 +15,17 @@ export const getOrders = (): ProductionOrder[] => {
   }
 };
 
-export const saveOrders = (orders: ProductionOrder[]) => {
+export const saveOrders = (orders: ProductionOrder[]): boolean => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
+    return true;
   } catch (error) {
     console.error('Failed to save production orders to storage:', error);
+    return false;
   }
 };
 
-export const saveOrder = (order: ProductionOrder) => {
+export const saveOrder = (order: ProductionOrder): boolean => {
   try {
     const orders = getOrders();
     const existingIndex = orders.findIndex(o => o.id === order.id);
@@ -41,9 +43,10 @@ export const saveOrder = (order: ProductionOrder) => {
       updatedOrders = [...orders, updatedOrder];
     }
     
-    saveOrders(updatedOrders);
+    return saveOrders(updatedOrders);
   } catch (error) {
     console.error('Failed to save order:', error);
+    return false;
   }
 };
 
@@ -56,13 +59,14 @@ export const getOrderById = (id: string): ProductionOrder | undefined => {
   }
 };
 
-export const deleteOrder = (id: string) => {
+export const deleteOrder = (id: string): boolean => {
   try {
     const orders = getOrders();
     const updatedOrders = orders.filter(o => o.id !== id);
-    saveOrders(updatedOrders);
+    return saveOrders(updatedOrders);
   } catch (error) {
     console.error('Failed to delete order:', error);
+    return false;
   }
 };
 

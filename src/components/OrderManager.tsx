@@ -35,6 +35,9 @@ export function OrderManager({ orderId, onSaved, onBack }: OrderManagerProps) {
         } else {
           setActiveTab('production');
         }
+      } else {
+        // If order not found (e.g., just deleted), go back
+        onBack();
       }
     }
   };

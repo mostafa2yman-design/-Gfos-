@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SizeData, PREDEFINED_COLORS } from '../../types';
+import { SizeData, PREDEFINED_COLORS, Variant } from '../../types';
 import { VariantRow } from './VariantRow';
 import { Plus, Trash2, Copy } from 'lucide-react';
 
@@ -7,7 +7,7 @@ interface SizeCardProps {
   key?: React.Key;
   sizeData: SizeData;
   availableSizesToCopy: string[];
-  onUpdateVariant: (variantIndex: number, field: string, value: string | number) => void;
+  onUpdateVariant: (variantIndex: number, field: keyof Variant, value: string | number) => void;
   onAddVariant: () => void;
   onRemoveVariant: (variantIndex: number) => void;
   onRemoveSize: () => void;

@@ -335,7 +335,7 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
                     key={sizeData.size}
                     sizeData={sizeData}
                     availableSizesToCopy={availableSizes}
-                    onUpdateVariant={(vIdx, field, value) => handleUpdateVariant(index, vIdx, field as any, value)}
+                    onUpdateVariant={(vIdx, field, value) => handleUpdateVariant(index, vIdx, field, value)}
                     onAddVariant={() => handleAddVariant(index)}
                     onRemoveVariant={(vIdx) => handleRemoveVariant(index, vIdx)}
                     onRemoveSize={() => handleRemoveSize(index)}

@@ -1,3 +1,4 @@
+cat << 'INNEREOF' > src/components/BatchesForm.tsx
 import React, { useState, useEffect } from 'react';
 import { ProductionOrder, BatchItem, BatchSplitMethod, BatchSizeData, BatchVariant } from '../types';
 import { getOrderById } from '../lib/storage';
@@ -223,3 +224,4 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
     </div>
   );
 }
+INNEREOF

@@ -1,3 +1,4 @@
+cat << 'INNEREOF' > src/lib/productionOrderCommands.ts
 import { eventBus } from "./events";
 import { ProductionOrder, SizeData, Variant, CutOrderData, BatchItem } from '../types';
 import { saveOrder as persistOrder, getOrderById, deleteOrder as removeOrderFromStorage, getOrders } from './storage';
@@ -366,89 +367,4 @@ export function updateVariantColor(order: ProductionOrder, sizeName: string, var
     })
   };
 }
-
-// Prep Commands
-export function savePrepData(order: ProductionOrder, updatedBatches: BatchItem[]): CommandResult<ProductionOrder> {
-  const allCompleted = updatedBatches.every(b => b.prepStatus === 'مكتمل');
-  const anyStarted = updatedBatches.some(b => b.prepStatus !== 'جاري' || b.accessoriesPrep.some(a => a.isPrepared));
-  
-  let newStatus = order.status;
-  if (allCompleted) newStatus = 'التجهيز مكتمل';
-  else if (anyStarted && order.status === 'الباتشات مثبتة') newStatus = 'التجهيز جاري';
-
-  const orderToSave: ProductionOrder = {
-    ...order,
-    batches: updatedBatches,
-    status: newStatus as any
-  };
-
-  const saved = persistOrder(orderToSave);
-  if (!saved) return { success: false, error: 'تعذر حفظ بيانات التجهيز.' };
-  
-  const verifiedOrder = getOrderById(order.id);
-  if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
-
-  // Only publish if status changed
-  if (order.status !== newStatus) {
-    eventBus.publish({
-      id: crypto.randomUUID(),
-      type: newStatus === 'التجهيز مكتمل' ? 'PreparationCompleted' : 'PreparationStarted',
-      occurredAt: new Date().toISOString(),
-      aggregateType: "ProductionOrder",
-      aggregateId: order.id,
-      payload: { status: verifiedOrder.status }
-    });
-  }
-
-  return { success: true, data: verifiedOrder };
-}
-
-export function approveBatchPrep(order: ProductionOrder, batchId: string, user: string = 'المستخدم الحالي'): CommandResult<ProductionOrder> {
-  const updatedBatches = order.batches!.map(b => {
-    if (b.id === batchId) {
-      return {
-        ...b,
-        prepStatus: 'مكتمل' as const,
-        prepApprovedBy: user,
-        prepApprovedAt: new Date().toISOString()
-      };
-    }
-    return b;
-  });
-
-  const allCompleted = updatedBatches.every(b => b.prepStatus === 'مكتمل');
-  
-  const orderToSave: ProductionOrder = {
-    ...order,
-    batches: updatedBatches,
-    status: allCompleted ? 'التجهيز مكتمل' : 'التجهيز جاري'
-  };
-
-  const saved = persistOrder(orderToSave);
-  if (!saved) return { success: false, error: 'تعذر اعتماد التجهيز.' };
-
-  const verifiedOrder = getOrderById(order.id);
-  if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
-
-  eventBus.publish({
-    id: crypto.randomUUID(),
-    type: "BatchPreparationCompleted",
-    occurredAt: new Date().toISOString(),
-    aggregateType: "ProductionOrder",
-    aggregateId: order.id,
-    payload: { batchId, status: verifiedOrder.status }
-  });
-  
-  if (allCompleted) {
-    eventBus.publish({
-      id: crypto.randomUUID(),
-      type: "PreparationCompleted",
-      occurredAt: new Date().toISOString(),
-      aggregateType: "ProductionOrder",
-      aggregateId: order.id,
-      payload: { status: verifiedOrder.status }
-    });
-  }
-
-  return { success: true, data: verifiedOrder };
-}
+INNEREOF

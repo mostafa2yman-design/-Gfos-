@@ -1,9 +1,12 @@
-sed -i 's/sizeId: string/sizeName: string/g' src/lib/productionOrderCommands.ts
-sed -i 's/s.id !== sizeId/s.size !== sizeName/g' src/lib/productionOrderCommands.ts
-sed -i 's/sourceSizeId: string/sourceSizeName: string/g' src/lib/productionOrderCommands.ts
-sed -i 's/s.id === sourceSizeId/s.size === sourceSizeName/g' src/lib/productionOrderCommands.ts
-sed -i 's/variantId: string/colorName: string/g' src/lib/productionOrderCommands.ts
-sed -i 's/size.id === sizeId/size.size === sizeName/g' src/lib/productionOrderCommands.ts
-sed -i 's/v.id !== variantId/v.color !== colorName/g' src/lib/productionOrderCommands.ts
-sed -i 's/v.id === variantId/v.color !== "" \&\& v.color === colorName/g' src/lib/productionOrderCommands.ts
-sed -i '/id: crypto.randomUUID(),/d' src/lib/productionOrderCommands.ts
+# First, insert the import at the top
+sed -i '1i import { eventBus } from "./events";' src/lib/productionOrderCommands.ts
+
+# In saveDraft
+sed -i 's/return { success: true, data: saved };/eventBus.publish({\n    id: crypto.randomUUID(),\n    type: order.id ? "ProductionOrderSaved" : "ProductionOrderCreated",\n    occurredAt: new Date().toISOString(),\n    aggregateType: "ProductionOrder",\n    aggregateId: saved.id,\n    payload: { status: saved.status }\n  });\n  return { success: true, data: saved };/g' src/lib/productionOrderCommands.ts
+
+# In approveProductionOrder
+sed -i 's/return { success: true, data: saved };/eventBus.publish({\n    id: crypto.randomUUID(),\n    type: "ProductionOrderApproved",\n    occurredAt: new Date().toISOString(),\n    aggregateType: "ProductionOrder",\n    aggregateId: saved.id,\n    payload: { status: saved.status }\n  });\n  return { success: true, data: saved };/g' src/lib/productionOrderCommands.ts
+
+# In deleteProductionOrder
+sed -i 's/return { success: true, data: null };/eventBus.publish({\n    id: crypto.randomUUID(),\n    type: "ProductionOrderDeleted",\n    occurredAt: new Date().toISOString(),\n    aggregateType: "ProductionOrder",\n    aggregateId: order.id,\n    payload: { orderNumber: order.orderNumber }\n  });\n  return { success: true, data: null };/g' src/lib/productionOrderCommands.ts
+

@@ -1,3 +1,4 @@
+cat << 'INNEREOF' > src/components/CutOrderForm.tsx
 import React, { useState, useEffect } from 'react';
 import { ProductionOrder, CutOrderData, CutSizeData, CutVariant } from '../types';
 import { getOrderById } from '../lib/storage';
@@ -186,3 +187,4 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
     </div>
   );
 }
+INNEREOF

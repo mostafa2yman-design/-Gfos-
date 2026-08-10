@@ -6,6 +6,7 @@ import { BatchesForm } from './BatchesForm';
 import { PrintPrepSheet } from './PrintPrepSheet';
 import { ProductionOrder, OrderStatus } from '../types';
 import { getOrderById } from '../lib/storage';
+import { eventBus } from '../lib/events';
 import { ArrowRight, Scissors, FileText, Layers, CheckSquare } from 'lucide-react';
 
 interface OrderManagerProps {
@@ -53,6 +54,42 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
     if (currentOrderId) {
       loadOrder(currentOrderId, true);
     }
+  }, [currentOrderId]);
+
+  // Subscribe to Event Bus for reactive UI updates
+  useEffect(() => {
+    if (!currentOrderId) return;
+    
+    const handler = (event: any) => {
+      // Only react to events for the currently managed order
+      if (event.aggregateType === 'ProductionOrder' && event.aggregateId === currentOrderId) {
+        if (event.type === 'ProductionOrderDeleted') {
+          onBack();
+        } else {
+          // Reactively reload order data
+          loadOrder(currentOrderId, false);
+          
+          // Optional: we can do tab auto-switching based on specific events
+          if (event.type === 'ProductionOrderApproved') setActiveTab('cut');
+          if (event.type === 'CutOrderApproved') setActiveTab('batches');
+          if (event.type === 'BatchesLocked') setActiveTab('prep');
+        }
+      }
+    };
+
+    // Subscribing to all known event types for this aggregate
+    const typesToWatch: any[] = [
+      'ProductionOrderSaved', 'ProductionOrderApproved', 'ProductionOrderDeleted',
+      'CutActualEntered', 'CutOrderApproved', 
+      'BatchSplitCompleted', 'BatchesLocked',
+      'PreparationStarted', 'BatchPreparationCompleted', 'PreparationCompleted'
+    ];
+    
+    const unsubscribers = typesToWatch.map(type => eventBus.subscribe(type, handler));
+    
+    return () => {
+      unsubscribers.forEach(unsub => unsub());
+    };
   }, [currentOrderId]);
 
   if (!currentOrderId) {
@@ -142,34 +179,31 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
         {activeTab === 'production' && (
-          <ProductionOrderForm 
+          <ProductionOrderForm key={order.updatedAt} 
             orderId={currentOrderId} 
             isViewOnly={isCutEnabled} 
-            onOrderSaved={(id) => loadOrder(id, false)} 
-            onOrderApproved={(id) => {
-              loadOrder(id, false);
-              setActiveTab('cut');
-            }}
-            onDeleted={onBack}
+            onOrderSaved={(id) => {}} 
+            onOrderApproved={(id) => {}}
+            onDeleted={() => {}}
             onBack={onBack}
           />
         )}
         {activeTab === 'cut' && (
-          <CutOrderForm 
+          <CutOrderForm key={order.updatedAt} 
             orderId={currentOrderId} 
-            onSaved={() => loadOrder(currentOrderId, false)} 
+            onSaved={() => {}} 
           />
         )}
         {activeTab === 'batches' && (
-          <BatchesForm 
+          <BatchesForm key={order.updatedAt} 
             orderId={currentOrderId} 
-            onSaved={() => loadOrder(currentOrderId, false)} 
+            onSaved={() => {}} 
           />
         )}
         {activeTab === 'prep' && (
-          <PrintPrepSheet 
+          <PrintPrepSheet key={order.updatedAt} 
             orderId={currentOrderId} 
-            onSaved={() => loadOrder(currentOrderId, false)} 
+            onSaved={() => {}} 
           />
         )}
       </div>

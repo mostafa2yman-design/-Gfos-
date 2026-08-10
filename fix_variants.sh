@@ -1,0 +1,6 @@
+sed -i 's/export function removeVariant(order: ProductionOrder, sizeName: string, colorName: string): ProductionOrder {/export function removeVariant(order: ProductionOrder, sizeName: string, variantIndex: number): ProductionOrder {/g' src/lib/productionOrderCommands.ts
+sed -i 's/return { ...size, variants: size.variants.filter(v => v.color !== colorName) };/return { ...size, variants: size.variants.filter((_, idx) => idx !== variantIndex) };/g' src/lib/productionOrderCommands.ts
+sed -i 's/export function updateVariantQuantity(order: ProductionOrder, sizeName: string, colorName: string, quantity: number): ProductionOrder {/export function updateVariantQuantity(order: ProductionOrder, sizeName: string, variantIndex: number, quantity: number): ProductionOrder {/g' src/lib/productionOrderCommands.ts
+sed -i 's/variants: size.variants.map(v => {/variants: size.variants.map((v, idx) => {/g' src/lib/productionOrderCommands.ts
+sed -i 's/if (v.color === colorName) {/if (idx === variantIndex) {/g' src/lib/productionOrderCommands.ts
+sed -i 's/export function updateVariantColor(order: ProductionOrder, sizeName: string, colorName: string, color: string): ProductionOrder {/export function updateVariantColor(order: ProductionOrder, sizeName: string, variantIndex: number, color: string): ProductionOrder {/g' src/lib/productionOrderCommands.ts

@@ -4,7 +4,7 @@ import { Plus, Trash2 } from 'lucide-react';
 
 interface BomSectionProps {
   order: ProductionOrder;
-  onChange: (field: 'materials' | 'accessories', value: any[]) => void;
+  onChange: (field: 'materials' | 'accessories', value: MaterialInstance[] | AccessoryInstance[]) => void;
   readOnly?: boolean;
 }
 
@@ -25,7 +25,7 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
     onChange('materials', [...materials, newMaterial]);
   };
 
-  const handleUpdateMaterial = (index: number, field: keyof MaterialInstance, value: any) => {
+  const handleUpdateMaterial = (index: number, field: keyof MaterialInstance, value: string | number | { size: string; standard: number }[]) => {
     if (readOnly) return;
     const updated = [...materials];
     updated[index] = { ...updated[index], [field]: value };
@@ -52,7 +52,7 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
     onChange('accessories', [...accessories, newAcc]);
   };
 
-  const handleUpdateAccessory = (index: number, field: keyof AccessoryInstance, value: any) => {
+  const handleUpdateAccessory = (index: number, field: keyof AccessoryInstance, value: string | number | { size: string; standard: number }[]) => {
     if (readOnly) return;
     const updated = [...accessories];
     updated[index] = { ...updated[index], [field]: value };
@@ -67,7 +67,7 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
 
   const renderStandardInput = (
     item: MaterialInstance | AccessoryInstance,
-    updateFn: (field: any, value: any) => void
+    updateFn: (field: keyof MaterialInstance | keyof AccessoryInstance, value: number | { size: string; standard: number }[]) => void
   ) => {
     if (item.standardMethod === 'موحد') {
       return (

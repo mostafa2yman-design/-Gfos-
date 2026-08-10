@@ -108,11 +108,7 @@ export function SizeCard({
             
             <button
               type="button"
-              onClick={() => {
-                if (window.confirm(`هل أنت متأكد من حذف المقاس ${sizeData.size} بالكامل؟`)) {
-                  onRemoveSize();
-                }
-              }}
+              onClick={onRemoveSize}
               className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
               title="حذف المقاس"
             >
@@ -125,7 +121,7 @@ export function SizeCard({
       <div className="p-5 space-y-3">
         {sizeData.variants.map((variant, idx) => (
           <VariantRow
-            key={idx}
+            key={variant.color || idx}
             variant={variant}
             availableColors={availableColors}
             onChange={(field, value) => onUpdateVariant(idx, field, value)}

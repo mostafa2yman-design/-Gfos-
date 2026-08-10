@@ -4,7 +4,6 @@ import { Dashboard } from './components/Dashboard';
 import { ProductionOrdersList } from './components/ProductionOrdersList';
 import { OrderManager } from './components/OrderManager';
 import { ProductionOrderForm } from './components/ProductionOrderForm';
-import { initializeDummyData } from './lib/storage';
 
 type ViewState = 'dashboard' | 'list' | 'form';
 
@@ -13,7 +12,6 @@ export default function App() {
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
 
   useEffect(() => {
-    initializeDummyData();
   }, []);
 
   const handleNavigate = (view: ViewState) => {

@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { getOrders, deleteOrder } from '../lib/storage';
+import { getOrders } from '../lib/storage';
 import { ProductionOrder } from '../types';
 import { Search, Edit, Eye, Filter, Trash2 } from 'lucide-react';
+import * as Cmd from '../lib/productionOrderCommands';
 
 interface ProductionOrdersListProps {
   onEdit: (id: string) => void;
@@ -17,10 +18,14 @@ export function ProductionOrdersList({ onEdit, onView }: ProductionOrdersListPro
     setOrders(getOrders());
   }, []);
 
-  const handleDelete = (id: string, orderNumber: string) => {
-    if (window.confirm(`هل أنت متأكد من حذف الأمر ${orderNumber} نهائياً؟`)) {
-      deleteOrder(id);
-      setOrders(getOrders());
+  const handleDelete = (order: ProductionOrder) => {
+    if (window.confirm(`هل أنت متأكد من حذف الأمر ${order.orderNumber} نهائياً؟`)) {
+      const result = Cmd.deleteProductionOrder(order);
+      if (result.success) {
+        setOrders(getOrders());
+      } else {
+        alert(result.error || 'حدث خطأ');
+      }
     }
   };
 
@@ -134,9 +139,9 @@ export function ProductionOrdersList({ onEdit, onView }: ProductionOrdersListPro
                             <span>عرض</span>
                           </button>
                         )}
-                        {['مسودة', 'أمر إنتاج معتمد', 'أمر قص', 'القص الفعلي مدخل'].includes(order.status) && (
+                        {Cmd.canDeleteProductionOrder(order) && (
                           <button
-                            onClick={() => handleDelete(order.id, order.orderNumber)}
+                            onClick={() => handleDelete(order)}
                             className="text-red-500 hover:text-red-700 p-1.5 rounded-md hover:bg-red-50 transition-colors inline-flex items-center gap-1 font-medium text-xs"
                             title="حذف الأمر"
                           >

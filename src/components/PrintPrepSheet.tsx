@@ -61,7 +61,7 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
 
   if (!order || !order.batches) return <div>جاري التحميل...</div>;
 
-  const handleUpdatePrep = (batchId: string, accId: string, field: keyof AccessoryPrepItem, value: any) => {
+  const handleUpdatePrep = (batchId: string, accId: string, field: keyof AccessoryPrepItem, value: string | number | boolean) => {
     const updatedBatches = order.batches!.map(b => {
       if (b.id !== batchId) return b;
       if (b.prepStatus === 'مكتمل') return b; // locked

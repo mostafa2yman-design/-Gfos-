@@ -4,17 +4,19 @@ import { OrderBasicInfo } from './form/OrderBasicInfo';
 import { SizeCard } from './form/SizeCard';
 import { OrderSummary } from './form/OrderSummary';
 import { BomSection } from './form/BomSection';
-import { generateOrderNumber, saveOrder, getOrderById, deleteOrder } from '../lib/storage';
+import { generateOrderNumber, getOrderById } from '../lib/storage';
 import { getBomTemplateForStyle } from '../lib/bom';
 import { Save, AlertCircle, Plus, CheckCircle2, ArrowRight, Check, Trash2 } from 'lucide-react';
 
+import * as Cmd from '../lib/productionOrderCommands';
 interface ProductionOrderFormProps {
   orderId?: string | null;
   onSaved: () => void;
+  onDeleted?: () => void;
   isViewOnly?: boolean;
 }
 
-export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: ProductionOrderFormProps) {
+export function ProductionOrderForm({ orderId, onSaved, onDeleted, isViewOnly = false }: ProductionOrderFormProps) {
   const [order, setOrder] = useState<ProductionOrder>({
     id: crypto.randomUUID(),
     orderNumber: '',
@@ -80,94 +82,55 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
     setError(null);
   };
 
-  const handleAddSize = (sizeName: string) => {
+  const executeCommand = <Args extends unknown[]>(commandFn: (o: ProductionOrder, ...args: Args) => ProductionOrder, ...args: Args) => {
     if (isReadOnly) return;
-    setOrder(prev => ({
-      ...prev,
-      sizes: [...prev.sizes, { size: sizeName, variants: [] }]
-    }));
-    setIsAddSizeOpen(false);
+    const newOrder = commandFn(order, ...args);
+    
+    // Autosave immediately if it's already an existing persisted order
+    if (orderId && ['مسودة'].includes(order.status)) {
+      const result = Cmd.saveDraft(newOrder);
+      if (result.success) {
+        if (result.data) setOrder(result.data);
+      } else {
+        setError(result.error || 'حدث خطأ');
+        return;
+      }
+    } else {
+      setOrder(newOrder);
+    }
     setError(null);
   };
 
-  const handleRemoveSize = (sizeIndex: number) => {
+  const handleAddSize = (sizeName: string) => {
+    executeCommand(Cmd.addSize, sizeName);
+    setIsAddSizeOpen(false);
+  };
+
+  const handleRemoveSize = (sizeName: string) => {
     if (isReadOnly) return;
     if (window.confirm('هل أنت متأكد من حذف هذا المقاس بجميع ألوانه وكمياته؟')) {
-      setOrder(prev => ({
-        ...prev,
-        sizes: prev.sizes.filter((_, idx) => idx !== sizeIndex)
-      }));
-      setError(null);
+      executeCommand(Cmd.removeSize, sizeName);
     }
   };
 
-  const handleCopySize = (sourceIndex: number, targetSizeName: string) => {
-    if (isReadOnly) return;
-    setOrder(prev => {
-      const sourceSize = prev.sizes[sourceIndex];
-      if (!sourceSize) return prev;
-      
-      // Deep copy variants so they are completely independent
-      const copiedVariants = sourceSize.variants.map(v => ({ ...v }));
-      
-      return {
-        ...prev,
-        sizes: [
-          ...prev.sizes,
-          {
-            size: targetSizeName,
-            variants: copiedVariants
-          }
-        ]
-      };
-    });
-    setError(null);
+  const handleCopySize = (sourceSizeName: string, targetSizeName: string) => {
+    executeCommand(Cmd.copySize, sourceSizeName, targetSizeName);
   };
 
-  const handleAddVariant = (sizeIndex: number) => {
-    if (isReadOnly) return;
-    setOrder(prev => {
-      const newSizes = prev.sizes.map((s, sIdx) => {
-        if (sIdx !== sizeIndex) return s;
-        return {
-          ...s,
-          variants: [...s.variants, { color: '', quantity: 0 }]
-        };
-      });
-      return { ...prev, sizes: newSizes };
-    });
-    setError(null);
+  const handleAddVariant = (sizeName: string) => {
+    executeCommand(Cmd.addVariant, sizeName, '', 0);
   };
 
-  const handleUpdateVariant = (sizeIndex: number, variantIndex: number, field: keyof Variant, value: string | number) => {
-    if (isReadOnly) return;
-    setOrder(prev => {
-      const newSizes = prev.sizes.map((s, sIdx) => {
-        if (sIdx !== sizeIndex) return s;
-        const newVariants = s.variants.map((v, vIdx) => {
-          if (vIdx !== variantIndex) return v;
-          return { ...v, [field]: value };
-        });
-        return { ...s, variants: newVariants };
-      });
-      return { ...prev, sizes: newSizes };
-    });
-    setError(null);
+  const handleUpdateVariant = (sizeName: string, variantIndex: number, field: keyof Variant, value: string | number) => {
+    if (field === 'color') {
+      executeCommand(Cmd.updateVariantColor, sizeName, variantIndex, value as string);
+    } else if (field === 'quantity') {
+      executeCommand(Cmd.updateVariantQuantity, sizeName, variantIndex, value as number);
+    }
   };
 
-  const handleRemoveVariant = (sizeIndex: number, variantIndex: number) => {
-    if (isReadOnly) return;
-    setOrder(prev => {
-      const newSizes = prev.sizes.map((s, sIdx) => {
-        if (sIdx !== sizeIndex) return s;
-        return {
-          ...s,
-          variants: s.variants.filter((_, vIdx) => vIdx !== variantIndex)
-        };
-      });
-      return { ...prev, sizes: newSizes };
-    });
-    setError(null);
+  const handleRemoveVariant = (sizeName: string, variantIndex: number) => {
+    executeCommand(Cmd.removeVariant, sizeName, variantIndex);
   };
 
   const validate = (): boolean => {
@@ -228,11 +191,15 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
   const handleDeleteOrder = () => {
     if (!orderId) return;
     if (window.confirm('هل أنت متأكد من حذف أمر الإنتاج؟\n\nسيتم حذف أمر الإنتاج وجميع بياناته التابعة التي لم تدخل في التنفيذ الفعلي. لا يمكن التراجع عن هذه العملية.')) {
-      const success = deleteOrder(order.id);
-      if (success) {
-        onSaved(); // Close the form and go back to list
+      const result = Cmd.deleteProductionOrder(order);
+      if (result.success) {
+        if (onDeleted) {
+          onDeleted();
+        } else {
+          onSaved();
+        }
       } else {
-        setError('تعذر حذف أمر الإنتاج، حاول مرة أخرى.');
+        setError(result.error || 'حدث خطأ');
       }
     }
   };
@@ -240,16 +207,14 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
   const handleSaveDraft = () => {
     if (isReadOnly && order.status !== 'مسودة') return;
     if (validate()) {
-      const orderToSave: ProductionOrder = { ...order, status: 'مسودة' as const };
-      const success = saveOrder(orderToSave);
-      if (success) {
+      const result = Cmd.saveDraft(order);
+      if (result.success) {
         setSuccess('تم حفظ الأمر كمسودة بنجاح.');
         setError(null);
-        setTimeout(() => {
-          onSaved();
-        }, 1200);
+        if (result.data) setOrder(result.data);
+        onSaved(); // notify parent
       } else {
-        setError('تعذر حفظ الأمر كمسودة، حاول مرة أخرى.');
+        setError(result.error || 'حدث خطأ');
       }
     }
   };
@@ -258,30 +223,19 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
     if (isReadOnly && order.status !== 'مسودة') return;
     if (validate()) {
       if (!window.confirm('هل أنت متأكد من اعتماد أمر الإنتاج؟ لن تتمكن من تعديل البيانات الأساسية بعد الاعتماد.')) return;
-      const orderToSave: ProductionOrder = { 
-        ...order, 
-        status: 'أمر إنتاج معتمد' as const,
-        productionApprovedBy: 'المستخدم الحالي', // In a real app, from auth
-        productionApprovedAt: new Date().toISOString()
-      };
-      const success = saveOrder(orderToSave);
-      if (success) {
+      const result = Cmd.approveProductionOrder(order);
+      if (result.success) {
         setSuccess('تم اعتماد أمر الإنتاج بنجاح.');
         setError(null);
-        
-        // Update local state to reflect approval
-        setOrder(orderToSave);
-        
-        setTimeout(() => {
-          onSaved();
-        }, 1200);
+        if (result.data) setOrder(result.data);
+        onSaved(); // notify parent
       } else {
-        setError('تعذر حفظ اعتماد أمر الإنتاج، حاول مرة أخرى.');
+        setError(result.error || 'حدث خطأ');
       }
     }
   };
 
-  const handleBomChange = (field: 'materials' | 'accessories', value: any[]) => {
+  const handleBomChange = (field: 'materials' | 'accessories', value: (any[])) => {
     if (isReadOnly) return;
     setOrder(prev => ({ ...prev, [field]: value }));
   };
@@ -293,7 +247,7 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
     <div className="space-y-6">
       <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <div className="flex items-center gap-3">
-          <button
+          <button type="button" 
             onClick={onSaved}
             className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
             title="رجوع"
@@ -316,8 +270,8 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
           </div>
         </div>
         <div className="flex gap-3">
-          {orderId && ['مسودة', 'أمر إنتاج معتمد', 'أمر قص', 'القص الفعلي مدخل'].includes(order.status) && (
-            <button
+          {orderId && Cmd.canDeleteProductionOrder(order) && (
+            <button type="button" 
               onClick={handleDeleteOrder}
               className="flex items-center gap-2 bg-white text-red-600 border border-red-200 px-4 py-2.5 rounded-lg hover:bg-red-50 transition-colors shadow-sm font-medium"
             >
@@ -326,7 +280,7 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
             </button>
           )}
           {isReadOnly ? (
-            <button
+            <button type="button" 
               onClick={onSaved}
               className="flex items-center gap-2 bg-slate-600 text-white px-5 py-2.5 rounded-lg hover:bg-slate-700 transition-colors shadow-sm font-medium"
             >
@@ -334,14 +288,14 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
             </button>
           ) : (
             <>
-              <button
+              <button type="button" 
                 onClick={handleSaveDraft}
                 className="flex items-center gap-2 bg-white text-indigo-700 border border-indigo-200 px-5 py-2.5 rounded-lg hover:bg-indigo-50 transition-colors shadow-sm font-medium"
               >
                 <Save className="w-4 h-4" />
                 حفظ كمسودة
               </button>
-              <button
+              <button type="button" 
                 onClick={handleApproveOrder}
                 className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm font-medium"
               >
@@ -384,8 +338,8 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
               <h3 className="text-lg font-bold text-slate-800">جدول المقاسات والألوان</h3>
               {!isReadOnly && availableSizes.length > 0 && (
                 <div className="relative" ref={addSizeRef}>
-                  <button 
-                    type="button"
+                  <button type="button"  
+                    
                     onClick={() => setIsAddSizeOpen(prev => !prev)}
                     className="flex items-center gap-1.5 bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-xs"
                   >
@@ -395,9 +349,9 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
                   {isAddSizeOpen && (
                     <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1 max-h-60 overflow-y-auto">
                       {availableSizes.map(sz => (
-                        <button
+                        <button type="button" 
                           key={sz}
-                          type="button"
+                          
                           onClick={() => handleAddSize(sz)}
                           className="w-full text-right px-4 py-2 text-sm hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
                         >
@@ -417,11 +371,11 @@ export function ProductionOrderForm({ orderId, onSaved, isViewOnly = false }: Pr
                     key={sizeData.size}
                     sizeData={sizeData}
                     availableSizesToCopy={availableSizes}
-                    onUpdateVariant={(vIdx, field, value) => handleUpdateVariant(index, vIdx, field, value)}
-                    onAddVariant={() => handleAddVariant(index)}
-                    onRemoveVariant={(vIdx) => handleRemoveVariant(index, vIdx)}
-                    onRemoveSize={() => handleRemoveSize(index)}
-                    onCopySize={(targetSize) => handleCopySize(index, targetSize)}
+                    onUpdateVariant={(variantIndex, field, value) => handleUpdateVariant(sizeData.size, variantIndex, field, value)}
+                    onAddVariant={() => handleAddVariant(sizeData.size)}
+                    onRemoveVariant={(variantIndex) => handleRemoveVariant(sizeData.size, variantIndex)}
+                    onRemoveSize={() => handleRemoveSize(sizeData.size)}
+                    onCopySize={(targetSize) => handleCopySize(sizeData.size, targetSize)}
                     readOnly={isReadOnly}
                   />
                 ))

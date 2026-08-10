@@ -129,8 +129,8 @@ export function OrderManager({ orderId, onSaved, onBack }: OrderManagerProps) {
             isViewOnly={isCutEnabled} 
             onSaved={() => {
               loadOrder();
-              // If it just became approved, we might want to stay or move.
             }} 
+            onDeleted={onBack}
           />
         )}
         {activeTab === 'cut' && (

@@ -1,6 +1,6 @@
 import { ProductionOrder } from '../types';
 
-const STORAGE_KEY = 'production_orders_v0.1';
+const STORAGE_KEY = 'production_orders_v0.3';
 
 export const getOrders = (): ProductionOrder[] => {
   try {
@@ -8,7 +8,7 @@ export const getOrders = (): ProductionOrder[] => {
     if (!data) return [];
     const parsed = JSON.parse(data);
     if (!Array.isArray(parsed)) return [];
-    return parsed;
+    return parsed as ProductionOrder[];
   } catch (error) {
     console.error('Failed to parse production orders from storage:', error);
     return [];
@@ -93,61 +93,5 @@ export const generateOrderNumber = (): string => {
     console.error('Failed to generate order number:', error);
     const year = new Date().getFullYear();
     return `PO-${year}-0001`;
-  }
-};
-
-export const initializeDummyData = () => {
-  try {
-    const orders = getOrders();
-    if (orders.length === 0) {
-      const dummyOrder: ProductionOrder = {
-        id: crypto.randomUUID(),
-        orderNumber: 'PO-2026-0001',
-        orderDate: new Date().toISOString().split('T')[0],
-        styleName: 'ترنج رجالي موديل تجريبي',
-        category: 'رجالي',
-        customerName: 'عميل تجريبي',
-        status: 'مسودة',
-        sizes: [
-          {
-            size: 'M',
-            variants: [
-              { color: 'أسود', quantity: 50 },
-              { color: 'أبيض', quantity: 40 },
-              { color: 'كحلي', quantity: 30 }
-            ]
-          },
-          {
-            size: 'L',
-            variants: [
-              { color: 'أسود', quantity: 60 },
-              { color: 'أبيض', quantity: 50 },
-              { color: 'كحلي', quantity: 40 }
-            ]
-          },
-          {
-            size: 'XL',
-            variants: [
-              { color: 'أسود', quantity: 70 },
-              { color: 'أبيض', quantity: 60 },
-              { color: 'كحلي', quantity: 50 }
-            ]
-          },
-          {
-            size: 'XXL',
-            variants: [
-              { color: 'أسود', quantity: 40 },
-              { color: 'أبيض', quantity: 30 },
-              { color: 'كحلي', quantity: 20 }
-            ]
-          }
-        ],
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString()
-      };
-      saveOrders([dummyOrder]);
-    }
-  } catch (error) {
-    console.error('Failed to initialize dummy data:', error);
   }
 };

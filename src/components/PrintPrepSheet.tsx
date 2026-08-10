@@ -4,6 +4,7 @@ import { getOrderById, saveOrder } from '../lib/storage';
 import { Printer, Check, CheckSquare, Square } from 'lucide-react';
 
 interface PrintPrepSheetProps {
+  key?: React.Key;
   orderId: string;
   onSaved: () => void;
 }

@@ -4,6 +4,7 @@ import { getOrderById, saveOrder } from '../lib/storage';
 import { Check, Save } from 'lucide-react';
 
 interface CutOrderFormProps {
+  key?: React.Key;
   orderId: string;
   onSaved: () => void;
 }

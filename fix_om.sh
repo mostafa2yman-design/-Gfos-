@@ -1,3 +1,4 @@
+cat << 'INNEREOF' > src/components/OrderManager.tsx
 import React, { useState, useEffect } from 'react';
 import { ProductionOrderForm } from './ProductionOrderForm';
 import { CutOrderForm } from './CutOrderForm';
@@ -57,7 +58,7 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
   if (!currentOrderId) {
     // New order
     return (
-      <ProductionOrderForm  
+      <ProductionOrderForm 
         orderId={null} 
         isViewOnly={false} 
         onOrderSaved={(id) => setCurrentOrderId(id)}
@@ -141,7 +142,7 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
         {activeTab === 'production' && (
-          <ProductionOrderForm key={order.updatedAt} 
+          <ProductionOrderForm 
             orderId={currentOrderId} 
             isViewOnly={isCutEnabled} 
             onOrderSaved={(id) => loadOrder(id, false)} 
@@ -154,19 +155,19 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
           />
         )}
         {activeTab === 'cut' && (
-          <CutOrderForm key={order.updatedAt} 
+          <CutOrderForm 
             orderId={currentOrderId} 
             onSaved={() => loadOrder(currentOrderId, false)} 
           />
         )}
         {activeTab === 'batches' && (
-          <BatchesForm key={order.updatedAt} 
+          <BatchesForm 
             orderId={currentOrderId} 
             onSaved={() => loadOrder(currentOrderId, false)} 
           />
         )}
         {activeTab === 'prep' && (
-          <PrintPrepSheet key={order.updatedAt} 
+          <PrintPrepSheet 
             orderId={currentOrderId} 
             onSaved={() => loadOrder(currentOrderId, false)} 
           />
@@ -175,3 +176,4 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
     </div>
   );
 }
+INNEREOF

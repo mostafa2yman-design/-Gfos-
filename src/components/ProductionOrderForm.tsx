@@ -10,13 +10,17 @@ import { Save, AlertCircle, Plus, CheckCircle2, ArrowRight, Check, Trash2 } from
 
 import * as Cmd from '../lib/productionOrderCommands';
 interface ProductionOrderFormProps {
+  key?: React.Key;
+  onOrderSaved: (orderId: string) => void;
+  onOrderApproved: (orderId: string) => void;
+  onBack: () => void;
   orderId?: string | null;
-  onSaved: () => void;
+
   onDeleted?: () => void;
   isViewOnly?: boolean;
 }
 
-export function ProductionOrderForm({ orderId, onSaved, onDeleted, isViewOnly = false }: ProductionOrderFormProps) {
+export function ProductionOrderForm({ orderId, onOrderSaved, onOrderApproved, onDeleted, onBack, isViewOnly = false }: ProductionOrderFormProps) {
   const [order, setOrder] = useState<ProductionOrder>({
     id: crypto.randomUUID(),
     orderNumber: '',
@@ -196,7 +200,7 @@ export function ProductionOrderForm({ orderId, onSaved, onDeleted, isViewOnly = 
         if (onDeleted) {
           onDeleted();
         } else {
-          onSaved();
+          onBack();
         }
       } else {
         setError(result.error || 'حدث خطأ');
@@ -212,7 +216,7 @@ export function ProductionOrderForm({ orderId, onSaved, onDeleted, isViewOnly = 
         setSuccess('تم حفظ الأمر كمسودة بنجاح.');
         setError(null);
         if (result.data) setOrder(result.data);
-        onSaved(); // notify parent
+        onOrderApproved(order.id);
       } else {
         setError(result.error || 'حدث خطأ');
       }
@@ -228,7 +232,7 @@ export function ProductionOrderForm({ orderId, onSaved, onDeleted, isViewOnly = 
         setSuccess('تم اعتماد أمر الإنتاج بنجاح.');
         setError(null);
         if (result.data) setOrder(result.data);
-        onSaved(); // notify parent
+        onOrderApproved(order.id);
       } else {
         setError(result.error || 'حدث خطأ');
       }
@@ -248,7 +252,7 @@ export function ProductionOrderForm({ orderId, onSaved, onDeleted, isViewOnly = 
       <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <div className="flex items-center gap-3">
           <button type="button" 
-            onClick={onSaved}
+            onClick={onBack}
             className="p-2 text-slate-500 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors"
             title="رجوع"
           >
@@ -281,7 +285,7 @@ export function ProductionOrderForm({ orderId, onSaved, onDeleted, isViewOnly = 
           )}
           {isReadOnly ? (
             <button type="button" 
-              onClick={onSaved}
+              onClick={onBack}
               className="flex items-center gap-2 bg-slate-600 text-white px-5 py-2.5 rounded-lg hover:bg-slate-700 transition-colors shadow-sm font-medium"
             >
               إغلاق

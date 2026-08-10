@@ -1,3 +1,4 @@
+cat << 'INNEREOF' > src/App.tsx
 import React, { useState, useEffect } from 'react';
 import { Layout } from './components/Layout';
 import { Dashboard } from './components/Dashboard';
@@ -52,3 +53,4 @@ export default function App() {
     </Layout>
   );
 }
+INNEREOF

@@ -4,6 +4,7 @@ import { getOrderById, saveOrder } from '../lib/storage';
 import { Check, Plus, Trash2 } from 'lucide-react';
 
 interface BatchesFormProps {
+  key?: React.Key;
   orderId: string;
   onSaved: () => void;
 }

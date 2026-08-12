@@ -232,18 +232,6 @@ export function addSize(order: ProductionOrder, sizeName: string): ProductionOrd
     sizes: [...order.sizes, newSize]
   };
   
-  // Notice we only publish if the order exists (not a new unsaved draft)
-  if (getOrderById(order.id)) {
-    eventBus.publish({
-      id: crypto.randomUUID(),
-      type: "ProductionOrderSizeAdded",
-      occurredAt: new Date().toISOString(),
-      aggregateType: "ProductionOrder",
-      aggregateId: order.id,
-      payload: { sizeName }
-    });
-  }
-
   return updatedOrder;
 }
 
@@ -252,18 +240,6 @@ export function removeSize(order: ProductionOrder, sizeName: string): Production
     ...order,
     sizes: order.sizes.filter(s => s.size !== sizeName)
   };
-  
-  if (getOrderById(order.id)) {
-    eventBus.publish({
-      id: crypto.randomUUID(),
-      type: "ProductionOrderSizeRemoved",
-      occurredAt: new Date().toISOString(),
-      aggregateType: "ProductionOrder",
-      aggregateId: order.id,
-      payload: { sizeName }
-    });
-  }
-
   return updatedOrder;
 }
 
@@ -284,18 +260,6 @@ export function copySize(order: ProductionOrder, sourceSizeName: string, targetS
     ...order,
     sizes: [...order.sizes, newSize]
   };
-  
-  if (getOrderById(order.id)) {
-    eventBus.publish({
-      id: crypto.randomUUID(),
-      type: "ProductionOrderSizeCopied",
-      occurredAt: new Date().toISOString(),
-      aggregateType: "ProductionOrder",
-      aggregateId: order.id,
-      payload: { sourceSizeName, targetSizeName }
-    });
-  }
-
   return updatedOrder;
 }
 
@@ -399,7 +363,6 @@ export function savePrepData(order: ProductionOrder, updatedBatches: BatchItem[]
       payload: { status: verifiedOrder.status }
     });
   }
-
   return { success: true, data: verifiedOrder };
 }
 
@@ -449,6 +412,5 @@ export function approveBatchPrep(order: ProductionOrder, batchId: string, user: 
       payload: { status: verifiedOrder.status }
     });
   }
-
   return { success: true, data: verifiedOrder };
 }

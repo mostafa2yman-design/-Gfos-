@@ -216,7 +216,7 @@ export function ProductionOrderForm({ orderId, onOrderSaved, onOrderApproved, on
         setSuccess('تم حفظ الأمر كمسودة بنجاح.');
         setError(null);
         if (result.data) setOrder(result.data);
-        onOrderApproved(order.id);
+        if (onOrderSaved) onOrderSaved(order.id);
       } else {
         setError(result.error || 'حدث خطأ');
       }

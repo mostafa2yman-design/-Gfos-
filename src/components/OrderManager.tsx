@@ -6,6 +6,7 @@ import { PrintPrepSheet } from './PrintPrepSheet';
 import { ProductionOrder, OrderStatus } from '../types';
 import { getOrderById } from '../lib/storage';
 import { eventBus } from '../lib/events';
+import { createOrderWorkflowHandlers } from '../lib/events/eventHandlers';
 import { ArrowRight, Scissors, FileText, Layers, CheckSquare } from 'lucide-react';
 
 interface OrderManagerProps {
@@ -28,7 +29,7 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
         
         if (forceTabChange) {
           // Auto-select tab based on status if opening
-          if (found.status === 'أمر قص' || found.status === 'القص الفعلي مدخل') {
+          if (found.status === 'أمر إنتاج معتمد' || found.status === 'أمر قص' || found.status === 'القص الفعلي مدخل') {
             setActiveTab('cut');
           } else if (found.status === 'القص معتمد' || found.status === 'تقسيم الباتشات') {
             setActiveTab('batches');
@@ -59,24 +60,30 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
   useEffect(() => {
     if (!currentOrderId) return;
     
-    const handler = (event: any) => {
+    const handlers = createOrderWorkflowHandlers({
+      onOrderUpdated: (updatedOrder) => {
+        setOrder(updatedOrder);
+      },
+      onOrderDeleted: onBack,
+      onNavigate: setActiveTab,
+    });
+    
+    const handlerAdapter = (event: any) => {
       // Only react to events for the currently managed order
       if (event.aggregateType === 'ProductionOrder' && event.aggregateId === currentOrderId) {
-        if (event.type === 'ProductionOrderDeleted') {
-          onBack();
-        } else {
-          // Reactively reload order data
-          loadOrder(currentOrderId, false);
-          
-          // Optional: we can do tab auto-switching based on specific events
-          if (event.type === 'ProductionOrderApproved') setActiveTab('cut');
-          if (event.type === 'CutOrderApproved') setActiveTab('batches');
-          if (event.type === 'BatchesLocked') setActiveTab('prep');
-        }
+        if (event.type === 'ProductionOrderSaved') handlers.handleProductionOrderSaved(event);
+        else if (event.type === 'ProductionOrderApproved') handlers.handleProductionOrderApproved(event);
+        else if (event.type === 'ProductionOrderDeleted') handlers.handleProductionOrderDeleted(event);
+        else if (event.type === 'CutActualEntered') handlers.handleCutActualEntered(event);
+        else if (event.type === 'CutOrderApproved') handlers.handleCutOrderApproved(event);
+        else if (event.type === 'BatchSplitCompleted') handlers.handleBatchSplitCompleted(event);
+        else if (event.type === 'BatchesLocked') handlers.handleBatchesLocked(event);
+        else if (event.type === 'PreparationStarted') handlers.handlePreparationStarted(event);
+        else if (event.type === 'BatchPreparationCompleted') handlers.handleBatchPreparationCompleted(event);
+        else if (event.type === 'PreparationCompleted') handlers.handlePreparationCompleted(event);
       }
     };
-
-    // Subscribing to all known event types for this aggregate
+    
     const typesToWatch: any[] = [
       'ProductionOrderSaved', 'ProductionOrderApproved', 'ProductionOrderDeleted',
       'CutActualEntered', 'CutOrderApproved', 
@@ -84,7 +91,7 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
       'PreparationStarted', 'BatchPreparationCompleted', 'PreparationCompleted'
     ];
     
-    const unsubscribers = typesToWatch.map(type => eventBus.subscribe(type, handler));
+    const unsubscribers = typesToWatch.map(type => eventBus.subscribe(type, handlerAdapter));
     
     return () => {
       unsubscribers.forEach(unsub => unsub());
@@ -182,7 +189,7 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
             orderId={currentOrderId} 
             isViewOnly={isCutEnabled} 
             onOrderSaved={(id) => {}} 
-            onOrderApproved={(id) => {}}
+            onOrderApproved={(id) => setActiveTab('cut')}
             onDeleted={() => {}}
             onBack={onBack}
           />

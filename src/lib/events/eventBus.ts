@@ -4,8 +4,15 @@ type EventHandler = (event: BusinessEvent<any>) => void;
 
 class EventBus {
   private subscribers: Map<string, EventHandler[]> = new Map();
+  private processedEventIds: Set<string> = new Set();
 
   publish<T>(event: BusinessEvent<T>) {
+    if (this.processedEventIds.has(event.id)) {
+      console.warn(`[EventBus] Event ${event.id} already processed. Skipping.`);
+      return;
+    }
+    this.processedEventIds.add(event.id);
+
     console.log(`[EventBus] Publishing ${event.type}`, event);
     
     // Simple in-memory log

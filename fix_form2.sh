@@ -1,2 +1,0 @@
-sed -i 's/onUpdateVariant={(vId, field, value) => handleUpdateVariant(sizeData.size, v.color, field, value)}/onUpdateVariant={(colorName, field, value) => handleUpdateVariant(sizeData.size, colorName, field, value)}/g' src/components/ProductionOrderForm.tsx
-sed -i 's/onRemoveVariant={(vId) => handleRemoveVariant(sizeData.size, v.color)}/onRemoveVariant={(colorName) => handleRemoveVariant(sizeData.size, colorName)}/g' src/components/ProductionOrderForm.tsx

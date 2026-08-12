@@ -226,10 +226,10 @@ export function ProductionOrderForm({ orderId, onOrderSaved, onOrderApproved, on
   const handleApproveOrder = () => {
     if (isReadOnly && order.status !== 'مسودة') return;
     if (validate()) {
-      if (!window.confirm('هل أنت متأكد من اعتماد أمر الإنتاج؟ لن تتمكن من تعديل البيانات الأساسية بعد الاعتماد.')) return;
+      if (!window.confirm('هل أنت متأكد من الاعتماد؟ لن تتمكن من تعديل البيانات الأساسية بعد الاعتماد.')) return;
       const result = Cmd.approveProductionOrder(order);
       if (result.success) {
-        setSuccess('تم اعتماد أمر الإنتاج بنجاح.');
+        setSuccess('تم الاعتماد بنجاح.');
         setError(null);
         if (result.data) setOrder(result.data);
         onOrderApproved(order.id);
@@ -298,13 +298,6 @@ export function ProductionOrderForm({ orderId, onOrderSaved, onOrderApproved, on
               >
                 <Save className="w-4 h-4" />
                 حفظ كمسودة
-              </button>
-              <button type="button" 
-                onClick={handleApproveOrder}
-                className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm font-medium"
-              >
-                <Check className="w-4 h-4" />
-                اعتماد أمر الإنتاج
               </button>
             </>
           )}
@@ -398,6 +391,18 @@ export function ProductionOrderForm({ orderId, onOrderSaved, onOrderApproved, on
         <div className="xl:col-span-1">
           <div className="sticky top-6">
             <OrderSummary sizes={order.sizes} />
+            
+            {!isReadOnly && order.status === 'مسودة' && (
+              <div className="mt-6">
+                <button type="button" 
+                  onClick={handleApproveOrder}
+                  className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 py-3.5 rounded-xl hover:bg-indigo-700 transition-colors shadow-lg font-bold text-lg"
+                >
+                  <Check className="w-5 h-5" />
+                  اعتماد
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>

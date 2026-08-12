@@ -100,7 +100,7 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
                   const newStandards = [...(item.sizeStandards || [])];
                   const existingIdx = newStandards.findIndex(s => s.size === size.size);
                   if (existingIdx >= 0) {
-                    newStandards[existingIdx].standard = parseFloat(e.target.value) || 0;
+                    newStandards[existingIdx] = { ...newStandards[existingIdx], standard: parseFloat(e.target.value) || 0 };
                   } else {
                     newStandards.push({ size: size.size, standard: parseFloat(e.target.value) || 0 });
                   }
@@ -199,7 +199,7 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
                       type="number"
                       min="0"
                       value={mat.standardPrice || ''}
-                      onChange={(e) => handleUpdateMaterial(idx, 'standardPrice', parseFloat(e.target.value))}
+                      onChange={(e) => handleUpdateMaterial(idx, 'standardPrice', parseFloat(e.target.value) || 0)}
                       disabled={readOnly}
                       placeholder="غير محدد"
                       className={`w-full px-2 py-1.5 border rounded ${readOnly ? 'bg-slate-50' : 'bg-white focus:ring-1 focus:ring-indigo-500'}`}
@@ -310,7 +310,7 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
                       type="number"
                       min="0"
                       value={acc.standardPrice || ''}
-                      onChange={(e) => handleUpdateAccessory(idx, 'standardPrice', parseFloat(e.target.value))}
+                      onChange={(e) => handleUpdateAccessory(idx, 'standardPrice', parseFloat(e.target.value) || 0)}
                       disabled={readOnly}
                       placeholder="غير محدد"
                       className={`w-full px-2 py-1.5 border rounded ${readOnly ? 'bg-slate-50' : 'bg-white focus:ring-1 focus:ring-indigo-500'}`}

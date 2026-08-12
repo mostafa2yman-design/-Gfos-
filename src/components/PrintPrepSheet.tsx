@@ -26,7 +26,7 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
               ...batch,
               accessoriesPrep: found.accessories.map(acc => ({
                 accessoryName: acc.name,
-                accessoryId: crypto.randomUUID(),
+                accessoryId: acc.id,
                 unit: "قطعة",
                 requiredQuantity: 1,
                 actualPrepared: 0,

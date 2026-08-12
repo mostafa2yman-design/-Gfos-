@@ -43,7 +43,14 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
   const handleVariantChange = (sizeIndex: number, variantIndex: number, value: number) => {
     if (isReadOnly) return;
     const newSizes = [...cutData.sizes];
-    newSizes[sizeIndex].variants[variantIndex].actualQuantity = value;
+    newSizes[sizeIndex] = {
+      ...newSizes[sizeIndex],
+      variants: [...newSizes[sizeIndex].variants]
+    };
+    newSizes[sizeIndex].variants[variantIndex] = {
+      ...newSizes[sizeIndex].variants[variantIndex],
+      actualQuantity: value
+    };
     setCutData({ ...cutData, sizes: newSizes });
   };
 

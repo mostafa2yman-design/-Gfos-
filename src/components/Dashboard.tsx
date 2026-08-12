@@ -33,7 +33,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     },
     {
       title: 'معتمدة',
-      value: orders.filter(o => o.status === 'معتمد').length,
+      value: orders.filter(o => o.status === 'أمر إنتاج معتمد').length,
       icon: CheckCircle2,
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-50',

@@ -92,6 +92,7 @@ export interface AccessoryPrepItem {
   actualPrepared: number;
   waste: number;
   isPrepared: boolean;
+  notes?: string;
   preparedBy?: string;
   preparedAt?: string;
 }

@@ -68,7 +68,14 @@ export function ProductionOrdersList({ onEdit, onView }: ProductionOrdersListPro
             >
               <option value="الكل">جميع الحالات</option>
               <option value="مسودة">مسودة</option>
-              <option value="معتمد">معتمد</option>
+              <option value="أمر إنتاج معتمد">أمر إنتاج معتمد</option>
+              <option value="أمر قص">أمر قص</option>
+              <option value="القص الفعلي مدخل">القص الفعلي مدخل</option>
+              <option value="القص معتمد">القص معتمد</option>
+              <option value="تقسيم الباتشات">تقسيم الباتشات</option>
+              <option value="الباتشات مثبتة">الباتشات مثبتة</option>
+              <option value="التجهيز جاري">التجهيز جاري</option>
+              <option value="التجهيز مكتمل">التجهيز مكتمل</option>
               <option value="مغلق">مغلق</option>
             </select>
           </div>
@@ -112,8 +119,9 @@ export function ProductionOrdersList({ onEdit, onView }: ProductionOrdersListPro
                     <td className="px-6 py-4 text-sm">
                       <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
                         order.status === 'مسودة' ? 'bg-amber-100 text-amber-700' :
-                        order.status === 'معتمد' ? 'bg-emerald-100 text-emerald-700' :
-                        'bg-slate-100 text-slate-700'
+                        ['أمر إنتاج معتمد', 'القص معتمد', 'الباتشات مثبتة', 'التجهيز مكتمل'].includes(order.status) ? 'bg-emerald-100 text-emerald-700' :
+                        order.status === 'مغلق' ? 'bg-slate-200 text-slate-700' :
+                        'bg-indigo-100 text-indigo-700'
                       }`}>
                         {order.status}
                       </span>

@@ -1,6 +1,6 @@
 import { ProductionOrder } from '../types';
 
-const STORAGE_KEY = 'production_orders_v0.3';
+const STORAGE_KEY = 'production_orders_v0.4';
 
 export const getOrders = (): ProductionOrder[] => {
   try {

@@ -1,1 +1,0 @@
-sed -i 's/accessoryName: acc.name,/accessoryName: acc.name,\n                accessoryId: crypto.randomUUID(),\n                unit: "قطعة",\n                requiredQuantity: 1,\n                actualPrepared: 0,\n                waste: 0,/g' src/components/PrintPrepSheet.tsx

@@ -74,11 +74,11 @@ export function saveDraft(order: ProductionOrder): CommandResult<ProductionOrder
 
 export function approveProductionOrder(order: ProductionOrder, user: string = 'المستخدم الحالي'): CommandResult<ProductionOrder> {
   if (order.status !== 'مسودة') {
-    return { success: false, error: 'لا يمكن اعتماد أمر الإنتاج إلا إذا كان مسودة.' };
+    return { success: false, error: 'لا يمكن الاعتماد إلا إذا كان مسودة.' };
   }
   
   if (!order.sizes || order.sizes.length === 0) {
-    return { success: false, error: 'يجب إضافة مقاس واحد على الأقل لاعتماد الأمر.' };
+    return { success: false, error: 'يجب إضافة مقاس واحد على الأقل للاعتماد.' };
   }
   
   const orderToSave: ProductionOrder = {
@@ -90,7 +90,7 @@ export function approveProductionOrder(order: ProductionOrder, user: string = '�
   
   const saved = persistOrder(orderToSave);
   if (!saved) {
-    return { success: false, error: 'تعذر حفظ اعتماد أمر الإنتاج.' };
+    return { success: false, error: 'تعذر حفظ الاعتماد.' };
   }
   
   const verifiedOrder = getOrderById(order.id);

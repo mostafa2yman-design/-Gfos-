@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { ProductionOrder, PREDEFINED_SIZES, Variant } from '../types';
+import { ConfirmDialog } from "./ui/ConfirmDialog";
+import { Toast } from "./ui/Toast";
 import { OrderBasicInfo } from './form/OrderBasicInfo';
 import { SizeCard } from './form/SizeCard';
 import { OrderSummary } from './form/OrderSummary';
@@ -37,6 +39,7 @@ export function ProductionOrderForm({ orderId, onOrderSaved, onOrderApproved, on
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isAddSizeOpen, setIsAddSizeOpen] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState<{isOpen: boolean, message: string, onConfirm: () => void} | null>(null);
   const addSizeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,7 +63,8 @@ export function ProductionOrderForm({ orderId, onOrderSaved, onOrderApproved, on
     };
     document.addEventListener('mousedown', handleClickOutside);
     document.addEventListener('touchstart', handleClickOutside);
-    return () => {
+    return 
+() => {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('touchstart', handleClickOutside);
     };
@@ -112,9 +116,15 @@ export function ProductionOrderForm({ orderId, onOrderSaved, onOrderApproved, on
 
   const handleRemoveSize = (sizeName: string) => {
     if (isReadOnly) return;
-    if (window.confirm('هل أنت متأكد من حذف هذا المقاس بجميع ألوانه وكمياته؟')) {
-      executeCommand(Cmd.removeSize, sizeName);
-    }
+    setConfirmConfig({
+      isOpen: true,
+      message: 'هل أنت متأكد من حذف هذا المقاس بجميع ألوانه وكمياته؟',
+      onConfirm: () => {
+        executeCommand(Cmd.removeSize, sizeName);
+        setConfirmConfig(null);
+      },
+      onCancel: () => setConfirmConfig(null)
+    });
   };
 
   const handleCopySize = (sourceSizeName: string, targetSizeName: string) => {
@@ -194,52 +204,67 @@ export function ProductionOrderForm({ orderId, onOrderSaved, onOrderApproved, on
 
   const handleDeleteOrder = () => {
     if (!orderId) return;
-    if (window.confirm('هل أنت متأكد من حذف أمر الإنتاج؟\n\nسيتم حذف أمر الإنتاج وجميع بياناته التابعة التي لم تدخل في التنفيذ الفعلي. لا يمكن التراجع عن هذه العملية.')) {
-      const result = Cmd.deleteProductionOrder(order);
-      if (result.success) {
-        if (onDeleted) {
-          onDeleted();
+    setConfirmConfig({
+      isOpen: true,
+      message: "هل أنت متأكد من حذف أمر الإنتاج؟\n\nسيتم حذف أمر الإنتاج وجميع بياناته التابعة التي لم تدخل في التنفيذ الفعلي. لا يمكن التراجع عن هذه العملية.",
+      onConfirm: () => {
+        const result = Cmd.deleteProductionOrder(order);
+        if (result.success) {
+          setConfirmConfig(null);
+          if (onDeleted) {
+            onDeleted();
+          } else {
+            onBack();
+          }
         } else {
-          onBack();
+          setConfirmConfig(null);
+          setError(result.error || "حدث خطأ");
         }
-      } else {
-        setError(result.error || 'حدث خطأ');
-      }
-    }
+      },
+      onCancel: () => setConfirmConfig(null)
+    });
   };
 
   const handleSaveDraft = () => {
-    if (isReadOnly && order.status !== 'مسودة') return;
+    if (isReadOnly && order.status !== "مسودة") return;
     if (validate()) {
       const result = Cmd.saveDraft(order);
       if (result.success) {
-        setSuccess('تم حفظ الأمر كمسودة بنجاح.');
+        setSuccess("تم حفظ الأمر كمسودة بنجاح.");
         setError(null);
         if (result.data) setOrder(result.data);
         if (onOrderSaved) onOrderSaved(order.id);
       } else {
-        setError(result.error || 'حدث خطأ');
+        setError(result.error || "حدث خطأ");
       }
     }
   };
 
   const handleApproveOrder = () => {
-    if (isReadOnly && order.status !== 'مسودة') return;
+    if (isReadOnly && order.status !== "مسودة") return;
     if (validate()) {
-      if (!window.confirm('هل أنت متأكد من الاعتماد؟ لن تتمكن من تعديل البيانات الأساسية بعد الاعتماد.')) return;
-      const result = Cmd.approveProductionOrder(order);
-      if (result.success) {
-        setSuccess('تم الاعتماد بنجاح.');
-        setError(null);
-        if (result.data) setOrder(result.data);
-        onOrderApproved(order.id);
-      } else {
-        setError(result.error || 'حدث خطأ');
-      }
+      setConfirmConfig({
+        isOpen: true,
+        message: "هل أنت متأكد من الاعتماد؟ لن تتمكن من تعديل البيانات الأساسية بعد الاعتماد.",
+        onConfirm: () => {
+          const result = Cmd.approveProductionOrder(order);
+          if (result.success) {
+            setConfirmConfig(null);
+            setSuccess("تم الاعتماد بنجاح.");
+            setError(null);
+            if (result.data) setOrder(result.data);
+            onOrderApproved(order.id);
+          } else {
+            setConfirmConfig(null);
+            setError(result.error || "حدث خطأ");
+          }
+        },
+        onCancel: () => setConfirmConfig(null)
+      });
     }
   };
 
-  const handleBomChange = (field: 'materials' | 'accessories', value: (any[])) => {
+  const handleBomChange = (field: "materials" | "accessories", value: (any[])) => {
     if (isReadOnly) return;
     setOrder(prev => ({ ...prev, [field]: value }));
   };
@@ -249,6 +274,15 @@ export function ProductionOrderForm({ orderId, onOrderSaved, onOrderApproved, on
 
   return (
     <div className="space-y-6">
+      <ConfirmDialog
+        isOpen={confirmConfig?.isOpen || false}
+        message={confirmConfig?.message || ""}
+        onConfirm={() => confirmConfig?.onConfirm()}
+        onCancel={() => confirmConfig?.onCancel()}
+      />
+      {success && <Toast message={success} type="success" onClose={() => setSuccess(null)} />}
+      {error && <Toast message={error} type="error" onClose={() => setError(null)} />}
+
       <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <div className="flex items-center gap-3">
           <button type="button" 
@@ -336,7 +370,7 @@ export function ProductionOrderForm({ orderId, onOrderSaved, onOrderApproved, on
               {!isReadOnly && availableSizes.length > 0 && (
                 <div className="relative" ref={addSizeRef}>
                   <button type="button"  
-                    
+        
                     onClick={() => setIsAddSizeOpen(prev => !prev)}
                     className="flex items-center gap-1.5 bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-xs"
                   >
@@ -348,7 +382,7 @@ export function ProductionOrderForm({ orderId, onOrderSaved, onOrderApproved, on
                       {availableSizes.map(sz => (
                         <button type="button" 
                           key={sz}
-                          
+              
                           onClick={() => handleAddSize(sz)}
                           className="w-full text-right px-4 py-2 text-sm hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
                         >
@@ -391,7 +425,7 @@ export function ProductionOrderForm({ orderId, onOrderSaved, onOrderApproved, on
         <div className="xl:col-span-1">
           <div className="sticky top-6">
             <OrderSummary sizes={order.sizes} />
-            
+
             {!isReadOnly && order.status === 'مسودة' && (
               <div className="mt-6">
                 <button type="button" 

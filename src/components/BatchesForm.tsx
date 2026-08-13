@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ProductionOrder, BatchItem, BatchSplitMethod, BatchSizeData, BatchVariant } from '../types';
 import { getOrderById } from '../lib/storage';
 import * as Cmd from '../lib/productionOrderCommands';
+import { ConfirmDialog } from "./ui/ConfirmDialog";
+import { Toast } from "./ui/Toast";
 import { Check, Plus, Trash2 } from 'lucide-react';
 
 interface BatchesFormProps {
@@ -12,6 +14,12 @@ interface BatchesFormProps {
 
 export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
   const [order, setOrder] = useState<ProductionOrder | null>(null);
+  
+  const [confirmConfig, setConfirmConfig] = useState<{isOpen: boolean, message: string, onConfirm: () => void} | null>(null);
+  const [toastConfig, setToastConfig] = useState<{message: string, type: "success" | "error" | "info"} | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
   
   useEffect(() => {
     const found = getOrderById(orderId);
@@ -95,23 +103,40 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
   const handleLockBatches = () => {
     if (isReadOnly) return;
     if (totalBatches !== totalActual) {
-      alert('لا يمكن التثبيت: إجمالي الباتشات لا يساوي إجمالي القص الفعلي.');
+      setToastConfig({ message: "لا يمكن التثبيت: إجمالي الباتشات لا يساوي إجمالي القص الفعلي.", type: "error" });
       return;
     }
-    if (window.confirm('بعد تثبيت الباتشات لن يمكن تعديل توزيع الكميات. هل أنت متأكد؟')) {
-      const result = Cmd.lockBatches(order);
-      if (result.success) {
-        onSaved();
-      } else {
-        alert(result.error);
-      }
-    }
+    setConfirmConfig({
+      isOpen: true,
+      message: "بعد تثبيت الباتشات لن يمكن تعديل توزيع الكميات. هل أنت متأكد؟",
+      onConfirm: () => {
+        const result = Cmd.lockBatches(order);
+        if (result.success) {
+          setConfirmConfig(null);
+          onSaved();
+        } else {
+          setConfirmConfig(null);
+          setToastConfig({ message: result.error || "حدث خطأ", type: "error" });
+        }
+      },
+      onCancel: () => setConfirmConfig(null)
+    });
   };
 
   const statusColor = totalBatches === totalActual ? 'text-emerald-600' : totalBatches < totalActual ? 'text-amber-500' : 'text-red-500';
   const statusMessage = totalBatches === totalActual ? 'التوزيع مكتمل' : totalBatches < totalActual ? 'توجد كمية غير موزعة' : 'التوزيع يتجاوز الكمية المقصوصة';
 
   return (
+    <>
+      <ConfirmDialog
+        isOpen={confirmConfig?.isOpen || false}
+        message={confirmConfig?.message || ""}
+        onConfirm={() => confirmConfig?.onConfirm()}
+        onCancel={() => confirmConfig?.onCancel()}
+      />
+      {toastConfig && <Toast message={toastConfig.message} type={toastConfig.type} onClose={() => setToastConfig(null)} />}
+      {error && <Toast message={error} type="error" onClose={() => setError(null)} />}
+
     <div className="space-y-6 p-6">
       <div className="flex justify-between items-center bg-slate-50 p-4 rounded-lg border border-slate-200">
         <div>
@@ -172,7 +197,8 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
           let batchTotal = 0;
           batch.sizes.forEach(s => s.variants.forEach(v => batchTotal += v.quantity));
           
-          return (
+            return (
+    
             <div key={batch.id} className="bg-white rounded-lg border border-slate-200 shadow-sm overflow-hidden">
               <div className="bg-slate-50 px-4 py-3 border-b border-slate-200 flex justify-between items-center">
                 <div className="flex items-center gap-3">
@@ -221,5 +247,6 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
         )}
       </div>
     </div>
+    </>
   );
 }

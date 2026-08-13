@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ProductionOrder, BatchItem, AccessoryPrepItem } from '../types';
 import { getOrderById } from '../lib/storage';
 import * as Cmd from '../lib/productionOrderCommands';
+import { ConfirmDialog } from "./ui/ConfirmDialog";
+import { Toast } from "./ui/Toast";
 import { Printer, Check, CheckSquare, Square } from 'lucide-react';
 
 interface PrintPrepSheetProps {
@@ -12,6 +14,12 @@ interface PrintPrepSheetProps {
 
 export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
   const [order, setOrder] = useState<ProductionOrder | null>(null);
+  
+  const [confirmConfig, setConfirmConfig] = useState<{isOpen: boolean, message: string, onConfirm: () => void} | null>(null);
+  const [toastConfig, setToastConfig] = useState<{message: string, type: "success" | "error" | "info"} | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
   
   useEffect(() => {
     const found = getOrderById(orderId);
@@ -56,7 +64,8 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
   if (!order || !order.batches || order.batches.length === 0) return <div>لا توجد بيانات باتشات.</div>;
 
   const handlePrint = (batchId: string) => {
-    window.print();
+    setToastConfig({ message: "جاري فتح نافذة الطباعة. إذا لم تظهر، يرجى فتح التطبيق في تبويب جديد", type: "info" });
+    setTimeout(() => window.print(), 500);
   };
 
   const handleToggleAccessory = (batchId: string, accessoryName: string) => {
@@ -79,19 +88,34 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
   };
 
   const handleApproveBatch = (batchId: string) => {
-    if (!window.confirm('هل أنت متأكد من اعتماد التجهيز لهذا الباتش؟')) return;
-    
-    const result = Cmd.approveBatchPrep(order, batchId);
-    if (result.success && result.data) {
-      setOrder(result.data);
-      onSaved();
-    } else {
-      alert(result.error);
-    }
+    setConfirmConfig({
+      isOpen: true,
+      message: "هل أنت متأكد من اعتماد التجهيز لهذا الباتش؟",
+      onConfirm: () => {
+        const result = Cmd.approveBatchPrep(order, batchId);
+        if (result.success && result.data) {
+          setConfirmConfig(null);
+          setOrder(result.data);
+          onSaved();
+        } else {
+          setConfirmConfig(null);
+          setToastConfig({ message: result.error || "حدث خطأ", type: "error" });
+        }
+      },
+      onCancel: () => setConfirmConfig(null)
+    });
   };
 
   return (
     <div className="space-y-8 p-6 print:p-0 print:space-y-4">
+      <ConfirmDialog
+        isOpen={confirmConfig?.isOpen || false}
+        message={confirmConfig?.message || ""}
+        onConfirm={() => confirmConfig?.onConfirm()}
+        onCancel={() => confirmConfig?.onCancel()}
+      />
+      {toastConfig && <Toast message={toastConfig.message} type={toastConfig.type} onClose={() => setToastConfig(null)} />}
+
       <div className="print:hidden flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <div>
           <h3 className="text-lg font-bold text-slate-800">أوراق التجهيز والطباعة</h3>
@@ -106,6 +130,7 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
           const allPrepared = batch.accessoriesPrep?.every(a => a.isPrepared) || false;
           
           return (
+    
             <div key={batch.id} className="bg-white rounded-xl border border-slate-200 shadow-sm print:border-none print:shadow-none break-inside-avoid">
               <div className="border-b border-slate-200 p-6 print:p-0 print:pb-4 flex justify-between items-start">
                 <div>

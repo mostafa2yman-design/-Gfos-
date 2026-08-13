@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { ProductionOrder, CutOrderData, CutSizeData, CutVariant } from '../types';
 import { getOrderById } from '../lib/storage';
 import * as Cmd from '../lib/productionOrderCommands';
+import { ConfirmDialog } from "./ui/ConfirmDialog";
+import { Toast } from "./ui/Toast";
 import { Check, Save } from 'lucide-react';
 
 interface CutOrderFormProps {
@@ -12,6 +14,12 @@ interface CutOrderFormProps {
 
 export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
   const [order, setOrder] = useState<ProductionOrder | null>(null);
+  
+  const [confirmConfig, setConfirmConfig] = useState<{isOpen: boolean, message: string, onConfirm: () => void} | null>(null);
+  const [toastConfig, setToastConfig] = useState<{message: string, type: "success" | "error" | "info"} | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
   const [cutData, setCutData] = useState<CutOrderData | null>(null);
   
   useEffect(() => {
@@ -65,15 +73,23 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
   };
 
   const handleApproveCut = () => {
+    if (!order) return;
     if (isReadOnly) return;
-    if (window.confirm('هل أنت متأكد من اعتماد أمر القص؟ لن تتمكن من تعديل كميات القص أو البيانات الأساسية بعد الاعتماد.')) {
-      const result = Cmd.approveCutOrder(order, cutData);
-      if (result.success) {
-        onSaved();
-      } else {
-        alert(result.error);
-      }
-    }
+    setConfirmConfig({
+      isOpen: true,
+      message: "هل أنت متأكد من اعتماد أمر القص؟ لن تتمكن من تعديل كميات القص أو البيانات الأساسية بعد الاعتماد.",
+      onConfirm: () => {
+        const result = Cmd.approveCutOrder(order, cutData);
+        if (result.success) {
+          setConfirmConfig(null);
+          onSaved();
+        } else {
+          setConfirmConfig(null);
+          setError(result.error || "حدث خطأ");
+        }
+      },
+      onCancel: () => setConfirmConfig(null)
+    });
   };
 
   let totalPlanned = 0;
@@ -87,7 +103,15 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
   });
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6">
+      <ConfirmDialog
+        isOpen={confirmConfig?.isOpen || false}
+        message={confirmConfig?.message || ""}
+        onConfirm={() => confirmConfig?.onConfirm()}
+        onCancel={() => confirmConfig?.onCancel()}
+      />
+      {error && <Toast message={error} type="error" onClose={() => setError(null)} />}
+
       <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <div>
           <h3 className="text-lg font-bold text-slate-800">إدخال القص الفعلي</h3>
@@ -189,7 +213,7 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
             </tbody>
           </table>
         </div>
-      </div>
+    </div>
     </div>
   );
 }

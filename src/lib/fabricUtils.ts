@@ -9,6 +9,10 @@ export interface FabricAnalysisForColor {
   actualFabric: number; // in kg
   variance: number | null;
   variancePercentage: number | null;
+  standardCostPerPiece: number;
+  actualCostPerPiece: number | null;
+  costVariance: number | null;
+  costVariancePercentage: number | null;
 }
 
 export interface FabricAnalysisSummary {
@@ -25,6 +29,11 @@ export interface FabricAnalysisSummary {
   averageActualWeightPerPiece: number | null;
   pieceWeightVariance: number | null;
   pieceWeightVariancePercentage: number | null;
+  fabricPrice: number;
+  averageStandardCostPerPiece: number;
+  averageActualCostPerPiece: number | null;
+  totalCostVariance: number | null;
+  totalCostVariancePercentage: number | null;
 }
 
 export function getPrimaryFabric(order: ProductionOrder): MaterialInstance | null {
@@ -48,6 +57,8 @@ export function calculateFabricAnalysis(order: ProductionOrder, cutData?: CutOrd
     if (isUnified) return fabric.unifiedStandard || 0;
     return sizeStandards.get(size) || 0;
   };
+
+  const fabricPrice = fabric.standardPrice || 0;
 
   const colorMap = new Map<string, { planned: number, actualPieces: number, requiredFabric: number, actualFabric: number }>();
 
@@ -95,6 +106,18 @@ export function calculateFabricAnalysis(order: ProductionOrder, cutData?: CutOrd
     const variancePercentage = hasColorLevelActuals && data.requiredFabric > 0 && data.actualFabric > 0 ? (variance! / data.requiredFabric) * 100 : null;
     
     const avgStdWeight = data.planned > 0 ? (data.requiredFabric / data.planned) : 0;
+    
+    const standardCostPerPiece = avgStdWeight * fabricPrice;
+    let actualCostPerPiece = null;
+    let costVariance = null;
+    let costVariancePercentage = null;
+
+    if (hasColorLevelActuals && data.actualFabric > 0 && data.actualPieces > 0) {
+      const avgActWeight = data.actualFabric / data.actualPieces;
+      actualCostPerPiece = avgActWeight * fabricPrice;
+      costVariance = actualCostPerPiece - standardCostPerPiece;
+      costVariancePercentage = standardCostPerPiece > 0 ? (costVariance / standardCostPerPiece) * 100 : 0;
+    }
 
     colorsAnalysis.push({
       color,
@@ -104,7 +127,11 @@ export function calculateFabricAnalysis(order: ProductionOrder, cutData?: CutOrd
       requiredFabric: data.requiredFabric,
       actualFabric: data.actualFabric,
       variance,
-      variancePercentage
+      variancePercentage,
+      standardCostPerPiece,
+      actualCostPerPiece,
+      costVariance,
+      costVariancePercentage
     });
 
     totalPlannedPieces += data.planned;
@@ -129,10 +156,19 @@ export function calculateFabricAnalysis(order: ProductionOrder, cutData?: CutOrd
   let pieceWeightVariance: number | null = null;
   let pieceWeightVariancePercentage: number | null = null;
 
+  const averageStandardCostPerPiece = averageStandardWeightPerPiece * fabricPrice;
+  let averageActualCostPerPiece: number | null = null;
+  let totalCostVariance: number | null = null;
+  let totalCostVariancePercentage: number | null = null;
+
   if (totalActualFabric > 0 && totalActualPieces > 0) {
     averageActualWeightPerPiece = totalActualFabric / totalActualPieces;
     pieceWeightVariance = averageActualWeightPerPiece - averageStandardWeightPerPiece;
     pieceWeightVariancePercentage = averageStandardWeightPerPiece > 0 ? (pieceWeightVariance / averageStandardWeightPerPiece) * 100 : 0;
+    
+    averageActualCostPerPiece = averageActualWeightPerPiece * fabricPrice;
+    totalCostVariance = averageActualCostPerPiece - averageStandardCostPerPiece;
+    totalCostVariancePercentage = averageStandardCostPerPiece > 0 ? (totalCostVariance / averageStandardCostPerPiece) * 100 : 0;
   }
 
   return {
@@ -148,6 +184,11 @@ export function calculateFabricAnalysis(order: ProductionOrder, cutData?: CutOrd
     averageStandardWeightPerPiece,
     averageActualWeightPerPiece,
     pieceWeightVariance,
-    pieceWeightVariancePercentage
+    pieceWeightVariancePercentage,
+    fabricPrice,
+    averageStandardCostPerPiece,
+    averageActualCostPerPiece,
+    totalCostVariance,
+    totalCostVariancePercentage
   };
 }

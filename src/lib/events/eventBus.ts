@@ -13,7 +13,7 @@ class EventBus {
     }
     this.processedEventIds.add(event.id);
 
-    console.log(`[EventBus] Publishing ${event.type}`, event);
+
     
     // Simple in-memory log
     try {

@@ -1,5 +1,5 @@
 import React from 'react';
-import { ProductionOrder } from '../types';
+import { ProductionOrder } from '../../types';
 
 interface Props {
   order: ProductionOrder;

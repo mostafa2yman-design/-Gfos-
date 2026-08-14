@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import { Layout } from "./components/Layout";
 import { Dashboard } from "./components/Dashboard";
 import { ProductionOrdersList } from "./components/ProductionOrdersList";
@@ -10,8 +10,6 @@ type ViewState = "dashboard" | "list" | "form" | "settings";
 export default function App() {
   const [currentView, setCurrentView] = useState<ViewState>("dashboard");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-
-  useEffect(() => {}, []);
 
   const handleNavigate = (view: ViewState) => {
     setCurrentView(view);

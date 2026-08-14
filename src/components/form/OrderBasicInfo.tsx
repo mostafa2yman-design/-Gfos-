@@ -8,6 +8,7 @@ interface OrderBasicInfoProps {
   styleName: string;
   category: string;
   customerName: string;
+  printEmbroideryStandardCost?: number;
   onChange: (field: string, value: string) => void;
   readOnly?: boolean;
 }
@@ -18,6 +19,7 @@ export function OrderBasicInfo({
   styleName,
   category,
   customerName,
+  printEmbroideryStandardCost,
   onChange,
   readOnly = false
 }: OrderBasicInfoProps) {
@@ -124,6 +126,32 @@ export function OrderBasicInfo({
                     : 'focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
                 }`}
               />
+            </div>
+          </div>
+
+          {/* Print/Embroidery Standard Cost */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              تكلفة الطباعة/التطريز المعيارية للقطعة
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={printEmbroideryStandardCost || ''}
+                disabled={readOnly}
+                onChange={(e) => onChange('printEmbroideryStandardCost', e.target.value)}
+                placeholder="0.00"
+                className={`w-full px-3 py-2 border border-slate-300 rounded-lg transition-shadow ${
+                  readOnly 
+                    ? 'bg-slate-100 text-slate-600 cursor-not-allowed' 
+                    : 'focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
+                }`}
+              />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                جنيه
+              </span>
             </div>
           </div>
         </div>

@@ -115,7 +115,7 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
     if (result.success) {
       onSaved();
     } else {
-      alert(result.error);
+      setError(result.error || "حدث خطأ");
     }
   };
 

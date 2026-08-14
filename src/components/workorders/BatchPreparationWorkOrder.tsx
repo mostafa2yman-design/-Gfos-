@@ -1,6 +1,6 @@
 import React from 'react';
-import { ProductionOrder, BatchItem } from '../types';
-import { calculateBatchAccessories } from '../lib/prepUtils';
+import { ProductionOrder, BatchItem } from '../../types';
+import { calculateBatchAccessories } from '../../lib/prepUtils';
 import { CheckSquare, Square } from 'lucide-react';
 
 interface Props {

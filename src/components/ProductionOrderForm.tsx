@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ProductionOrder, PREDEFINED_SIZES, Variant } from "../types";
+import { ProductionOrder, PREDEFINED_SIZES, Variant, MaterialInstance, AccessoryInstance } from "../types";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Toast } from "./ui/Toast";
 import { OrderBasicInfo } from "./form/OrderBasicInfo";
@@ -315,7 +315,7 @@ export function ProductionOrderForm({
 
   const handleBomChange = (
     field: "materials" | "accessories",
-    value: any[],
+    value: MaterialInstance[] | AccessoryInstance[],
   ) => {
     if (isReadOnly) return;
     setOrder((prev) => ({ ...prev, [field]: value }));

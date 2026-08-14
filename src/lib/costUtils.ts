@@ -46,6 +46,14 @@ export function calculateGlobalCostMetrics(orders: ProductionOrder[]): GlobalCos
         totalStandardCost += (sQty * std * price);
       });
     });
+
+    // 4. Calculate Standard Print/Embroidery Cost
+    let orderTotalQty = 0;
+    order.sizes?.forEach(s => {
+      s.variants?.forEach(v => { orderTotalQty += v.quantity; });
+    });
+    totalStandardCost += (order.printEmbroideryStandardCost || 0) * orderTotalQty;
+
   });
 
   const averageStandardUnitCost = totalStandardQty > 0 ? (totalStandardCost / totalStandardQty) : 0;
@@ -146,9 +154,9 @@ export function calculateOrderCostAnalysis(order: ProductionOrder): OrderCostAna
   };
 
   // 3. Print / Embroidery
-  let peStdTotal = 0;
+  let peStdTotal = (order.printEmbroideryStandardCost || 0) * standardQty;
   let peActualTotal = 0;
-  let peStandardPieces = 0; // Quantities involved in printing
+  let peStandardPieces = standardQty; // Quantities involved in printing standard
   let peActualPieces = 0;
   let hasIncompleteActualPrint = false;
   let hasPrintBatches = false;
@@ -163,8 +171,7 @@ export function calculateOrderCostAnalysis(order: ProductionOrder): OrderCostAna
         });
       });
       
-      const stdCost = b.printEmbroideryCost?.standardCost || 0;
-      peStdTotal += (batchQty * stdCost);
+      // peStdTotal is now calculated outside the loop based on the order level setting
       peStandardPieces += batchQty;
 
       const actCost = b.printEmbroideryCost?.actualCost;

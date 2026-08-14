@@ -157,6 +157,7 @@ export interface ProductionOrder {
   
   productionApprovedBy?: string;
   productionApprovedAt?: string;
+  printEmbroideryStandardCost?: number;
   
   cutData?: CutOrderData;
   

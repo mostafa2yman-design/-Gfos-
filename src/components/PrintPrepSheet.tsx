@@ -6,7 +6,7 @@ import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Toast } from "./ui/Toast";
 import { Printer, Check, CheckSquare, Square } from "lucide-react";
 import { calculateBatchAccessories } from "../lib/prepUtils";
-import { BatchPreparationWorkOrder } from "./BatchPreparationWorkOrder";
+import { BatchPreparationWorkOrder } from "./workorders/BatchPreparationWorkOrder";
 
 interface PrintPrepSheetProps {
   key?: React.Key;

@@ -1,8 +1,9 @@
+import { ProductionOrder } from '../../types';
 import { BusinessEvent } from './eventTypes';
 import { getOrderById } from '../storage';
 
 interface WorkflowCallbacks {
-  onOrderUpdated: (order: any) => void;
+  onOrderUpdated: (order: ProductionOrder) => void;
   onOrderDeleted: () => void;
   onNavigate: (tab: 'production' | 'cut' | 'batches' | 'prep' | 'print' | 'sew') => void;
 }

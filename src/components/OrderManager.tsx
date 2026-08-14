@@ -1,25 +1,46 @@
-import React, { useState, useEffect } from 'react';
-import { ProductionOrderForm } from './ProductionOrderForm';
-import { CutOrderForm } from './CutOrderForm';
-import { BatchesForm } from './BatchesForm';
-import { PrintPrepSheet } from './PrintPrepSheet';
-import { PrintEmbroideryForm } from './PrintEmbroideryForm';
-import { ProductionOrder, OrderStatus } from '../types';
-import { getOrderById } from '../lib/storage';
-import { eventBus } from '../lib/events';
-import { createOrderWorkflowHandlers } from '../lib/events/eventHandlers';
-import { ArrowRight, Scissors, FileText, Layers, CheckSquare, Printer, Shirt } from 'lucide-react';
+import React, { useState, useEffect } from "react";
+import { ProductionOrderForm } from "./ProductionOrderForm";
+import { CutOrderForm } from "./CutOrderForm";
+import { BatchesForm } from "./BatchesForm";
+import { PrintPrepSheet } from "./PrintPrepSheet";
+import { PrintEmbroideryForm } from "./PrintEmbroideryForm";
+import { ProductionOrder, OrderStatus } from "../types";
+import { getOrderById } from "../lib/storage";
+import { eventBus } from "../lib/events";
+import { createOrderWorkflowHandlers } from "../lib/events/eventHandlers";
+import { BusinessEvent } from "../lib/events/eventTypes";
+import {
+  ArrowRight,
+  Scissors,
+  FileText,
+  Layers,
+  CheckSquare,
+  Printer,
+  Shirt,
+} from "lucide-react";
+import {
+  isCutEnabled,
+  isBatchesEnabled,
+  isPrepEnabled,
+  isPrintEnabled,
+  isSewEnabled,
+  getDefaultTabForStatus,
+  TabType,
+} from "../lib/orderWorkflow";
 
 interface OrderManagerProps {
   orderId: string | null;
   onBack: () => void;
 }
 
-type TabType = 'production' | 'cut' | 'batches' | 'prep' | 'print' | 'sew';
-
-export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerProps) {
-  const [currentOrderId, setCurrentOrderId] = useState<string | null>(initialOrderId);
-  const [activeTab, setActiveTab] = useState<TabType>('production');
+export function OrderManager({
+  orderId: initialOrderId,
+  onBack,
+}: OrderManagerProps) {
+  const [currentOrderId, setCurrentOrderId] = useState<string | null>(
+    initialOrderId,
+  );
+  const [activeTab, setActiveTab] = useState<TabType>("production");
   const [order, setOrder] = useState<ProductionOrder | null>(null);
 
   const loadOrder = (id: string | null, forceTabChange = true) => {
@@ -27,20 +48,10 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
       const found = getOrderById(id);
       if (found) {
         setOrder(found);
-        
+
         if (forceTabChange) {
           // Auto-select tab based on status if opening
-          if (found.status === 'أمر إنتاج معتمد' || found.status === 'أمر قص' || found.status === 'القص الفعلي مدخل') {
-            setActiveTab('cut');
-          } else if (found.status === 'القص معتمد' || found.status === 'تقسيم الباتشات') {
-            setActiveTab('batches');
-          } else if (found.status === 'الطباعة والتطريز مكتمل' || found.status === 'الطباعة والتطريز جاري') {
-            setActiveTab('print');
-          } else if (found.status === 'الباتشات مثبتة' || found.status === 'التجهيز جاري' || found.status === 'التجهيز مكتمل') {
-            setActiveTab('prep');
-          } else {
-            setActiveTab('production');
-          }
+          setActiveTab(getDefaultTabForStatus(found.status));
         }
       } else {
         // If order not found (e.g., just deleted), go back
@@ -62,7 +73,7 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
   // Subscribe to Event Bus for reactive UI updates
   useEffect(() => {
     if (!currentOrderId) return;
-    
+
     const handlers = createOrderWorkflowHandlers({
       onOrderUpdated: (updatedOrder) => {
         setOrder(updatedOrder);
@@ -70,49 +81,75 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
       onOrderDeleted: onBack,
       onNavigate: setActiveTab,
     });
-    
-    const handlerAdapter = (event: any) => {
+
+
+    const handlerAdapter = (event: BusinessEvent<any>) => {
       // Only react to events for the currently managed order
-      if (event.aggregateType === 'ProductionOrder' && event.aggregateId === currentOrderId) {
-        if (event.type === 'ProductionOrderSaved') handlers.handleProductionOrderSaved(event);
-        else if (event.type === 'ProductionOrderApproved') handlers.handleProductionOrderApproved(event);
-        else if (event.type === 'ProductionOrderDeleted') handlers.handleProductionOrderDeleted(event);
-        else if (event.type === 'CutActualEntered') handlers.handleCutActualEntered(event);
-        else if (event.type === 'CutOrderApproved') handlers.handleCutOrderApproved(event);
-        else if (event.type === 'BatchSplitCompleted') handlers.handleBatchSplitCompleted(event);
-        else if (event.type === 'BatchesLocked') handlers.handleBatchesLocked(event);
-        else if (event.type === 'PreparationStarted') handlers.handlePreparationStarted(event);
-        else if (event.type === 'BatchPreparationCompleted') handlers.handleBatchPreparationCompleted(event);
-        else if (event.type === 'PreparationCompleted') handlers.handlePreparationCompleted(event);
-        else if (event.type === 'PrintEmbroiderySaved') handlers.handlePrintEmbroiderySaved(event);
-        else if (event.type === 'PrintEmbroideryCompleted') handlers.handlePrintEmbroideryCompleted(event);
+      if (
+        event.aggregateType === "ProductionOrder" &&
+        event.aggregateId === currentOrderId
+      ) {
+        if (event.type === "ProductionOrderSaved")
+          handlers.handleProductionOrderSaved(event);
+        else if (event.type === "ProductionOrderApproved")
+          handlers.handleProductionOrderApproved(event);
+        else if (event.type === "ProductionOrderDeleted")
+          handlers.handleProductionOrderDeleted(event);
+        else if (event.type === "CutActualEntered")
+          handlers.handleCutActualEntered(event);
+        else if (event.type === "CutOrderApproved")
+          handlers.handleCutOrderApproved(event);
+        else if (event.type === "BatchSplitCompleted")
+          handlers.handleBatchSplitCompleted(event);
+        else if (event.type === "BatchesLocked")
+          handlers.handleBatchesLocked(event);
+        else if (event.type === "PreparationStarted")
+          handlers.handlePreparationStarted(event);
+        else if (event.type === "BatchPreparationCompleted")
+          handlers.handleBatchPreparationCompleted(event);
+        else if (event.type === "PreparationCompleted")
+          handlers.handlePreparationCompleted(event);
+        else if (event.type === "PrintEmbroiderySaved")
+          handlers.handlePrintEmbroiderySaved(event);
+        else if (event.type === "PrintEmbroideryCompleted")
+          handlers.handlePrintEmbroideryCompleted(event);
       }
     };
-    
-    const typesToWatch: any[] = [
-      'ProductionOrderSaved', 'ProductionOrderApproved', 'ProductionOrderDeleted',
-      'CutActualEntered', 'CutOrderApproved', 
-      'BatchSplitCompleted', 'BatchesLocked',
-      'PreparationStarted', 'BatchPreparationCompleted', 'PreparationCompleted', 'PrintEmbroiderySaved', 'PrintEmbroideryCompleted'
+
+    const typesToWatch: import("../lib/events/eventTypes").EventType[] = [
+      "ProductionOrderSaved",
+      "ProductionOrderApproved",
+      "ProductionOrderDeleted",
+      "CutActualEntered",
+      "CutOrderApproved",
+      "BatchSplitCompleted",
+      "BatchesLocked",
+      "PreparationStarted",
+      "BatchPreparationCompleted",
+      "PreparationCompleted",
+      "PrintEmbroiderySaved",
+      "PrintEmbroideryCompleted",
     ];
-    
-    const unsubscribers = typesToWatch.map(type => eventBus.subscribe(type, handlerAdapter));
-    
+
+    const unsubscribers = typesToWatch.map((type) =>
+      eventBus.subscribe(type, handlerAdapter),
+    );
+
     return () => {
-      unsubscribers.forEach(unsub => unsub());
+      unsubscribers.forEach((unsub) => unsub());
     };
   }, [currentOrderId]);
 
   if (!currentOrderId) {
     // New order
     return (
-      <ProductionOrderForm 
-        orderId={null} 
-        isViewOnly={false} 
+      <ProductionOrderForm
+        orderId={null}
+        isViewOnly={false}
         onOrderSaved={(id) => setCurrentOrderId(id)}
         onOrderApproved={(id) => {
           setCurrentOrderId(id);
-          setActiveTab('cut');
+          setActiveTab("cut");
         }}
         onDeleted={onBack}
         onBack={onBack}
@@ -122,11 +159,11 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
 
   if (!order) return <div className="p-8 text-center">جاري التحميل...</div>;
 
-  const isCutEnabled = ['أمر إنتاج معتمد', 'أمر قص', 'القص الفعلي مدخل', 'القص معتمد', 'تقسيم الباتشات', 'الباتشات مثبتة', 'التجهيز جاري', 'التجهيز مكتمل', 'مغلق'].includes(order.status);
-  const isBatchesEnabled = ['القص معتمد', 'تقسيم الباتشات', 'الباتشات مثبتة', 'التجهيز جاري', 'التجهيز مكتمل', 'مغلق'].includes(order.status);
-  const isPrepEnabled = ['الباتشات مثبتة', 'التجهيز جاري', 'التجهيز مكتمل', 'الطباعة والتطريز جاري', 'الطباعة والتطريز مكتمل', 'مغلق'].includes(order.status);
-  const isPrintEnabled = ['التجهيز مكتمل', 'الطباعة والتطريز جاري', 'الطباعة والتطريز مكتمل', 'مغلق'].includes(order.status);
-  const isSewEnabled = ['الطباعة والتطريز مكتمل', 'مغلق'].includes(order.status);
+  const isCutEnabledStatus = isCutEnabled(order.status);
+  const isBatchesEnabledStatus = isBatchesEnabled(order.status);
+  const isPrepEnabledStatus = isPrepEnabled(order.status);
+  const isPrintEnabledStatus = isPrintEnabled(order.status);
+  const isSewEnabledStatus = isSewEnabled(order.status);
 
   return (
     <div className="space-y-6">
@@ -147,117 +184,139 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
 
       <div className="flex bg-white rounded-xl shadow-sm border border-slate-200 p-2 overflow-x-auto">
         <button
-          onClick={() => setActiveTab('production')}
+          onClick={() => setActiveTab("production")}
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors ${
-            activeTab === 'production' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'
+            activeTab === "production"
+              ? "bg-indigo-50 text-indigo-700"
+              : "text-slate-600 hover:bg-slate-50"
           }`}
         >
           <FileText className="w-5 h-5" />
           أمر الإنتاج والخامات
         </button>
         <button
-          disabled={!isCutEnabled}
-          onClick={() => setActiveTab('cut')}
+          disabled={!isCutEnabledStatus}
+          onClick={() => setActiveTab("cut")}
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors ${
-            activeTab === 'cut' ? 'bg-indigo-50 text-indigo-700' : 
-            !isCutEnabled ? 'text-slate-400 opacity-50 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-50'
+            activeTab === "cut"
+              ? "bg-indigo-50 text-indigo-700"
+              : !isCutEnabledStatus
+                ? "text-slate-400 opacity-50 cursor-not-allowed"
+                : "text-slate-600 hover:bg-slate-50"
           }`}
         >
           <Scissors className="w-5 h-5" />
           أمر القص الفعلي
         </button>
         <button
-          disabled={!isBatchesEnabled}
-          onClick={() => setActiveTab('batches')}
+          disabled={!isBatchesEnabledStatus}
+          onClick={() => setActiveTab("batches")}
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors ${
-            activeTab === 'batches' ? 'bg-indigo-50 text-indigo-700' : 
-            !isBatchesEnabled ? 'text-slate-400 opacity-50 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-50'
+            activeTab === "batches"
+              ? "bg-indigo-50 text-indigo-700"
+              : !isBatchesEnabledStatus
+                ? "text-slate-400 opacity-50 cursor-not-allowed"
+                : "text-slate-600 hover:bg-slate-50"
           }`}
         >
           <Layers className="w-5 h-5" />
           تقسيم الباتشات
         </button>
-        
+
         <button
-          disabled={!isPrepEnabled}
-          onClick={() => setActiveTab('prep')}
+          disabled={!isPrepEnabledStatus}
+          onClick={() => setActiveTab("prep")}
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors ${
-            activeTab === 'prep' ? 'bg-indigo-50 text-indigo-700' : 
-            !isPrepEnabled ? 'text-slate-400 opacity-50 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-50'
+            activeTab === "prep"
+              ? "bg-indigo-50 text-indigo-700"
+              : !isPrepEnabledStatus
+                ? "text-slate-400 opacity-50 cursor-not-allowed"
+                : "text-slate-600 hover:bg-slate-50"
           }`}
         >
           <CheckSquare className="w-5 h-5" />
           التجهيز
         </button>
         <button
-          disabled={!isPrintEnabled}
-          onClick={() => setActiveTab('print')}
+          disabled={!isPrintEnabledStatus}
+          onClick={() => setActiveTab("print")}
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors ${
-            activeTab === 'print' ? 'bg-indigo-50 text-indigo-700' : 
-            !isPrintEnabled ? 'text-slate-400 opacity-50 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-50'
+            activeTab === "print"
+              ? "bg-indigo-50 text-indigo-700"
+              : !isPrintEnabledStatus
+                ? "text-slate-400 opacity-50 cursor-not-allowed"
+                : "text-slate-600 hover:bg-slate-50"
           }`}
         >
           <Printer className="w-5 h-5" />
           الطباعة / التطريز
         </button>
         <button
-          disabled={!isSewEnabled}
-          onClick={() => setActiveTab('sew')}
+          disabled={!isSewEnabledStatus}
+          onClick={() => setActiveTab("sew")}
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors ${
-            activeTab === 'sew' ? 'bg-indigo-50 text-indigo-700' : 
-            !isSewEnabled ? 'text-slate-400 opacity-50 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-50'
+            activeTab === "sew"
+              ? "bg-indigo-50 text-indigo-700"
+              : !isSewEnabledStatus
+                ? "text-slate-400 opacity-50 cursor-not-allowed"
+                : "text-slate-600 hover:bg-slate-50"
           }`}
         >
           <Shirt className="w-5 h-5" />
           الخياطة
         </button>
-
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
-        {activeTab === 'production' && (
-          <ProductionOrderForm key={order.updatedAt} 
-            orderId={currentOrderId} 
-            isViewOnly={isCutEnabled} 
-            onOrderSaved={(id) => {}} 
-            onOrderApproved={(id) => setActiveTab('cut')}
+        {activeTab === "production" && (
+          <ProductionOrderForm
+            key={order.updatedAt}
+            orderId={currentOrderId}
+            isViewOnly={isCutEnabledStatus}
+            onOrderSaved={(id) => {}}
+            onOrderApproved={(id) => setActiveTab("cut")}
             onDeleted={() => {}}
             onBack={onBack}
           />
         )}
-        {activeTab === 'cut' && (
-          <CutOrderForm key={order.updatedAt} 
-            orderId={currentOrderId} 
-            onSaved={() => {}} 
-          />
-        )}
-        {activeTab === 'batches' && (
-          <BatchesForm key={order.updatedAt} 
-            orderId={currentOrderId} 
-            onSaved={() => {}} 
-          />
-        )}
-        
-        {activeTab === 'prep' && (
-          <PrintPrepSheet key={order.updatedAt} 
-            orderId={currentOrderId} 
-            onSaved={() => {}} 
-          />
-        )}
-        {activeTab === 'print' && (
-          <PrintEmbroideryForm key={order.updatedAt}
+        {activeTab === "cut" && (
+          <CutOrderForm
+            key={order.updatedAt}
             orderId={currentOrderId}
             onSaved={() => {}}
           />
         )}
-        {activeTab === 'sew' && (
+        {activeTab === "batches" && (
+          <BatchesForm
+            key={order.updatedAt}
+            orderId={currentOrderId}
+            onSaved={() => {}}
+          />
+        )}
+
+        {activeTab === "prep" && (
+          <PrintPrepSheet
+            key={order.updatedAt}
+            orderId={currentOrderId}
+            onSaved={() => {}}
+          />
+        )}
+        {activeTab === "print" && (
+          <PrintEmbroideryForm
+            key={order.updatedAt}
+            orderId={currentOrderId}
+            onSaved={() => {}}
+          />
+        )}
+        {activeTab === "sew" && (
           <div className="p-8 text-center text-slate-500">
             <Shirt className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-            <h3 className="text-xl font-bold text-slate-700 mb-2">مرحلة الخياطة</h3>
+            <h3 className="text-xl font-bold text-slate-700 mb-2">
+              مرحلة الخياطة
+            </h3>
             <p>سيتم تفعيل تفاصيل الخياطة في التحديث القادم.</p>
           </div>
         )}
-
       </div>
     </div>
   );

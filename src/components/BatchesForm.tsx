@@ -96,7 +96,7 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
     if (result.success) {
       if (result.data) setOrder(result.data);
     } else {
-      alert(result.error);
+      setError(result.error || "حدث خطأ");
     }
   };
 

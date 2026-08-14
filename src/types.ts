@@ -8,6 +8,8 @@ export type OrderStatus =
   | 'الباتشات مثبتة'
   | 'التجهيز جاري'
   | 'التجهيز مكتمل'
+  | 'الطباعة والتطريز جاري'
+  | 'الطباعة والتطريز مكتمل'
   | 'مغلق'
   | 'معتمد'; // keeping معتمد for backwards compatibility if needed, though replaced by 'أمر إنتاج معتمد'
 
@@ -65,6 +67,7 @@ export interface CutOrderData {
   cutOrderNumber: string;
   sizes: CutSizeData[];
   actualWeight: number;
+  actualWeightByColor?: Record<string, number>;
   weightUnit: string;
   weightDate?: string;
   weightUser?: string;
@@ -83,6 +86,27 @@ export interface BatchSizeData {
   size: string;
   variants: BatchVariant[];
 }
+
+
+export type PrintEmbroideryExecutionType = 'بدون طباعة / تطريز' | 'طباعة' | 'تطريز' | 'طباعة + تطريز';
+
+export interface PrintDetails {
+  designName: string;
+  placement: string;
+  colors: string;
+  colorCount: number;
+  notes: string;
+}
+
+export interface EmbroideryDetails {
+  designName: string;
+  placement: string;
+  threadColors: string;
+  colorCount: number;
+  notes: string;
+}
+
+export type BatchPrintEmbroideryStatus = 'لم يبدأ' | 'جاري' | 'مكتمل';
 
 export interface AccessoryPrepItem {
   accessoryId: string;
@@ -105,6 +129,14 @@ export interface BatchItem {
   prepApprovedBy?: string;
   prepApprovedAt?: string;
   accessoriesPrep: AccessoryPrepItem[];
+  printEmbroideryStatus?: BatchPrintEmbroideryStatus;
+  executionType?: PrintEmbroideryExecutionType;
+  printDetails?: PrintDetails;
+  embroideryDetails?: EmbroideryDetails;
+  printEmbroideryCost?: {
+    standardCost: number;
+    actualCost?: number;
+  };
 }
 
 export interface ProductionOrder {

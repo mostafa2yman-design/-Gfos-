@@ -1,10 +1,16 @@
-import React from 'react';
-import { Factory, LayoutDashboard, ListPlus, FileText } from 'lucide-react';
+import React from "react";
+import {
+  Factory,
+  LayoutDashboard,
+  ListPlus,
+  FileText,
+  Settings as SettingsIcon,
+} from "lucide-react";
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentView: 'dashboard' | 'list' | 'form';
-  onNavigate: (view: 'dashboard' | 'list' | 'form') => void;
+  currentView: "dashboard" | "list" | "form" | "settings";
+  onNavigate: (view: "dashboard" | "list" | "form" | "settings") => void;
 }
 
 export function Layout({ children, currentView, onNavigate }: LayoutProps) {
@@ -18,32 +24,49 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
               <Factory className="text-white w-6 h-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-slate-900 leading-tight">نظام إدارة الإنتاج</h1>
+              <h1 className="text-xl font-bold text-slate-900 leading-tight">
+                نظام إدارة الإنتاج
+              </h1>
               <p className="text-xs text-slate-500 font-medium">الإصدار 0.1</p>
             </div>
           </div>
-          
+
           <nav className="flex items-center gap-2">
             <button
-              onClick={() => onNavigate('dashboard')}
+              onClick={() => onNavigate("dashboard")}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                currentView === 'dashboard' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'
+                currentView === "dashboard"
+                  ? "bg-indigo-50 text-indigo-700"
+                  : "text-slate-600 hover:bg-slate-100"
               }`}
             >
               <LayoutDashboard className="w-4 h-4" />
               الرئيسية
             </button>
             <button
-              onClick={() => onNavigate('list')}
+              onClick={() => onNavigate("list")}
               className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                currentView === 'list' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'
+                currentView === "list"
+                  ? "bg-indigo-50 text-indigo-700"
+                  : "text-slate-600 hover:bg-slate-100"
               }`}
             >
               <FileText className="w-4 h-4" />
               أوامر الإنتاج
             </button>
             <button
-              onClick={() => onNavigate('form')}
+              onClick={() => onNavigate("settings")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                currentView === "settings"
+                  ? "bg-indigo-50 text-indigo-700"
+                  : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              <SettingsIcon className="w-4 h-4" />
+              الإعدادات
+            </button>
+            <button
+              onClick={() => onNavigate("form")}
               className="flex items-center gap-2 px-4 py-2 rounded-md text-sm font-medium bg-indigo-600 text-white hover:bg-indigo-700 transition-colors shadow-sm mr-4"
             >
               <ListPlus className="w-4 h-4" />

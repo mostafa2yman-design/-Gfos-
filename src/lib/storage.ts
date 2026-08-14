@@ -95,3 +95,13 @@ export const generateOrderNumber = (): string => {
     return `PO-${year}-0001`;
   }
 };
+
+
+export const deleteAllOrders = (): boolean => {
+  try {
+    return saveOrders([]);
+  } catch (error) {
+    console.error('Failed to delete all orders:', error);
+    return false;
+  }
+};

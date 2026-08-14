@@ -4,7 +4,7 @@ import { getOrderById } from '../storage';
 interface WorkflowCallbacks {
   onOrderUpdated: (order: any) => void;
   onOrderDeleted: () => void;
-  onNavigate: (tab: 'production' | 'cut' | 'batches' | 'prep') => void;
+  onNavigate: (tab: 'production' | 'cut' | 'batches' | 'prep' | 'print' | 'sew') => void;
 }
 
 export function createOrderWorkflowHandlers(callbacks: WorkflowCallbacks) {
@@ -55,10 +55,19 @@ export function createOrderWorkflowHandlers(callbacks: WorkflowCallbacks) {
 
     handlePreparationCompleted: (event: BusinessEvent) => {
       reloadOrder(event.aggregateId);
+      onNavigate('print');
     },
     
     handleBatchPreparationCompleted: (event: BusinessEvent) => {
       reloadOrder(event.aggregateId);
+    }
+    ,
+    handlePrintEmbroiderySaved: (event: BusinessEvent) => {
+      reloadOrder(event.aggregateId);
+    },
+    handlePrintEmbroideryCompleted: (event: BusinessEvent) => {
+      reloadOrder(event.aggregateId);
+      onNavigate('sew');
     }
   };
 }

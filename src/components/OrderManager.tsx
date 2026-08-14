@@ -3,18 +3,19 @@ import { ProductionOrderForm } from './ProductionOrderForm';
 import { CutOrderForm } from './CutOrderForm';
 import { BatchesForm } from './BatchesForm';
 import { PrintPrepSheet } from './PrintPrepSheet';
+import { PrintEmbroideryForm } from './PrintEmbroideryForm';
 import { ProductionOrder, OrderStatus } from '../types';
 import { getOrderById } from '../lib/storage';
 import { eventBus } from '../lib/events';
 import { createOrderWorkflowHandlers } from '../lib/events/eventHandlers';
-import { ArrowRight, Scissors, FileText, Layers, CheckSquare } from 'lucide-react';
+import { ArrowRight, Scissors, FileText, Layers, CheckSquare, Printer, Shirt } from 'lucide-react';
 
 interface OrderManagerProps {
   orderId: string | null;
   onBack: () => void;
 }
 
-type TabType = 'production' | 'cut' | 'batches' | 'prep';
+type TabType = 'production' | 'cut' | 'batches' | 'prep' | 'print' | 'sew';
 
 export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerProps) {
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(initialOrderId);
@@ -33,6 +34,8 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
             setActiveTab('cut');
           } else if (found.status === 'القص معتمد' || found.status === 'تقسيم الباتشات') {
             setActiveTab('batches');
+          } else if (found.status === 'الطباعة والتطريز مكتمل' || found.status === 'الطباعة والتطريز جاري') {
+            setActiveTab('print');
           } else if (found.status === 'الباتشات مثبتة' || found.status === 'التجهيز جاري' || found.status === 'التجهيز مكتمل') {
             setActiveTab('prep');
           } else {
@@ -81,6 +84,8 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
         else if (event.type === 'PreparationStarted') handlers.handlePreparationStarted(event);
         else if (event.type === 'BatchPreparationCompleted') handlers.handleBatchPreparationCompleted(event);
         else if (event.type === 'PreparationCompleted') handlers.handlePreparationCompleted(event);
+        else if (event.type === 'PrintEmbroiderySaved') handlers.handlePrintEmbroiderySaved(event);
+        else if (event.type === 'PrintEmbroideryCompleted') handlers.handlePrintEmbroideryCompleted(event);
       }
     };
     
@@ -88,7 +93,7 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
       'ProductionOrderSaved', 'ProductionOrderApproved', 'ProductionOrderDeleted',
       'CutActualEntered', 'CutOrderApproved', 
       'BatchSplitCompleted', 'BatchesLocked',
-      'PreparationStarted', 'BatchPreparationCompleted', 'PreparationCompleted'
+      'PreparationStarted', 'BatchPreparationCompleted', 'PreparationCompleted', 'PrintEmbroiderySaved', 'PrintEmbroideryCompleted'
     ];
     
     const unsubscribers = typesToWatch.map(type => eventBus.subscribe(type, handlerAdapter));
@@ -119,7 +124,9 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
 
   const isCutEnabled = ['أمر إنتاج معتمد', 'أمر قص', 'القص الفعلي مدخل', 'القص معتمد', 'تقسيم الباتشات', 'الباتشات مثبتة', 'التجهيز جاري', 'التجهيز مكتمل', 'مغلق'].includes(order.status);
   const isBatchesEnabled = ['القص معتمد', 'تقسيم الباتشات', 'الباتشات مثبتة', 'التجهيز جاري', 'التجهيز مكتمل', 'مغلق'].includes(order.status);
-  const isPrepEnabled = ['الباتشات مثبتة', 'التجهيز جاري', 'التجهيز مكتمل', 'مغلق'].includes(order.status);
+  const isPrepEnabled = ['الباتشات مثبتة', 'التجهيز جاري', 'التجهيز مكتمل', 'الطباعة والتطريز جاري', 'الطباعة والتطريز مكتمل', 'مغلق'].includes(order.status);
+  const isPrintEnabled = ['التجهيز مكتمل', 'الطباعة والتطريز جاري', 'الطباعة والتطريز مكتمل', 'مغلق'].includes(order.status);
+  const isSewEnabled = ['الطباعة والتطريز مكتمل', 'مغلق'].includes(order.status);
 
   return (
     <div className="space-y-6">
@@ -170,6 +177,7 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
           <Layers className="w-5 h-5" />
           تقسيم الباتشات
         </button>
+        
         <button
           disabled={!isPrepEnabled}
           onClick={() => setActiveTab('prep')}
@@ -179,8 +187,31 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
           }`}
         >
           <CheckSquare className="w-5 h-5" />
-          شيت الطباعة والتجهيز
+          التجهيز
         </button>
+        <button
+          disabled={!isPrintEnabled}
+          onClick={() => setActiveTab('print')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors ${
+            activeTab === 'print' ? 'bg-indigo-50 text-indigo-700' : 
+            !isPrintEnabled ? 'text-slate-400 opacity-50 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          <Printer className="w-5 h-5" />
+          الطباعة / التطريز
+        </button>
+        <button
+          disabled={!isSewEnabled}
+          onClick={() => setActiveTab('sew')}
+          className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors ${
+            activeTab === 'sew' ? 'bg-indigo-50 text-indigo-700' : 
+            !isSewEnabled ? 'text-slate-400 opacity-50 cursor-not-allowed' : 'text-slate-600 hover:bg-slate-50'
+          }`}
+        >
+          <Shirt className="w-5 h-5" />
+          الخياطة
+        </button>
+
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -206,12 +237,27 @@ export function OrderManager({ orderId: initialOrderId, onBack }: OrderManagerPr
             onSaved={() => {}} 
           />
         )}
+        
         {activeTab === 'prep' && (
           <PrintPrepSheet key={order.updatedAt} 
             orderId={currentOrderId} 
             onSaved={() => {}} 
           />
         )}
+        {activeTab === 'print' && (
+          <PrintEmbroideryForm key={order.updatedAt}
+            orderId={currentOrderId}
+            onSaved={() => {}}
+          />
+        )}
+        {activeTab === 'sew' && (
+          <div className="p-8 text-center text-slate-500">
+            <Shirt className="w-16 h-16 mx-auto mb-4 text-slate-300" />
+            <h3 className="text-xl font-bold text-slate-700 mb-2">مرحلة الخياطة</h3>
+            <p>سيتم تفعيل تفاصيل الخياطة في التحديث القادم.</p>
+          </div>
+        )}
+
       </div>
     </div>
   );

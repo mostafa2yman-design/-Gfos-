@@ -414,3 +414,68 @@ export function approveBatchPrep(order: ProductionOrder, batchId: string, user: 
   }
   return { success: true, data: verifiedOrder };
 }
+
+
+// Print & Embroidery Commands
+export function savePrintEmbroideryData(order: ProductionOrder, updatedBatches: BatchItem[]): CommandResult<ProductionOrder> {
+  let newStatus = order.status;
+  // If previously it was 'التجهيز مكتمل', it might move to 'الطباعة والتطريز جاري' if any batch started
+  const anyStarted = updatedBatches.some(b => b.printEmbroideryStatus === 'جاري' || b.printEmbroideryStatus === 'مكتمل');
+  const allCompleted = updatedBatches.every(b => b.printEmbroideryStatus === 'مكتمل');
+
+  if (allCompleted) newStatus = 'الطباعة والتطريز مكتمل';
+  else if (anyStarted && (order.status === 'التجهيز مكتمل' || order.status === 'الطباعة والتطريز جاري')) newStatus = 'الطباعة والتطريز جاري';
+
+  const orderToSave: ProductionOrder = {
+    ...order,
+    batches: updatedBatches,
+    status: newStatus as any
+  };
+
+  const saved = persistOrder(orderToSave);
+  if (!saved) return { success: false, error: 'تعذر حفظ بيانات الطباعة والتطريز.' };
+  
+  const verifiedOrder = getOrderById(order.id);
+  if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
+
+  eventBus.publish({
+    id: crypto.randomUUID(),
+    type: "PrintEmbroiderySaved",
+    occurredAt: new Date().toISOString(),
+    aggregateType: "ProductionOrder",
+    aggregateId: order.id,
+    payload: { status: verifiedOrder.status }
+  });
+
+  return { success: true, data: verifiedOrder };
+}
+
+export function approvePrintEmbroidery(order: ProductionOrder, user: string = 'المستخدم الحالي'): CommandResult<ProductionOrder> {
+  const updatedBatches = order.batches!.map(b => ({
+    ...b,
+    printEmbroideryStatus: 'مكتمل' as const
+  }));
+
+  const orderToSave: ProductionOrder = {
+    ...order,
+    batches: updatedBatches,
+    status: 'الطباعة والتطريز مكتمل'
+  };
+
+  const saved = persistOrder(orderToSave);
+  if (!saved) return { success: false, error: 'تعذر اعتماد الطباعة والتطريز.' };
+
+  const verifiedOrder = getOrderById(order.id);
+  if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
+
+  eventBus.publish({
+    id: crypto.randomUUID(),
+    type: "PrintEmbroideryCompleted",
+    occurredAt: new Date().toISOString(),
+    aggregateType: "ProductionOrder",
+    aggregateId: order.id,
+    payload: { status: verifiedOrder.status }
+  });
+
+  return { success: true, data: verifiedOrder };
+}

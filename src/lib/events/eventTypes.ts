@@ -31,4 +31,6 @@ export type EventType =
   | 'PreparationStarted'
   | 'BatchPreparationCompleted'
   | 'PreparationCompleted'
+  | 'PrintEmbroiderySaved'
+  | 'PrintEmbroideryCompleted'
   | 'ProductionOrderClosed';

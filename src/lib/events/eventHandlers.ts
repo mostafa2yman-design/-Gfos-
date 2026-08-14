@@ -69,6 +69,12 @@ export function createOrderWorkflowHandlers(callbacks: WorkflowCallbacks) {
     handlePrintEmbroideryCompleted: (event: BusinessEvent) => {
       reloadOrder(event.aggregateId);
       onNavigate('sew');
+    },
+    handleSewingSaved: (event: BusinessEvent) => {
+      reloadOrder(event.aggregateId);
+    },
+    handleSewingCompleted: (event: BusinessEvent) => {
+      reloadOrder(event.aggregateId);
     }
   };
 }

@@ -28,7 +28,7 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
 
   if (!order) return <div>جاري التحميل...</div>;
 
-  const isReadOnly = ['الباتشات مثبتة', 'التجهيز جاري', 'التجهيز مكتمل', 'مغلق'].includes(order.status);
+  const isReadOnly = ["مسودة", "أمر إنتاج معتمد", "أمر قص", "القص الفعلي مدخل", "الباتشات مثبتة", "التجهيز جاري", "التجهيز مكتمل", "الطباعة والتطريز جاري", "الطباعة والتطريز مكتمل", "الخياطة مكتملة", "مغلق"].includes(order.status);
   
   const batches = order.batches || [];
   

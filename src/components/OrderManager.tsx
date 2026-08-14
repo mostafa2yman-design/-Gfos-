@@ -4,6 +4,7 @@ import { CutOrderForm } from "./CutOrderForm";
 import { BatchesForm } from "./BatchesForm";
 import { PrintPrepSheet } from "./PrintPrepSheet";
 import { PrintEmbroideryForm } from "./PrintEmbroideryForm";
+import { SewingForm } from "./SewingForm";
 import { ProductionOrder, OrderStatus } from "../types";
 import { getOrderById } from "../lib/storage";
 import { eventBus } from "../lib/events";
@@ -195,13 +196,12 @@ export function OrderManager({
           أمر الإنتاج والخامات
         </button>
         <button
-          disabled={!isCutEnabledStatus}
+          
           onClick={() => setActiveTab("cut")}
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors ${
             activeTab === "cut"
               ? "bg-indigo-50 text-indigo-700"
-              : !isCutEnabledStatus
-                ? "text-slate-400 opacity-50 cursor-not-allowed"
+              
                 : "text-slate-600 hover:bg-slate-50"
           }`}
         >
@@ -209,13 +209,12 @@ export function OrderManager({
           أمر القص الفعلي
         </button>
         <button
-          disabled={!isBatchesEnabledStatus}
+          
           onClick={() => setActiveTab("batches")}
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors ${
             activeTab === "batches"
               ? "bg-indigo-50 text-indigo-700"
-              : !isBatchesEnabledStatus
-                ? "text-slate-400 opacity-50 cursor-not-allowed"
+              
                 : "text-slate-600 hover:bg-slate-50"
           }`}
         >
@@ -224,13 +223,12 @@ export function OrderManager({
         </button>
 
         <button
-          disabled={!isPrepEnabledStatus}
+          
           onClick={() => setActiveTab("prep")}
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors ${
             activeTab === "prep"
               ? "bg-indigo-50 text-indigo-700"
-              : !isPrepEnabledStatus
-                ? "text-slate-400 opacity-50 cursor-not-allowed"
+              
                 : "text-slate-600 hover:bg-slate-50"
           }`}
         >
@@ -238,13 +236,12 @@ export function OrderManager({
           التجهيز
         </button>
         <button
-          disabled={!isPrintEnabledStatus}
+          
           onClick={() => setActiveTab("print")}
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors ${
             activeTab === "print"
               ? "bg-indigo-50 text-indigo-700"
-              : !isPrintEnabledStatus
-                ? "text-slate-400 opacity-50 cursor-not-allowed"
+              
                 : "text-slate-600 hover:bg-slate-50"
           }`}
         >
@@ -252,13 +249,12 @@ export function OrderManager({
           الطباعة / التطريز
         </button>
         <button
-          disabled={!isSewEnabledStatus}
+          
           onClick={() => setActiveTab("sew")}
           className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors ${
             activeTab === "sew"
               ? "bg-indigo-50 text-indigo-700"
-              : !isSewEnabledStatus
-                ? "text-slate-400 opacity-50 cursor-not-allowed"
+              
                 : "text-slate-600 hover:bg-slate-50"
           }`}
         >
@@ -309,13 +305,11 @@ export function OrderManager({
           />
         )}
         {activeTab === "sew" && (
-          <div className="p-8 text-center text-slate-500">
-            <Shirt className="w-16 h-16 mx-auto mb-4 text-slate-300" />
-            <h3 className="text-xl font-bold text-slate-700 mb-2">
-              مرحلة الخياطة
-            </h3>
-            <p>سيتم تفعيل تفاصيل الخياطة في التحديث القادم.</p>
-          </div>
+          <SewingForm
+            key={order.updatedAt}
+            orderId={currentOrderId}
+            onSaved={() => {}}
+          />
         )}
       </div>
     </div>

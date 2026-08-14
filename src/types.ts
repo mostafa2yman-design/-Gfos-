@@ -10,6 +10,7 @@ export type OrderStatus =
   | 'التجهيز مكتمل'
   | 'الطباعة والتطريز جاري'
   | 'الطباعة والتطريز مكتمل'
+  | 'الخياطة مكتملة'
   | 'مغلق'
   | 'معتمد'; // keeping معتمد for backwards compatibility if needed, though replaced by 'أمر إنتاج معتمد'
 
@@ -121,6 +122,26 @@ export interface AccessoryPrepItem {
   preparedAt?: string;
 }
 
+
+export type SewingManufacturingType = 'تصنيع داخلي' | 'تصنيع خارجي';
+
+export interface SewingVariantData {
+  color: string;
+  size: string;
+  actualQuantity: number;
+}
+
+export interface SewingData {
+  manufacturingType?: SewingManufacturingType;
+  sewingGroup?: string;
+  externalManufacturer?: string;
+  actualCostPerPiece?: number;
+  actualQuantities: SewingVariantData[];
+  status: 'لم يبدأ' | 'جاري' | 'مكتمل';
+  approvedBy?: string;
+  approvedAt?: string;
+}
+
 export interface BatchItem {
   id: string;
   batchNumber: string;
@@ -133,6 +154,7 @@ export interface BatchItem {
   executionType?: PrintEmbroideryExecutionType;
   printDetails?: PrintDetails;
   embroideryDetails?: EmbroideryDetails;
+  sewingData?: SewingData;
   printEmbroideryCost?: {
     standardCost: number;
     actualCost?: number;
@@ -158,6 +180,7 @@ export interface ProductionOrder {
   productionApprovedBy?: string;
   productionApprovedAt?: string;
   printEmbroideryStandardCost?: number;
+  standardSewingCostPerPiece?: number;
   
   cutData?: CutOrderData;
   

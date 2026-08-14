@@ -33,4 +33,6 @@ export type EventType =
   | 'PreparationCompleted'
   | 'PrintEmbroiderySaved'
   | 'PrintEmbroideryCompleted'
+  | 'SewingSaved'
+  | 'SewingCompleted'
   | 'ProductionOrderClosed';

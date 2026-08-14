@@ -479,3 +479,90 @@ export function approvePrintEmbroidery(order: ProductionOrder, user: string = '�
 
   return { success: true, data: verifiedOrder };
 }
+
+export function saveSewingData(order: ProductionOrder, updatedBatches: BatchItem[]): CommandResult<ProductionOrder> {
+  const orderToSave: ProductionOrder = {
+    ...order,
+    batches: updatedBatches,
+    updatedAt: new Date().toISOString()
+  };
+  
+  const saved = persistOrder(orderToSave);
+  if (!saved) return { success: false, error: 'تعذر حفظ بيانات الخياطة.' };
+  
+  const verifiedOrder = getOrderById(order.id);
+  if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
+
+  eventBus.publish({
+    id: crypto.randomUUID(),
+    type: 'SewingSaved',
+    occurredAt: new Date().toISOString(),
+    aggregateType: 'ProductionOrder',
+    aggregateId: order.id,
+    payload: { status: verifiedOrder.status }
+  });
+
+  return { success: true, data: verifiedOrder };
+}
+
+export function approveSewing(order: ProductionOrder, user: string = 'المستخدم الحالي'): CommandResult<ProductionOrder> {
+  if (!order.batches || order.batches.length === 0) {
+    return { success: false, error: 'لا توجد باتشات للاعتماد' };
+  }
+  
+  for (const b of order.batches) {
+    if (!b.sewingData) {
+      return { success: false, error: `بيانات الخياطة مفقودة للباتش ${b.batchNumber}` };
+    }
+    const s = b.sewingData;
+    if (!s.manufacturingType) {
+      return { success: false, error: `نوع التصنيع مفقود للباتش ${b.batchNumber}` };
+    }
+    if (s.manufacturingType === 'تصنيع داخلي' && !s.sewingGroup) {
+      return { success: false, error: `مجموعة الخياطة مفقودة للباتش ${b.batchNumber}` };
+    }
+    if (s.manufacturingType === 'تصنيع خارجي' && !s.externalManufacturer) {
+      return { success: false, error: `جهة التصنيع الخارجي مفقودة للباتش ${b.batchNumber}` };
+    }
+    if (s.actualCostPerPiece === undefined || s.actualCostPerPiece === null) {
+      return { success: false, error: `سعر التصنيع الفعلي مفقود للباتش ${b.batchNumber}` };
+    }
+    if (!s.actualQuantities || s.actualQuantities.length === 0) {
+      return { success: false, error: `الكميات الفعلية مفقودة للباتش ${b.batchNumber}` };
+    }
+  }
+
+  const updatedBatches = order.batches.map(b => ({
+    ...b,
+    sewingData: {
+      ...b.sewingData!,
+      status: 'مكتمل' as const,
+      approvedBy: user,
+      approvedAt: new Date().toISOString()
+    }
+  }));
+
+  const orderToSave: ProductionOrder = {
+    ...order,
+    status: 'الخياطة مكتملة' as any,
+    batches: updatedBatches,
+    updatedAt: new Date().toISOString()
+  };
+
+  const saved = persistOrder(orderToSave);
+  if (!saved) return { success: false, error: 'تعذر اعتماد الخياطة.' };
+  
+  const verifiedOrder = getOrderById(order.id);
+  if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
+
+  eventBus.publish({
+    id: crypto.randomUUID(),
+    type: 'SewingCompleted',
+    occurredAt: new Date().toISOString(),
+    aggregateType: 'ProductionOrder',
+    aggregateId: order.id,
+    payload: { status: verifiedOrder.status }
+  });
+
+  return { success: true, data: verifiedOrder };
+}

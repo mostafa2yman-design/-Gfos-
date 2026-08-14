@@ -54,6 +54,10 @@ export function calculateGlobalCostMetrics(orders: ProductionOrder[]): GlobalCos
     });
     totalStandardCost += (order.printEmbroideryStandardCost || 0) * orderTotalQty;
 
+    // 5. Calculate Standard Sewing Cost
+    totalStandardCost += (order.standardSewingCostPerPiece || 0) * orderTotalQty;
+
+
   });
 
   const averageStandardUnitCost = totalStandardQty > 0 ? (totalStandardCost / totalStandardQty) : 0;
@@ -81,6 +85,7 @@ export interface OrderCostAnalysis {
   fabric: CostComponent;
   accessories: CostComponent;
   printEmbroidery: CostComponent;
+  sewing: CostComponent;
   
   totalStandardPerPiece: number;
   totalActualPerPiece: number | null;
@@ -200,21 +205,64 @@ export function calculateOrderCostAnalysis(order: ProductionOrder): OrderCostAna
      printEmbroidery.isActualAvailable = true;
   }
 
+  // 4. Sewing
+  let sewingStdTotal = (order.standardSewingCostPerPiece || 0) * standardQty;
+  let sewingActualTotal = 0;
+  let sewingActualPieces = 0;
+  let hasIncompleteActualSewing = false;
+  let hasSewingBatches = false;
+
+  order.batches?.forEach(b => {
+    if (b.sewingData) {
+      hasSewingBatches = true;
+      let batchActualQty = 0;
+      b.sewingData.actualQuantities?.forEach(q => {
+        batchActualQty += q.actualQuantity;
+      });
+      
+      const actCost = b.sewingData.actualCostPerPiece;
+      if (actCost !== undefined && actCost !== null && !isNaN(actCost) && batchActualQty > 0) {
+        sewingActualTotal += (batchActualQty * actCost);
+        sewingActualPieces += batchActualQty;
+      } else if (b.sewingData.status !== 'مكتمل') {
+        hasIncompleteActualSewing = true;
+      }
+    } else {
+       // if sewing hasn't started at all for a batch, actual is incomplete
+       hasIncompleteActualSewing = true;
+    }
+  });
+
+  const isSewingActualAvailable = hasSewingBatches && !hasIncompleteActualSewing;
+  const sewing: CostComponent = {
+    standardTotal: sewingStdTotal,
+    standardPerPiece: standardQty > 0 ? (sewingStdTotal / standardQty) : 0,
+    actualTotal: isSewingActualAvailable ? sewingActualTotal : null,
+    actualPerPiece: (isSewingActualAvailable && sewingActualPieces > 0) ? (sewingActualTotal / sewingActualPieces) : null,
+    isActualAvailable: isSewingActualAvailable || (!hasSewingBatches && order.batches && order.batches.length > 0)
+  };
+
+  if (!hasSewingBatches && order.batches && order.batches.length > 0) {
+    sewing.actualTotal = 0;
+    sewing.actualPerPiece = 0;
+    sewing.isActualAvailable = true;
+  }
+
   // Totals
-  const totalStandardPerPiece = fabric.standardPerPiece + accessories.standardPerPiece + printEmbroidery.standardPerPiece;
+  const totalStandardPerPiece = fabric.standardPerPiece + accessories.standardPerPiece + printEmbroidery.standardPerPiece + sewing.standardPerPiece;
   
   // To have a complete actual total, ALL components must have an actual cost.
   // Since we don't have actual material/accessory prices, the actual total will always be incomplete unless we consider what's available.
   // The prompt says: "لا تعرض رقمًا نهائيًا مضللًا ... التكلفة الفعلية غير مكتملة"
   
-  const isActualComplete = fabric.isActualAvailable && accessories.isActualAvailable && printEmbroidery.isActualAvailable;
+  const isActualComplete = fabric.isActualAvailable && accessories.isActualAvailable && printEmbroidery.isActualAvailable && sewing.isActualAvailable;
   
   let totalActualPerPiece: number | null = null;
   let deviationValue: number | null = null;
   let deviationPercentage: number | null = null;
 
   if (isActualComplete) {
-    totalActualPerPiece = (fabric.actualPerPiece || 0) + (accessories.actualPerPiece || 0) + (printEmbroidery.actualPerPiece || 0);
+    totalActualPerPiece = (fabric.actualPerPiece || 0) + (accessories.actualPerPiece || 0) + (printEmbroidery.actualPerPiece || 0) + (sewing.actualPerPiece || 0);
     deviationValue = totalActualPerPiece - totalStandardPerPiece;
     deviationPercentage = totalStandardPerPiece > 0 ? (deviationValue / totalStandardPerPiece) * 100 : 0;
   }
@@ -225,6 +273,7 @@ export function calculateOrderCostAnalysis(order: ProductionOrder): OrderCostAna
     fabric,
     accessories,
     printEmbroidery,
+    sewing,
     totalStandardPerPiece,
     totalActualPerPiece,
     deviationValue,

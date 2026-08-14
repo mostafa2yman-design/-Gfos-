@@ -139,12 +139,46 @@ export function CostAnalysisSummary({ order }: CostAnalysisSummaryProps) {
                     {analysis.printEmbroidery.standardPerPiece.toFixed(2)}
                   </td>
                 </tr>
+                <tr>
+                  <td className="px-4 py-3 text-slate-600">
+                    الخياطة
+                  </td>
+                  <td className="px-4 py-3 font-medium text-slate-800">
+                    {analysis.sewing.standardPerPiece.toFixed(2)}
+                  </td>
+                </tr>
                 <tr className="bg-slate-50">
                   <td className="px-4 py-3 font-bold text-slate-800">
                     الإجمالي المعياري
                   </td>
                   <td className="px-4 py-3 font-bold text-indigo-700">
                     {analysis.totalStandardPerPiece.toFixed(2)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 text-slate-600">
+                    الخياطة
+                  </td>
+                  <td className="px-4 py-3">
+                    {analysis.sewing.standardPerPiece.toFixed(2)}
+                  </td>
+                  <td className="px-4 py-3">
+                    {formatCurrency(analysis.sewing.actualPerPiece)}
+                  </td>
+                  <td
+                    className={`px-4 py-3 font-bold ${getDeviationColor(analysis.sewing.actualPerPiece !== null ? analysis.sewing.actualPerPiece - analysis.sewing.standardPerPiece : null)}`}
+                  >
+                    {analysis.sewing.actualPerPiece !== null
+                      ? (analysis.sewing.actualPerPiece -
+                          analysis.sewing.standardPerPiece >
+                        0
+                          ? "+"
+                          : "") +
+                        (
+                          analysis.sewing.actualPerPiece -
+                          analysis.sewing.standardPerPiece
+                        ).toFixed(2)
+                      : "-"}
                   </td>
                 </tr>
               </tbody>
@@ -190,6 +224,14 @@ export function CostAnalysisSummary({ order }: CostAnalysisSummaryProps) {
                   </td>
                   <td className="px-4 py-3 font-medium text-slate-800">
                     {formatCurrency(analysis.printEmbroidery.actualPerPiece)}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="px-4 py-3 text-slate-600">
+                    الخياطة
+                  </td>
+                  <td className="px-4 py-3 font-medium text-slate-800">
+                    {formatCurrency(analysis.sewing.actualPerPiece)}
                   </td>
                 </tr>
                 <tr className="bg-slate-50">

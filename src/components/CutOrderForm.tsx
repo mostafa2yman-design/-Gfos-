@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   ProductionOrder,
   CutOrderData,
@@ -6,10 +6,12 @@ import {
   CutVariant,
 } from "../types";
 import { getOrderById } from "../lib/storage";
+import { useReactToPrint } from "react-to-print";
+import { CutWorkOrderPrint } from "./print/CutWorkOrderPrint";
 import * as Cmd from "../lib/productionOrderCommands";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Toast } from "./ui/Toast";
-import { Check, Save } from "lucide-react";
+import { Check, Save, Printer } from "lucide-react";
 import { calculateFabricAnalysis } from "../lib/fabricUtils";
 import { FabricSummary } from "./FabricSummary";
 
@@ -22,6 +24,8 @@ interface CutOrderFormProps {
 export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
   const [order, setOrder] = useState<ProductionOrder | null>(null);
 
+  const printRef = useRef<HTMLDivElement>(null);
+  const reactToPrintFn = useReactToPrint({ contentRef: printRef });
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     message: string;
@@ -60,14 +64,7 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
 
   if (!order || !cutData) return <div>جاري التحميل...</div>;
 
-  const isReadOnly = [
-    "القص معتمد",
-    "تقسيم الباتشات",
-    "الباتشات مثبتة",
-    "التجهيز جاري",
-    "التجهيز مكتمل",
-    "مغلق",
-  ].includes(order.status);
+  const isReadOnly = order.status === "مسودة" || ["القص معتمد", "تقسيم الباتشات", "الباتشات مثبتة", "التجهيز جاري", "التجهيز مكتمل", "الطباعة والتطريز جاري", "الطباعة والتطريز مكتمل", "الخياطة مكتملة", "مغلق"].includes(order.status);
 
   const handleWeightChange = (color: string, value: number) => {
     if (isReadOnly) return;
@@ -177,14 +174,29 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
         </div>
         <div className="flex gap-3">
           {isReadOnly ? (
-            <div className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-lg font-medium border border-emerald-200 flex items-center gap-2 text-sm">
-              <Check className="w-4 h-4" />
-              القص معتمد
-            </div>
+            <div className="flex gap-2">
+                <div className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-lg font-medium border border-emerald-200 flex items-center gap-2 text-sm">
+                  <Check className="w-4 h-4" />
+                  القص معتمد
+                </div>
+                <button
+                  onClick={() => reactToPrintFn()}
+                  className="flex items-center gap-2 bg-white text-slate-700 border border-slate-300 px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm font-medium text-sm"
+                >
+                  <Printer className="w-4 h-4" />
+                  طباعة أمر التشغيل
+                </button>
+              </div>
           ) : (
             <>
               <button
-                onClick={handleSaveDraft}
+                onClick={() => reactToPrintFn()}
+                className="flex items-center gap-2 bg-slate-100 text-slate-700 border border-slate-300 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors shadow-sm font-medium text-sm"
+              >
+                <Printer className="w-4 h-4" />
+                طباعة أمر التشغيل
+              </button>
+              <button onClick={handleSaveDraft}
                 className="flex items-center gap-2 bg-white text-indigo-700 border border-indigo-200 px-4 py-2 rounded-lg hover:bg-indigo-50 transition-colors shadow-sm font-medium text-sm"
               >
                 <Save className="w-4 h-4" />
@@ -329,6 +341,9 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
           <FabricSummary summary={fabricSummary} />
         </div>
       )}
+      <div className="hidden">
+        <CutWorkOrderPrint ref={printRef} order={order} />
+      </div>
     </div>
   );
 }

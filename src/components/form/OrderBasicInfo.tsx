@@ -9,6 +9,7 @@ interface OrderBasicInfoProps {
   category: string;
   customerName: string;
   printEmbroideryStandardCost?: number;
+  standardSewingCostPerPiece?: number;
   onChange: (field: string, value: string) => void;
   readOnly?: boolean;
 }
@@ -20,6 +21,7 @@ export function OrderBasicInfo({
   category,
   customerName,
   printEmbroideryStandardCost,
+  standardSewingCostPerPiece,
   onChange,
   readOnly = false
 }: OrderBasicInfoProps) {
@@ -142,6 +144,31 @@ export function OrderBasicInfo({
                 value={printEmbroideryStandardCost || ''}
                 disabled={readOnly}
                 onChange={(e) => onChange('printEmbroideryStandardCost', e.target.value)}
+                placeholder="0.00"
+                className={`w-full px-3 py-2 border border-slate-300 rounded-lg transition-shadow ${
+                  readOnly 
+                    ? 'bg-slate-100 text-slate-600 cursor-not-allowed' 
+                    : 'focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
+                }`}
+              />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                جنيه
+              </span>
+            </div>
+          </div>
+          {/* Sewing Standard Cost */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              تكلفة الخياطة المعيارية للقطعة
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={standardSewingCostPerPiece || ''}
+                disabled={readOnly}
+                onChange={(e) => onChange('standardSewingCostPerPiece', e.target.value)}
                 placeholder="0.00"
                 className={`w-full px-3 py-2 border border-slate-300 rounded-lg transition-shadow ${
                   readOnly 

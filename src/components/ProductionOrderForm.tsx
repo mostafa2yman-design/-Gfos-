@@ -517,7 +517,7 @@ export function ProductionOrderForm({
 
         <div className="xl:col-span-1">
           <div className="sticky top-6">
-            <OrderSummary sizes={order.sizes} />
+            <OrderSummary sizes={order.sizes} actualSizes={(order.status !== "جديد" && order.status !== "باتشات مسجلة" && order.cutData?.sizes) ? order.cutData.sizes : undefined} />
             <CostAnalysisSummary order={order} />
 
             {!isReadOnly && order.status === "مسودة" && (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ProductionOrder, PREDEFINED_SIZES, Variant, MaterialInstance, AccessoryInstance } from "../types";
+import { ProductionOrder, Variant, MaterialInstance, AccessoryInstance } from "../types";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Toast } from "./ui/Toast";
 import { OrderBasicInfo } from "./form/OrderBasicInfo";
@@ -11,8 +11,12 @@ import { FabricSummary } from "./FabricSummary";
 import { CostAnalysisSummary } from "./CostAnalysisSummary";
 import { generateOrderNumber, getOrderById } from "../lib/storage";
 import { getBomTemplateForStyle } from "../lib/bom";
+import { getAvailableSizes, addCustomSize } from "../lib/sizes";
+import { CopyBomModal } from "./CopyBomModal";
 import {
   Save,
+  Copy,
+  X,
   AlertCircle,
   Plus,
   CheckCircle2,
@@ -57,6 +61,9 @@ export function ProductionOrderForm({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isAddSizeOpen, setIsAddSizeOpen] = useState(false);
+  const [isCustomSize, setIsCustomSize] = useState(false);
+  const [tempSize, setTempSize] = useState('');
+  const [isCopyBomOpen, setIsCopyBomOpen] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     message: string;
@@ -325,8 +332,25 @@ export function ProductionOrderForm({
     setOrder((prev) => ({ ...prev, [field]: value }));
   };
 
+  const handleCopyBom = (materials: MaterialInstance[], accessories: AccessoryInstance[]) => {
+    setOrder(prev => {
+      // Create new UUIDs for the copied items to avoid key collisions
+      const newMaterials = materials.map(m => ({ ...m, id: crypto.randomUUID() }));
+      const newAccessories = accessories.map(a => ({ ...a, id: crypto.randomUUID() }));
+      
+      // we can merge or replace. the prompt asks to copy BOM. replacing is safer.
+      return {
+        ...prev,
+        materials: newMaterials,
+        accessories: newAccessories
+      };
+    });
+    setIsCopyBomOpen(false);
+  };
+
   const usedSizes = order.sizes.map((s) => s.size);
-  const availableSizes = PREDEFINED_SIZES.filter((s) => !usedSizes.includes(s));
+  const allSizes = getAvailableSizes();
+  const availableSizes = allSizes.filter((s) => !usedSizes.includes(s));
 
   const fabricSummary = calculateFabricAnalysis(order, order.cutData);
   return (
@@ -440,30 +464,103 @@ export function ProductionOrderForm({
               <h3 className="text-lg font-bold text-slate-800">
                 جدول المقاسات والألوان
               </h3>
-              {!isReadOnly && availableSizes.length > 0 && (
+              {!isReadOnly && (
                 <div className="relative" ref={addSizeRef}>
                   <button
                     type="button"
-
-                    onClick={() => setIsAddSizeOpen((prev) => !prev)}
+                    onClick={() => {
+                      setIsAddSizeOpen((prev) => !prev);
+                      setIsCustomSize(false);
+                      setTempSize('');
+                    }}
                     className="flex items-center gap-1.5 bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-xs"
                   >
                     <Plus className="w-4 h-4" />
                     إضافة مقاس
                   </button>
                   {isAddSizeOpen && (
-                    <div className="absolute top-full left-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1 max-h-60 overflow-y-auto">
-                      {availableSizes.map((sz) => (
-                        <button
-                          type="button"
-                          key={sz}
-
-                          onClick={() => handleAddSize(sz)}
-                          className="w-full text-right px-4 py-2 text-sm hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
-                        >
-                          المقاس {sz}
-                        </button>
-                      ))}
+                    <div className="absolute top-full left-0 mt-1 w-64 bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1 overflow-hidden flex flex-col max-h-[500px]">
+                      {!isCustomSize ? (
+                        <div className="overflow-y-auto flex-1">
+                          <button
+                            type="button"
+                            onClick={() => setIsCustomSize(true)}
+                            className="w-full text-right px-4 py-2 text-sm font-bold bg-indigo-50 text-indigo-700 hover:bg-indigo-100 transition-colors"
+                          >
+                            -- إدخال مقاس يدوياً --
+                          </button>
+                          <div className="border-b border-slate-100 my-1"></div>
+                          {availableSizes.map((sz) => (
+                            <button
+                              type="button"
+                              key={sz}
+                              onClick={() => {
+                                handleAddSize(sz);
+                                setIsAddSizeOpen(false);
+                              }}
+                              className="w-full text-right px-4 py-2 text-sm hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                            >
+                              المقاس {sz}
+                            </button>
+                          ))}
+                          {availableSizes.length === 0 && (
+                            <div className="px-4 py-2 text-sm text-slate-400">لا توجد مقاسات متاحة</div>
+                          )}
+                        </div>
+                      ) : (
+                        <div className="p-2 bg-slate-50">
+                          <label className="block text-xs font-semibold text-slate-600 mb-1">اسم المقاس الجديد</label>
+                          <div className="relative flex items-center">
+                            <input
+                              type="text"
+                              value={tempSize}
+                              onChange={(e) => setTempSize(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  const trimmed = tempSize.trim();
+                                  if (trimmed) {
+                                    addCustomSize(trimmed);
+                                    handleAddSize(trimmed);
+                                    setIsAddSizeOpen(false);
+                                    setIsCustomSize(false);
+                                  }
+                                } else if (e.key === 'Escape') {
+                                  setIsCustomSize(false);
+                                }
+                              }}
+                              placeholder="اكتب المقاس..."
+                              autoFocus
+                              className="w-full pr-2 pl-16 py-1.5 border border-slate-300 rounded-md text-sm font-medium focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                            />
+                            <div className="absolute left-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const trimmed = tempSize.trim();
+                                  if (trimmed) {
+                                    addCustomSize(trimmed);
+                                    handleAddSize(trimmed);
+                                    setIsAddSizeOpen(false);
+                                    setIsCustomSize(false);
+                                  }
+                                }}
+                                disabled={!tempSize.trim()}
+                                className="p-1 text-emerald-600 hover:bg-emerald-100 rounded-md disabled:opacity-50 transition-colors"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setIsCustomSize(false)}
+                                className="p-1 text-slate-400 hover:text-slate-600 hover:bg-slate-200 rounded-md transition-colors"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -509,11 +606,34 @@ export function ProductionOrderForm({
             </div>
           </div>
 
+
+          <div className="flex justify-between items-center mt-8 mb-4">
+            <h2 className="text-xl font-bold text-slate-800">قائمة الخامات والإكسسوارات (BOM)</h2>
+            {!isReadOnly && (
+              <button
+                type="button"
+                onClick={() => setIsCopyBomOpen(true)}
+                className="flex items-center gap-2 bg-white text-indigo-600 border border-indigo-200 hover:bg-indigo-50 px-4 py-2 rounded-lg transition-colors font-medium text-sm shadow-sm"
+              >
+                <Copy className="w-4 h-4" />
+                نسخ من أمر سابق
+              </button>
+            )}
+          </div>
+          
           <BomSection
             order={order}
             onChange={handleBomChange}
             readOnly={isReadOnly}
           />
+          
+          <CopyBomModal 
+            isOpen={isCopyBomOpen}
+            onClose={() => setIsCopyBomOpen(false)}
+            onSelect={handleCopyBom}
+            currentOrderId={order.id}
+          />
+
           {fabricSummary && (
             <div className="mt-8">
               <FabricSummary summary={fabricSummary} />

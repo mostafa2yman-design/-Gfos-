@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { SizeData, PREDEFINED_COLORS, Variant } from '../../types';
+import { SizeData, Variant } from '../../types';
+import { getAvailableColors } from '../../lib/colors';
 import { VariantRow } from './VariantRow';
 import { Plus, Trash2, Copy } from 'lucide-react';
 
@@ -51,7 +52,8 @@ export function SizeCard({
 
   // Colors that are not yet selected in this size
   const selectedColors = sizeData.variants.map(v => v.color).filter(Boolean);
-  const availableColors = PREDEFINED_COLORS.filter(c => !selectedColors.includes(c));
+  const allAvailable = getAvailableColors();
+  const availableColors = allAvailable.filter(c => !selectedColors.includes(c));
 
   return (
     <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
@@ -121,7 +123,7 @@ export function SizeCard({
       <div className="p-5 space-y-3">
         {sizeData.variants.map((variant, idx) => (
           <VariantRow
-            key={variant.color || idx}
+            key={idx}
             variant={variant}
             availableColors={availableColors}
             onChange={(field, value) => onUpdateVariant(idx, field, value)}
@@ -130,7 +132,7 @@ export function SizeCard({
           />
         ))}
 
-        {!readOnly && availableColors.length > 0 && (
+        {!readOnly && (
           <button
             type="button"
             onClick={onAddVariant}

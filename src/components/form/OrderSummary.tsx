@@ -37,9 +37,10 @@ export function OrderSummary({ sizes, actualSizes }: OrderSummaryProps) {
   if (actualSizes) {
     actualSizes.forEach(size => {
       let currentSizeTotal = 0;
-      size.variants.forEach(variant => {
-        if (variant.color && variant.quantity) {
-          const qty = Number(variant.quantity) || 0;
+      size.variants.forEach((variant: any) => {
+        const actualQty = variant.actualQuantity !== undefined ? variant.actualQuantity : variant.quantity;
+        if (variant.color && actualQty !== undefined) {
+          const qty = Number(actualQty) || 0;
           actualColorTotals[variant.color] = (actualColorTotals[variant.color] || 0) + qty;
           currentSizeTotal += qty;
           actualGrandTotal += qty;

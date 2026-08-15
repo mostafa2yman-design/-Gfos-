@@ -423,12 +423,14 @@ export function ProductionOrderForm({
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2 space-y-6">
-          <OrderBasicInfo
+                    <OrderBasicInfo
             orderNumber={order.orderNumber}
             orderDate={order.orderDate}
             styleName={order.styleName}
             category={order.category}
             customerName={order.customerName}
+            printEmbroideryStandardCost={order.printEmbroideryStandardCost}
+            standardSewingCostPerPiece={order.standardSewingCostPerPiece}
             onChange={handleBasicInfoChange}
             readOnly={isReadOnly}
           />
@@ -521,7 +523,7 @@ export function ProductionOrderForm({
 
         <div className="xl:col-span-1">
           <div className="sticky top-6">
-            <OrderSummary sizes={order.sizes} actualSizes={(order.status !== "جديد" && order.status !== "باتشات مسجلة" && order.cutData?.sizes) ? order.cutData.sizes : undefined} />
+            <OrderSummary sizes={order.sizes} actualSizes={(['القص معتمد', 'تقسيم الباتشات', 'الباتشات مثبتة', 'التجهيز جاري', 'التجهيز مكتمل', 'الطباعة والتطريز جاري', 'الطباعة والتطريز مكتمل', 'مغلق'].includes(order.status) && order.cutData?.sizes) ? order.cutData.sizes : undefined} />
             <CostAnalysisSummary order={order} />
 
             {!isReadOnly && order.status === "مسودة" && (

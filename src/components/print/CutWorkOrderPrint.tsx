@@ -7,18 +7,8 @@ interface Props {
 
 export const CutWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order }, ref) => {
   return (
-    <div ref={ref} className="print-only hidden print:block text-black bg-white" dir="rtl">
-      <style dangerouslySetInnerHTML={{__html: `
-        @media print {
-          body * { visibility: hidden; }
-          .print-only, .print-only * { visibility: visible; }
-          .print-only { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; font-family: 'Cairo', sans-serif; }
-          @page { size: A4; margin: 15mm; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-          th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; color-adjust: exact; }
-        }
-      `}} />
+    <div ref={ref} className="gfos-print-document print-only hidden print:block text-black bg-white" dir="rtl">
+      
       {/* Header */}
       <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-6">
         <div>

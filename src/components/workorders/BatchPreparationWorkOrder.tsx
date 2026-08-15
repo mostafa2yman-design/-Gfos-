@@ -19,7 +19,7 @@ export const BatchPreparationWorkOrder: React.FC<Props> = ({ order, batch }) => 
   });
 
   return (
-    <div className="print-only hidden print:block text-black bg-white" dir="rtl">
+    <div className="gfos-print-document print-only hidden print:block text-black bg-white" dir="rtl">
       {/* Header */}
       <div className="border-b-2 border-slate-800 pb-4 mb-6 text-center">
         <h1 className="text-3xl font-bold text-slate-800 mb-2">GFOS</h1>
@@ -92,7 +92,7 @@ export const BatchPreparationWorkOrder: React.FC<Props> = ({ order, batch }) => 
                 // Round required to 3 decimal places if needed, otherwise no decimals
                 const roundedRequired = acc.requiredForBatch % 1 === 0 
                   ? acc.requiredForBatch 
-                  : Number(acc.requiredForBatch.toFixed(3));
+                  : Number(Number(acc.requiredForBatch).toFixed(3));
                   
                 return (
                   <tr key={acc.accessoryId || acc.accessoryName}>
@@ -150,13 +150,7 @@ export const BatchPreparationWorkOrder: React.FC<Props> = ({ order, batch }) => 
       </div>
       
       {/* Ensure printing properties */}
-      <style dangerouslySetInnerHTML={{__html: `
-        @media print {
-          @page { size: A4; margin: 20mm; }
-          body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-          .print\\:hidden { display: none !important; }
-        }
-      `}} />
+      
     </div>
   );
 };

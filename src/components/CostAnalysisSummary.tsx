@@ -12,7 +12,7 @@ export function CostAnalysisSummary({ order }: CostAnalysisSummaryProps) {
 
   const formatCurrency = (val: number | null | undefined) => {
     if (val === null || val === undefined || isNaN(val)) return "غير متاحة";
-    return `${val.toFixed(2)} جنيه`;
+    return `${Number(val).toFixed(2)} جنيه`;
   };
 
   const getDeviationColor = (val: number | null) => {
@@ -37,18 +37,18 @@ export function CostAnalysisSummary({ order }: CostAnalysisSummaryProps) {
     return (
       <tr key={label}>
         <td className="px-4 py-3 text-slate-600 font-medium">{label}</td>
-        <td className="px-4 py-3 text-slate-800">{standard.toFixed(2)}</td>
+        <td className="px-4 py-3 text-slate-800">{Number(standard).toFixed(2)}</td>
         <td className="px-4 py-3 text-slate-800">
-          {actual !== null ? actual.toFixed(2) : "—"}
+          {actual !== null ? Number(actual).toFixed(2) : "—"}
         </td>
         <td className={`px-4 py-3 font-bold ${getDeviationColor(deviation)}`}>
           {deviation !== null
-            ? (deviation > 0 ? "+" : "") + deviation.toFixed(2)
+            ? (deviation > 0 ? "+" : "") + Number(deviation).toFixed(2)
             : "—"}
         </td>
         <td className={`px-4 py-3 font-bold ${getDeviationColor(deviationPct)}`}>
           {deviationPct !== null
-            ? (deviationPct > 0 ? "+" : "") + deviationPct.toFixed(2) + "%"
+            ? (deviationPct > 0 ? "+" : "") + Number(deviationPct).toFixed(2) + "%"
             : "—"}
         </td>
       </tr>
@@ -128,7 +128,7 @@ export function CostAnalysisSummary({ order }: CostAnalysisSummaryProps) {
               )}`}
             >
               {analysis.deviationPercentage > 0 ? "+" : ""}
-              {analysis.deviationPercentage.toFixed(2)}%
+              {Number(analysis.deviationPercentage).toFixed(2)}%
             </p>
           ) : (
             <p className="text-lg font-bold text-slate-500 mt-1">غير متاح</p>
@@ -165,11 +165,11 @@ export function CostAnalysisSummary({ order }: CostAnalysisSummaryProps) {
               <tr className="bg-slate-50">
                 <td className="px-4 py-3 font-bold text-slate-800">الإجمالي</td>
                 <td className="px-4 py-3 font-bold text-slate-800">
-                  {analysis.totalStandardPerPiece.toFixed(2)}
+                  {Number(analysis.totalStandardPerPiece).toFixed(2)}
                 </td>
                 <td className="px-4 py-3 font-bold text-slate-800">
                   {analysis.isActualComplete && analysis.totalActualPerPiece !== null 
-                    ? analysis.totalActualPerPiece.toFixed(2) 
+                    ? Number(analysis.totalActualPerPiece).toFixed(2) 
                     : "—"}
                 </td>
                 <td
@@ -179,7 +179,7 @@ export function CostAnalysisSummary({ order }: CostAnalysisSummaryProps) {
                 >
                   {analysis.deviationValue !== null
                     ? (analysis.deviationValue > 0 ? "+" : "") +
-                      analysis.deviationValue.toFixed(2)
+                      Number(analysis.deviationValue).toFixed(2)
                     : "—"}
                 </td>
                 <td
@@ -189,7 +189,7 @@ export function CostAnalysisSummary({ order }: CostAnalysisSummaryProps) {
                 >
                   {analysis.deviationPercentage !== null
                     ? (analysis.deviationPercentage > 0 ? "+" : "") +
-                      analysis.deviationPercentage.toFixed(2) +
+                      Number(analysis.deviationPercentage).toFixed(2) +
                       "%"
                     : "—"}
                 </td>

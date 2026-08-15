@@ -1,1 +1,43 @@
 @import "tailwindcss";
+
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 25mm;
+  }
+
+  html, body {
+    background: white !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .gfos-print-document {
+    width: 100%;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: white;
+    color: black;
+  }
+
+  .gfos-print-document table {
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .gfos-print-document thead {
+    display: table-header-group;
+  }
+
+  .gfos-print-document tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .page-break {
+    page-break-after: always;
+    break-after: page;
+  }
+}

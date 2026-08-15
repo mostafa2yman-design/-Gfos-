@@ -11,20 +11,8 @@ export const PrintEmbroideryWorkOrder: React.FC<Props> = ({ order, batch }) => {
   batch.sizes.forEach(s => s.variants.forEach(v => totalQuantity += v.quantity));
 
   return (
-    <div className="print-only hidden print:block text-black bg-white" dir="rtl">
-      <style dangerouslySetInnerHTML={{__html: `
-        @media print {
-          body * { visibility: hidden; }
-          .print-only, .print-only * { visibility: visible; }
-          .print-only { position: absolute; left: 0; top: 0; width: 100%; padding: 20px; font-family: 'Cairo', sans-serif; }
-          @page { size: A4; margin: 15mm; }
-          .page-break { page-break-after: always; }
-          table { width: 100%; border-collapse: collapse; }
-          th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-          th { background-color: #f3f4f6 !important; -webkit-print-color-adjust: exact; color-adjust: exact; }
-          .header-title { text-align: center; font-size: 24px; font-weight: bold; margin-bottom: 20px; border-bottom: 2px solid #000; padding-bottom: 10px; }
-        }
-      `}} />
+    <div className="gfos-print-document print-only hidden print:block text-black bg-white" dir="rtl">
+      
 
       <div className="header-title">
         <h1>GFOS</h1>

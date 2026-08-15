@@ -113,7 +113,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 </p>
                 {costMetrics.totalStandardQty > 0 ? (
                   <p className="text-3xl font-bold text-indigo-700">
-                    {costMetrics.averageStandardUnitCost.toFixed(2)}{" "}
+                    {Number(costMetrics.averageStandardUnitCost).toFixed(2)}{" "}
                     <span className="text-sm text-slate-500 font-normal">
                       جنيه
                     </span>
@@ -132,7 +132,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <div className="text-xs text-slate-500 space-y-1 bg-slate-50 p-2 rounded">
                 <p>
                   إجمالي التكلفة المعيارية:{" "}
-                  {costMetrics.totalStandardCost.toFixed(2)} جنيه
+                  {Number(costMetrics.totalStandardCost).toFixed(2)} جنيه
                 </p>
                 <p>الكمية المعيارية: {costMetrics.totalStandardQty} قطعة</p>
               </div>

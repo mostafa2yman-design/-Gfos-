@@ -7,7 +7,7 @@ interface Props {
 
 export const PrepWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order }, ref) => {
   return (
-    <div ref={ref} className="p-8 bg-white text-black w-full" dir="rtl" style={{ minHeight: '297mm' }}>
+    <div ref={ref} className="gfos-print-document bg-white text-black w-full" dir="rtl">
       <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold">أمر تشغيل تجهيز</h1>

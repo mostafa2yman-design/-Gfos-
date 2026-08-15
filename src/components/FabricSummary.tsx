@@ -8,27 +8,27 @@ interface Props {
 export const FabricSummary: React.FC<Props> = ({ summary }) => {
   const formatNum = (num: number | null | undefined, decimals = 3) => {
     if (num === null || num === undefined) return '—';
-    return num.toFixed(decimals);
+    return Number(num).toFixed(decimals);
   };
 
   const formatCost = (num: number | null | undefined) => {
     if (num === null || num === undefined) return '—';
-    return `${num.toFixed(2)} ج.م`;
+    return `${Number(num).toFixed(2)} ج.م`;
   };
 
   const formatPercent = (num: number | null | undefined) => {
     if (num === null || num === undefined) return '—';
-    return `${num > 0 ? '+' : ''}${num.toFixed(2)}%`;
+    return `${num > 0 ? '+' : ''}${Number(num).toFixed(2)}%`;
   };
 
   const formatDiff = (num: number | null | undefined) => {
     if (num === null || num === undefined) return '—';
-    return `${num > 0 ? '+' : ''}${num.toFixed(3)}`;
+    return `${num > 0 ? '+' : ''}${Number(num).toFixed(3)}`;
   };
   
   const formatDiffCost = (num: number | null | undefined) => {
     if (num === null || num === undefined) return '—';
-    return `${num > 0 ? '+' : ''}${num.toFixed(2)} ج.م`;
+    return `${num > 0 ? '+' : ''}${Number(num).toFixed(2)} ج.م`;
   };
 
   return (

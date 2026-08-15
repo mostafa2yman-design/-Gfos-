@@ -163,10 +163,10 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
                   <td className="px-4 py-3 text-slate-600">{mat.type || '—'}</td>
                   <td className="px-4 py-3 font-medium text-slate-800">{mat.name || '—'}</td>
                   <td className="px-4 py-3 text-center text-slate-600">{mat.unit || '—'}</td>
-                  <td className="px-4 py-3 text-center font-bold text-slate-700">{mat.standardPrice ? mat.standardPrice.toFixed(2) : '—'}</td>
+                  <td className="px-4 py-3 text-center font-bold text-slate-700">{mat.standardPrice ? Number(mat.standardPrice).toFixed(2) : '—'}</td>
                   <td className="px-4 py-3 text-center text-indigo-700">{stdDisplay}</td>
-                  <td className="px-4 py-3 text-center font-bold text-emerald-700">{totalReq.toFixed(3)}</td>
-                  <td className="px-4 py-3 text-center font-bold text-slate-800">{totalPrice > 0 ? totalPrice.toFixed(2) : '—'}</td>
+                  <td className="px-4 py-3 text-center font-bold text-emerald-700">{Number(totalReq).toFixed(3)}</td>
+                  <td className="px-4 py-3 text-center font-bold text-slate-800">{totalPrice > 0 ? Number(totalPrice).toFixed(2) : '—'}</td>
                 </tr>
               );
             })}
@@ -218,7 +218,7 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
                   <td className="px-4 py-3 font-medium text-slate-800">{acc.name || '—'}</td>
                   <td className="px-4 py-3 text-center text-slate-600">{acc.unit || '—'}</td>
                   <td className="px-4 py-3 text-center text-indigo-700">{stdDisplay}</td>
-                  <td className="px-4 py-3 text-center font-bold text-emerald-700">{totalReq.toFixed(3)}</td>
+                  <td className="px-4 py-3 text-center font-bold text-emerald-700">{Number(totalReq).toFixed(3)}</td>
                 </tr>
               );
             })}

@@ -20,7 +20,7 @@ export const SewingWorkOrder = forwardRef<HTMLDivElement, Props>(({ order, batch
     : sData?.externalManufacturer || 'لم يحدد';
 
   return (
-    <div ref={ref} className="p-8 bg-white text-black w-full" dir="rtl" style={{ minHeight: '297mm' }}>
+    <div ref={ref} className="gfos-print-document bg-white text-black w-full" dir="rtl">
       <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-6 text-center">
         <div>
           <h1 className="text-2xl font-bold">إيصال استلام / تسليم خياطة</h1>

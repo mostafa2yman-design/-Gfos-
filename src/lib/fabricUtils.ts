@@ -123,7 +123,7 @@ export function calculateFabricAnalysis(order: ProductionOrder, cutData?: CutOrd
       color,
       plannedPieces: data.planned,
       actualPieces: data.actualPieces,
-      standardWeightStr: isUnified ? fabric.unifiedStandard.toString() : avgStdWeight.toFixed(3),
+      standardWeightStr: isUnified ? fabric.unifiedStandard.toString() : Number(avgStdWeight).toFixed(3),
       requiredFabric: data.requiredFabric,
       actualFabric: data.actualFabric,
       variance,

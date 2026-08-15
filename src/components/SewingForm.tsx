@@ -217,7 +217,7 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                                       : (sData.manufacturingType === "تصنيع خارجي" 
                                           ? (sData.externalManufacturer || "—") 
                                           : "—");
-                      const price = sData.actualCostPerPiece !== undefined ? sData.actualCostPerPiece.toFixed(2) : "—";
+                      const price = sData.actualCostPerPiece !== undefined ? Number(sData.actualCostPerPiece).toFixed(2) : "—";
                       
                       return (
                         <tr key={batch.id}>
@@ -265,7 +265,7 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                   <div className="text-sm">
                     <span className="text-slate-500 ml-2">نسبة التنفيذ:</span>
                     <span className={`font-bold ${completionRatio >= 100 ? 'text-emerald-600' : 'text-amber-600'}`}>
-                      {completionRatio.toFixed(2)}%
+                      {Number(completionRatio).toFixed(2)}%
                     </span>
                   </div>
                   <div className="text-sm bg-white px-3 py-1 rounded-full border border-slate-200 shadow-sm">

@@ -299,7 +299,7 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
                                 const roundedRequired =
                                   acc.requiredForBatch % 1 === 0
                                     ? acc.requiredForBatch
-                                    : Number(acc.requiredForBatch.toFixed(3));
+                                    : Number(Number(acc.requiredForBatch).toFixed(3));
 
                                 return (
                                   <tr

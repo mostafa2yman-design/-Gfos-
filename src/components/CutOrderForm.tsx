@@ -157,7 +157,8 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
   });
 
   return (
-    <div className="space-y-6">
+    <div className="relative">
+      <div className="space-y-6 print:hidden">
       <ConfirmDialog
         isOpen={confirmConfig?.isOpen || false}
         message={confirmConfig?.message || ""}
@@ -346,8 +347,9 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
           <FabricSummary summary={fabricSummary} />
         </div>
       )}
-            {isPrinting && (
-        <div className="print:block hidden print:absolute print:inset-0">
+      </div>
+      {isPrinting && (
+        <div className="hidden print:block absolute top-0 left-0 w-full bg-white z-50">
           <CutWorkOrderPrint order={order} />
         </div>
       )}

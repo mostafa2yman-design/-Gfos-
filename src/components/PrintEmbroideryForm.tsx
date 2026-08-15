@@ -10,7 +10,7 @@ import { getOrderById } from "../lib/storage";
 import * as Cmd from "../lib/productionOrderCommands";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Toast } from "./ui/Toast";
-import { Check, Save, Printer } from "lucide-react";
+import { Check, Save, Printer, Copy } from "lucide-react";
 import { PrintEmbroideryWorkOrder } from "./workorders/PrintEmbroideryWorkOrder";
 
 interface Props {
@@ -30,6 +30,7 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
     message: string;
     type: "success" | "error" | "info";
   } | null>(null);
+  const [printingBatchId, setPrintingBatchId] = useState<string | null>(null);
 
   useEffect(() => {
     const found = getOrderById(orderId);
@@ -81,6 +82,25 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
         return b;
       }),
     );
+  };
+
+
+  const handleCopyDetails = (sourceBatchId: string) => {
+    const sourceBatch = batches.find(b => b.id === sourceBatchId);
+    if (!sourceBatch) return;
+
+    const updatedBatches = batches.map(b => {
+      if (b.id === sourceBatchId) return b;
+      return {
+        ...b,
+        executionType: sourceBatch.executionType,
+        printDetails: sourceBatch.printDetails ? { ...sourceBatch.printDetails } : undefined,
+        embroideryDetails: sourceBatch.embroideryDetails ? { ...sourceBatch.embroideryDetails } : undefined,
+        printEmbroideryCost: sourceBatch.printEmbroideryCost ? { ...sourceBatch.printEmbroideryCost } : undefined
+      };
+    });
+    setBatches(updatedBatches);
+    setToastConfig({ message: "تم نسخ تفاصيل الطباعة والتطريز لجميع الباتشات بنجاح", type: "success" });
   };
 
   const handleCostChange = (
@@ -204,12 +224,17 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
     });
   };
 
-  const printDocument = () => {
-    window.print();
+  const printDocument = (batchId: string) => {
+    setPrintingBatchId(batchId);
+    setTimeout(() => {
+      window.print();
+      setPrintingBatchId(null);
+    }, 100);
   };
 
   return (
-    <div className="space-y-6">
+    <div className="relative">
+      <div className={`space-y-6 print:hidden ${printingBatchId ? "hidden" : ""}`}>
       <ConfirmDialog
         isOpen={confirmConfig?.isOpen || false}
         message={confirmConfig?.message || ""}
@@ -224,9 +249,6 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
         />
       )}
 
-      <PrintEmbroideryWorkOrder order={{ ...order, batches }} />
-
-      <div className="space-y-6 p-6 print:hidden">
         <div className="flex flex-col md:flex-row md:justify-between md:items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-4">
           <div>
             <h3 className="text-lg font-bold text-slate-800">
@@ -237,13 +259,7 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
             </p>
           </div>
           <div className="flex flex-wrap gap-3">
-            <button
-              onClick={printDocument}
-              className="flex items-center justify-center gap-2 bg-slate-100 text-slate-700 border border-slate-200 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors shadow-sm font-medium text-sm flex-1 md:flex-none"
-            >
-              <Printer className="w-4 h-4" />
-              طباعة أمر تشغيل
-            </button>
+
             {!isReadOnly && (
               <>
                 <button
@@ -265,7 +281,8 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="relative">
+      <div className={`space-y-6 print:hidden ${printingBatchId ? "hidden" : ""}`}>
           {batches.map((batch) => {
             let totalQuantity = 0;
             batch.sizes.forEach((s) =>
@@ -633,6 +650,10 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
           })}
         </div>
       </div>
+      </div>
+      {printingBatchId && (
+        <PrintEmbroideryWorkOrder order={order} batch={batches.find((b) => b.id === printingBatchId)!} />
+      )}
     </div>
   );
 };

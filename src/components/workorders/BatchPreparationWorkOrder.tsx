@@ -19,7 +19,7 @@ export const BatchPreparationWorkOrder: React.FC<Props> = ({ order, batch }) => 
   });
 
   return (
-    <div className="block p-8 bg-white" dir="rtl">
+    <div className="print-only hidden print:block text-black bg-white" dir="rtl">
       {/* Header */}
       <div className="border-b-2 border-slate-800 pb-4 mb-6 text-center">
         <h1 className="text-3xl font-bold text-slate-800 mb-2">GFOS</h1>

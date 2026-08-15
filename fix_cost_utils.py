@@ -1,101 +1,12 @@
-import { calculateFabricAnalysis, getPrimaryFabric } from './fabricUtils';
-import { ProductionOrder } from '../types';
+import re
 
-export interface GlobalCostMetrics {
-  totalStandardCost: number;
-  totalStandardQty: number;
-  averageStandardUnitCost: number;
-  isActualComplete: boolean;
-}
+with open('src/lib/costUtils.ts', 'r') as f:
+    content = f.read()
 
-export function calculateGlobalCostMetrics(orders: ProductionOrder[]): GlobalCostMetrics {
-  let totalStandardCost = 0;
-  let totalStandardQty = 0;
+# I will replace the calculateOrderCostAnalysis function entirely.
+# Also I need to import calculateFabricAnalysis and getPrimaryFabric
 
-  orders.forEach(order => {
-    // 1. Calculate Standard Quantities per size for the order
-    const sizeQuantities: Record<string, number> = {};
-    order.sizes?.forEach(s => {
-      let sQty = 0;
-      s.variants?.forEach(v => {
-        sQty += v.quantity;
-        totalStandardQty += v.quantity;
-      });
-      sizeQuantities[s.size] = sQty;
-    });
-
-    // 2. Calculate Standard Materials Cost
-    order.materials?.forEach(mat => {
-      const price = mat.standardPrice || 0;
-      order.sizes?.forEach(s => {
-        const sQty = sizeQuantities[s.size] || 0;
-        const std = mat.standardMethod === 'موحد' 
-          ? (mat.unifiedStandard || 0)
-          : (mat.sizeStandards?.find(ss => ss.size === s.size)?.standard || 0);
-        totalStandardCost += (sQty * std * price);
-      });
-    });
-
-    // 3. Calculate Standard Accessories Cost
-    order.accessories?.forEach(acc => {
-      const price = acc.standardPrice || 0;
-      order.sizes?.forEach(s => {
-        const sQty = sizeQuantities[s.size] || 0;
-        const std = acc.standardMethod === 'موحد' 
-          ? (acc.unifiedStandard || 0)
-          : (acc.sizeStandards?.find(ss => ss.size === s.size)?.standard || 0);
-        totalStandardCost += (sQty * std * price);
-      });
-    });
-
-    // 4. Calculate Standard Print/Embroidery Cost
-    let orderTotalQty = 0;
-    order.sizes?.forEach(s => {
-      s.variants?.forEach(v => { orderTotalQty += v.quantity; });
-    });
-    totalStandardCost += (order.printEmbroideryStandardCost || 0) * orderTotalQty;
-
-    // 5. Calculate Standard Sewing Cost
-    totalStandardCost += (order.standardSewingCostPerPiece || 0) * orderTotalQty;
-
-
-  });
-
-  const averageStandardUnitCost = totalStandardQty > 0 ? (totalStandardCost / totalStandardQty) : 0;
-
-  return {
-    totalStandardCost,
-    totalStandardQty,
-    averageStandardUnitCost,
-    isActualComplete: false // We don't have actual prices or full actual consumption in the current system
-  };
-}
-
-export interface CostComponent {
-  standardTotal: number;
-  standardPerPiece: number;
-  actualTotal: number | null;
-  actualPerPiece: number | null;
-  isActualAvailable: boolean;
-}
-
-export interface OrderCostAnalysis {
-  standardQty: number;
-  actualQty: number;
-  
-  fabric: CostComponent;
-  accessories: CostComponent;
-  printEmbroidery: CostComponent;
-  sewing: CostComponent;
-  
-  totalStandardPerPiece: number;
-  totalActualPerPiece: number | null;
-  
-  deviationValue: number | null;
-  deviationPercentage: number | null;
-  isActualComplete: boolean;
-}
-
+new_func = """import { calculateFabricAnalysis, getPrimaryFabric } from './fabricUtils';
 
 export function calculateOrderCostAnalysis(order: ProductionOrder): OrderCostAnalysis {
   let standardQty = 0;
@@ -317,4 +228,15 @@ export function calculateOrderCostAnalysis(order: ProductionOrder): OrderCostAna
     deviationPercentage,
     isActualComplete
   };
-}
+}"""
+
+# We need to insert the import at the top if it's not there, and replace the function.
+if "import { calculateFabricAnalysis" not in content:
+    content = "import { calculateFabricAnalysis, getPrimaryFabric } from './fabricUtils';\n" + content
+
+# Replace function
+content = re.sub(r'export function calculateOrderCostAnalysis\(order: ProductionOrder\): OrderCostAnalysis \{.*', new_func, content, flags=re.DOTALL)
+
+with open('src/lib/costUtils.ts', 'w') as f:
+    f.write(content)
+

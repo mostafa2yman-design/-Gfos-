@@ -184,8 +184,60 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
           لا توجد باتشات في هذا الأمر.
         </div>
       ) : (
-        batches.map((batch) => {
-          const sData = batch.sewingData!;
+        <>
+          {batches.length > 1 && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-8">
+              <div className="bg-slate-50 px-6 py-4 border-b border-slate-200">
+                <h3 className="text-lg font-bold text-slate-800">ملخص أمر الخياطة</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-right">
+                  <thead className="bg-slate-50 text-slate-700">
+                    <tr>
+                      <th className="px-4 py-3 font-bold border-b">باتش</th>
+                      <th className="px-4 py-3 font-bold border-b">طريقة التصنيع</th>
+                      <th className="px-4 py-3 font-bold border-b">الجهة / المجموعة</th>
+                      <th className="px-4 py-3 font-bold border-b text-center">المطلوب</th>
+                      <th className="px-4 py-3 font-bold border-b text-center">الفعلي</th>
+                      <th className="px-4 py-3 font-bold border-b text-center">النقص</th>
+                      <th className="px-4 py-3 font-bold border-b text-center">السعر / قطعة</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {batches.map(batch => {
+                      const sData = batch.sewingData!;
+                      let bReq = 0;
+                      let bAct = 0;
+                      batch.sizes.forEach(bs => bs.variants.forEach(v => bReq += v.quantity));
+                      sData.actualQuantities.forEach(v => bAct += (v.actualQuantity || 0));
+                      const bMiss = bReq - bAct;
+                      const method = sData.manufacturingType || "—";
+                      const group = sData.manufacturingType === "تصنيع داخلي" 
+                                      ? (sData.sewingGroup || "—") 
+                                      : (sData.manufacturingType === "تصنيع خارجي" 
+                                          ? (sData.externalManufacturer || "—") 
+                                          : "—");
+                      const price = sData.actualCostPerPiece !== undefined ? sData.actualCostPerPiece.toFixed(2) : "—";
+                      
+                      return (
+                        <tr key={batch.id}>
+                          <td className="px-4 py-3 font-bold">{batch.batchNumber}</td>
+                          <td className="px-4 py-3 text-slate-600">{method}</td>
+                          <td className="px-4 py-3 text-slate-600">{group}</td>
+                          <td className="px-4 py-3 text-center">{bReq}</td>
+                          <td className="px-4 py-3 text-center text-indigo-700 font-bold">{bAct}</td>
+                          <td className="px-4 py-3 text-center text-amber-600 font-bold">{bMiss > 0 ? bMiss : "—"}</td>
+                          <td className="px-4 py-3 text-center text-emerald-700 font-bold">{price}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+          {batches.map((batch) => {
+            const sData = batch.sewingData!;
           let requiredTotal = 0;
           let actualTotal = 0;
           batch.sizes.forEach(bs => {
@@ -362,6 +414,12 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                             );
                           })
                         )}
+                        <tr className="bg-slate-50 font-bold border-t-2 border-slate-200">
+                          <td colSpan={2} className="px-4 py-3 text-slate-800 text-left">الإجمالي</td>
+                          <td className="px-4 py-3 text-slate-800">{requiredTotal}</td>
+                          <td className="px-4 py-3 text-indigo-700">{actualTotal}</td>
+                          <td className="px-4 py-3 text-amber-600">{missing}</td>
+                        </tr>
                       </tbody>
                     </table>
                   </div>
@@ -375,6 +433,8 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
             </div>
           );
         })
+        }
+        </>
       )}
 
       {!isReadOnly && batches.length > 0 && (

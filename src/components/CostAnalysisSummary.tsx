@@ -1,13 +1,7 @@
 import React from "react";
 import { ProductionOrder } from "../types";
 import { calculateOrderCostAnalysis } from "../lib/costUtils";
-import {
-  Calculator,
-  CircleDollarSign,
-  TrendingUp,
-  TrendingDown,
-  Minus,
-} from "lucide-react";
+import { Calculator, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 interface CostAnalysisSummaryProps {
   order: ProductionOrder;
@@ -35,8 +29,34 @@ export function CostAnalysisSummary({ order }: CostAnalysisSummaryProps) {
     return <Minus className="w-5 h-5 text-slate-400" />;
   };
 
+  const renderRow = (label: string, standard: number, actual: number | null) => {
+    const deviation = actual !== null ? actual - standard : null;
+    const deviationPct =
+      deviation !== null && standard > 0 ? (deviation / standard) * 100 : null;
+
+    return (
+      <tr key={label}>
+        <td className="px-4 py-3 text-slate-600 font-medium">{label}</td>
+        <td className="px-4 py-3 text-slate-800">{standard.toFixed(2)}</td>
+        <td className="px-4 py-3 text-slate-800">
+          {actual !== null ? actual.toFixed(2) : "—"}
+        </td>
+        <td className={`px-4 py-3 font-bold ${getDeviationColor(deviation)}`}>
+          {deviation !== null
+            ? (deviation > 0 ? "+" : "") + deviation.toFixed(2)
+            : "—"}
+        </td>
+        <td className={`px-4 py-3 font-bold ${getDeviationColor(deviationPct)}`}>
+          {deviationPct !== null
+            ? (deviationPct > 0 ? "+" : "") + deviationPct.toFixed(2) + "%"
+            : "—"}
+        </td>
+      </tr>
+    );
+  };
+
   return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mt-6">
+    <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-200 mt-6" dir="rtl">
       <h3 className="text-xl font-bold text-slate-800 mb-6 border-b pb-4 flex items-center gap-2">
         <Calculator className="w-6 h-6 text-indigo-600" />
         ملخص تكلفة الإنتاج
@@ -51,7 +71,6 @@ export function CostAnalysisSummary({ order }: CostAnalysisSummaryProps) {
             {formatCurrency(analysis.totalStandardPerPiece)}
           </p>
         </div>
-
         <div className="bg-slate-50 p-4 rounded-lg border border-slate-200">
           <p className="text-sm font-medium text-slate-500 mb-1">
             تكلفة القطعة الفعلية
@@ -64,9 +83,14 @@ export function CostAnalysisSummary({ order }: CostAnalysisSummaryProps) {
             <p className="text-lg font-bold text-slate-500 mt-1">غير مكتملة</p>
           )}
         </div>
-
         <div
-          className={`p-4 rounded-lg border ${analysis.deviationValue !== null && analysis.deviationValue > 0 ? "bg-red-50 border-red-100" : analysis.deviationValue !== null && analysis.deviationValue < 0 ? "bg-emerald-50 border-emerald-100" : "bg-slate-50 border-slate-200"}`}
+          className={`p-4 rounded-lg border ${
+            analysis.deviationValue !== null && analysis.deviationValue > 0
+              ? "bg-red-50 border-red-100"
+              : analysis.deviationValue !== null && analysis.deviationValue < 0
+              ? "bg-emerald-50 border-emerald-100"
+              : "bg-slate-50 border-slate-200"
+          }`}
         >
           <p className="text-sm font-medium text-slate-500 mb-1 flex items-center gap-1">
             الانحراف
@@ -74,7 +98,9 @@ export function CostAnalysisSummary({ order }: CostAnalysisSummaryProps) {
           </p>
           {analysis.deviationValue !== null ? (
             <p
-              className={`text-2xl font-bold ${getDeviationColor(analysis.deviationValue)}`}
+              className={`text-2xl font-bold ${getDeviationColor(
+                analysis.deviationValue
+              )}`}
             >
               {analysis.deviationValue > 0 ? "+" : ""}
               {formatCurrency(analysis.deviationValue)}
@@ -83,16 +109,23 @@ export function CostAnalysisSummary({ order }: CostAnalysisSummaryProps) {
             <p className="text-lg font-bold text-slate-500 mt-1">غير متاح</p>
           )}
         </div>
-
         <div
-          className={`p-4 rounded-lg border ${analysis.deviationPercentage !== null && analysis.deviationPercentage > 0 ? "bg-red-50 border-red-100" : analysis.deviationPercentage !== null && analysis.deviationPercentage < 0 ? "bg-emerald-50 border-emerald-100" : "bg-slate-50 border-slate-200"}`}
+          className={`p-4 rounded-lg border ${
+            analysis.deviationPercentage !== null && analysis.deviationPercentage > 0
+              ? "bg-red-50 border-red-100"
+              : analysis.deviationPercentage !== null && analysis.deviationPercentage < 0
+              ? "bg-emerald-50 border-emerald-100"
+              : "bg-slate-50 border-slate-200"
+          }`}
         >
           <p className="text-sm font-medium text-slate-500 mb-1">
             نسبة الانحراف
           </p>
           {analysis.deviationPercentage !== null ? (
             <p
-              className={`text-2xl font-bold ${getDeviationColor(analysis.deviationPercentage)}`}
+              className={`text-2xl font-bold ${getDeviationColor(
+                analysis.deviationPercentage
+              )}`}
             >
               {analysis.deviationPercentage > 0 ? "+" : ""}
               {analysis.deviationPercentage.toFixed(2)}%
@@ -103,201 +136,68 @@ export function CostAnalysisSummary({ order }: CostAnalysisSummaryProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div>
-          <h4 className="text-lg font-bold text-slate-800 mb-4">
-            تفاصيل التكلفة المعيارية للقطعة
-          </h4>
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="w-full text-sm text-right">
-              <thead className="bg-slate-50 text-slate-700">
-                <tr>
-                  <th className="px-4 py-3 font-bold border-b">عنصر التكلفة</th>
-                  <th className="px-4 py-3 font-bold border-b">
-                    التكلفة (جنيه)
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                <tr>
-                  <td className="px-4 py-3 text-slate-600">القماش</td>
-                  <td className="px-4 py-3 font-medium text-slate-800">
-                    {analysis.fabric.standardPerPiece.toFixed(2)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 text-slate-600">الإكسسوارات</td>
-                  <td className="px-4 py-3 font-medium text-slate-800">
-                    {analysis.accessories.standardPerPiece.toFixed(2)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 text-slate-600">
-                    الطباعة / التطريز
-                  </td>
-                  <td className="px-4 py-3 font-medium text-slate-800">
-                    {analysis.printEmbroidery.standardPerPiece.toFixed(2)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 text-slate-600">
-                    الخياطة
-                  </td>
-                  <td className="px-4 py-3 font-medium text-slate-800">
-                    {analysis.sewing.standardPerPiece.toFixed(2)}
-                  </td>
-                </tr>
-                <tr className="bg-slate-50">
-                  <td className="px-4 py-3 font-bold text-slate-800">
-                    الإجمالي المعياري
-                  </td>
-                  <td className="px-4 py-3 font-bold text-indigo-700">
-                    {analysis.totalStandardPerPiece.toFixed(2)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 text-slate-600">
-                    الخياطة
-                  </td>
-                  <td className="px-4 py-3">
-                    {analysis.sewing.standardPerPiece.toFixed(2)}
-                  </td>
-                  <td className="px-4 py-3">
-                    {formatCurrency(analysis.sewing.actualPerPiece)}
-                  </td>
-                  <td
-                    className={`px-4 py-3 font-bold ${getDeviationColor(analysis.sewing.actualPerPiece !== null ? analysis.sewing.actualPerPiece - analysis.sewing.standardPerPiece : null)}`}
-                  >
-                    {analysis.sewing.actualPerPiece !== null
-                      ? (analysis.sewing.actualPerPiece -
-                          analysis.sewing.standardPerPiece >
-                        0
-                          ? "+"
-                          : "") +
-                        (
-                          analysis.sewing.actualPerPiece -
-                          analysis.sewing.standardPerPiece
-                        ).toFixed(2)
-                      : "-"}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div>
-          <h4 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
-            تفاصيل التكلفة الفعلية للقطعة
-            {!analysis.isActualComplete && (
-              <span className="text-xs font-normal bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
-                غير مكتملة
-              </span>
-            )}
-          </h4>
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="w-full text-sm text-right">
-              <thead className="bg-slate-50 text-slate-700">
-                <tr>
-                  <th className="px-4 py-3 font-bold border-b">عنصر التكلفة</th>
-                  <th className="px-4 py-3 font-bold border-b">
-                    التكلفة (جنيه)
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                <tr>
-                  <td className="px-4 py-3 text-slate-600">القماش</td>
-                  <td className="px-4 py-3 font-medium text-slate-800">
-                    {formatCurrency(analysis.fabric.actualPerPiece)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 text-slate-600">الإكسسوارات</td>
-                  <td className="px-4 py-3 font-medium text-slate-800">
-                    {formatCurrency(analysis.accessories.actualPerPiece)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 text-slate-600">
-                    الطباعة / التطريز
-                  </td>
-                  <td className="px-4 py-3 font-medium text-slate-800">
-                    {formatCurrency(analysis.printEmbroidery.actualPerPiece)}
-                  </td>
-                </tr>
-                <tr>
-                  <td className="px-4 py-3 text-slate-600">
-                    الخياطة
-                  </td>
-                  <td className="px-4 py-3 font-medium text-slate-800">
-                    {formatCurrency(analysis.sewing.actualPerPiece)}
-                  </td>
-                </tr>
-                <tr className="bg-slate-50">
-                  <td className="px-4 py-3 font-bold text-slate-800">
-                    الإجمالي الفعلي
-                  </td>
-                  <td className="px-4 py-3 font-bold text-indigo-700">
-                    {analysis.isActualComplete
-                      ? formatCurrency(analysis.totalActualPerPiece)
-                      : "غير مكتمل"}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+      <div>
+        <h4 className="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+          تحليل التكلفة للقطعة
+          {!analysis.isActualComplete && (
+            <span className="text-xs font-normal bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
+              التكلفة الفعلية غير مكتملة
+            </span>
+          )}
+        </h4>
+        <div className="overflow-x-auto rounded-lg border border-slate-200">
+          <table className="w-full text-sm text-right whitespace-nowrap">
+            <thead className="bg-slate-50 text-slate-700">
+              <tr>
+                <th className="px-4 py-3 font-bold border-b">عنصر التكلفة</th>
+                <th className="px-4 py-3 font-bold border-b">المعياري / قطعة (جنيه)</th>
+                <th className="px-4 py-3 font-bold border-b">الفعلي / قطعة (جنيه)</th>
+                <th className="px-4 py-3 font-bold border-b">الانحراف (جنيه)</th>
+                <th className="px-4 py-3 font-bold border-b">نسبة الانحراف</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100">
+              {renderRow("القماش", analysis.fabric.standardPerPiece, analysis.fabric.actualPerPiece)}
+              {renderRow("الإكسسوارات", analysis.accessories.standardPerPiece, analysis.accessories.actualPerPiece)}
+              {renderRow("الطباعة / التطريز", analysis.printEmbroidery.standardPerPiece, analysis.printEmbroidery.actualPerPiece)}
+              {renderRow("الخياطة", analysis.sewing.standardPerPiece, analysis.sewing.actualPerPiece)}
+              
+              <tr className="bg-slate-50">
+                <td className="px-4 py-3 font-bold text-slate-800">الإجمالي</td>
+                <td className="px-4 py-3 font-bold text-slate-800">
+                  {analysis.totalStandardPerPiece.toFixed(2)}
+                </td>
+                <td className="px-4 py-3 font-bold text-slate-800">
+                  {analysis.isActualComplete && analysis.totalActualPerPiece !== null 
+                    ? analysis.totalActualPerPiece.toFixed(2) 
+                    : "—"}
+                </td>
+                <td
+                  className={`px-4 py-3 font-bold ${getDeviationColor(
+                    analysis.deviationValue
+                  )}`}
+                >
+                  {analysis.deviationValue !== null
+                    ? (analysis.deviationValue > 0 ? "+" : "") +
+                      analysis.deviationValue.toFixed(2)
+                    : "—"}
+                </td>
+                <td
+                  className={`px-4 py-3 font-bold ${getDeviationColor(
+                    analysis.deviationPercentage
+                  )}`}
+                >
+                  {analysis.deviationPercentage !== null
+                    ? (analysis.deviationPercentage > 0 ? "+" : "") +
+                      analysis.deviationPercentage.toFixed(2) +
+                      "%"
+                    : "—"}
+                </td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </div>
-
-      {/* Deviation Breakdown */}
-      {analysis.isActualComplete && (
-        <div className="mt-8">
-          <h4 className="text-lg font-bold text-slate-800 mb-4">
-            تحليل الانحراف التفصيلي
-          </h4>
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="w-full text-sm text-right">
-              <thead className="bg-slate-50 text-slate-700">
-                <tr>
-                  <th className="px-4 py-3 font-bold border-b">عنصر التكلفة</th>
-                  <th className="px-4 py-3 font-bold border-b">المعياري</th>
-                  <th className="px-4 py-3 font-bold border-b">الفعلي</th>
-                  <th className="px-4 py-3 font-bold border-b">الانحراف</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                <tr>
-                  <td className="px-4 py-3 text-slate-600">
-                    الطباعة / التطريز
-                  </td>
-                  <td className="px-4 py-3">
-                    {analysis.printEmbroidery.standardPerPiece.toFixed(2)}
-                  </td>
-                  <td className="px-4 py-3">
-                    {formatCurrency(analysis.printEmbroidery.actualPerPiece)}
-                  </td>
-                  <td
-                    className={`px-4 py-3 font-bold ${getDeviationColor(analysis.printEmbroidery.actualPerPiece !== null ? analysis.printEmbroidery.actualPerPiece - analysis.printEmbroidery.standardPerPiece : null)}`}
-                  >
-                    {analysis.printEmbroidery.actualPerPiece !== null
-                      ? (analysis.printEmbroidery.actualPerPiece -
-                          analysis.printEmbroidery.standardPerPiece >
-                        0
-                          ? "+"
-                          : "") +
-                        (
-                          analysis.printEmbroidery.actualPerPiece -
-                          analysis.printEmbroidery.standardPerPiece
-                        ).toFixed(2)
-                      : "-"}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

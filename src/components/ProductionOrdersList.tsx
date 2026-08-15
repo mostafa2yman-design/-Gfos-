@@ -105,13 +105,14 @@ export function ProductionOrdersList({ onEdit, onView }: ProductionOrdersListPro
         <div className="overflow-x-auto">
           <table className="w-full text-right">
             <thead className="bg-slate-50 border-b border-slate-200">
-              <tr>
-                <th className="px-6 py-4 text-sm font-semibold text-slate-600">رقم الأمر</th>
-                <th className="px-6 py-4 text-sm font-semibold text-slate-600">التاريخ</th>
-                <th className="px-6 py-4 text-sm font-semibold text-slate-600">القصة</th>
-                <th className="px-6 py-4 text-sm font-semibold text-slate-600">النوع</th>
+                            <tr>
+                <th className="px-6 py-4 text-sm font-semibold text-slate-600">أمر الإنتاج</th>
+                <th className="px-6 py-4 text-sm font-semibold text-slate-600">تاريخ الأمر</th>
                 <th className="px-6 py-4 text-sm font-semibold text-slate-600">العميل</th>
-                <th className="px-6 py-4 text-sm font-semibold text-slate-600">العدد الإجمالي</th>
+                <th className="px-6 py-4 text-sm font-semibold text-slate-600">الموديل</th>
+                <th className="px-6 py-4 text-sm font-semibold text-slate-600">الكمية المطلوبة</th>
+                <th className="px-6 py-4 text-sm font-semibold text-slate-600">الكمية المقصوصة</th>
+                <th className="px-6 py-4 text-sm font-semibold text-slate-600">الباتشات</th>
                 <th className="px-6 py-4 text-sm font-semibold text-slate-600">الحالة</th>
                 <th className="px-6 py-4 text-sm font-semibold text-slate-600 text-center">إجراءات</th>
               </tr>
@@ -182,7 +183,7 @@ export function ProductionOrdersList({ onEdit, onView }: ProductionOrdersListPro
                 })
               ) : (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-slate-500">
+                  <td colSpan={9} className="px-6 py-12 text-center text-slate-500">
                     لا توجد أوامر إنتاج مطابقة للبحث.
                   </td>
                 </tr>

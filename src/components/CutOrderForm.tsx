@@ -6,7 +6,6 @@ import {
   CutVariant,
 } from "../types";
 import { getOrderById } from "../lib/storage";
-import { useReactToPrint } from "react-to-print";
 import { CutWorkOrderPrint } from "./print/CutWorkOrderPrint";
 import * as Cmd from "../lib/productionOrderCommands";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
@@ -23,9 +22,15 @@ interface CutOrderFormProps {
 
 export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
   const [order, setOrder] = useState<ProductionOrder | null>(null);
+  const [isPrinting, setIsPrinting] = useState(false);
 
-  const printRef = useRef<HTMLDivElement>(null);
-  const reactToPrintFn = useReactToPrint({ contentRef: printRef });
+  const handlePrint = () => {
+    setIsPrinting(true);
+    setTimeout(() => {
+      window.print();
+      setIsPrinting(false);
+    }, 100);
+  };
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     message: string;
@@ -180,7 +185,7 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
                   القص معتمد
                 </div>
                 <button
-                  onClick={() => reactToPrintFn()}
+                  onClick={() => handlePrint()}
                   className="flex items-center gap-2 bg-white text-slate-700 border border-slate-300 px-4 py-2 rounded-lg hover:bg-slate-50 transition-colors shadow-sm font-medium text-sm"
                 >
                   <Printer className="w-4 h-4" />
@@ -190,7 +195,7 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
           ) : (
             <>
               <button
-                onClick={() => reactToPrintFn()}
+                onClick={() => handlePrint()}
                 className="flex items-center gap-2 bg-slate-100 text-slate-700 border border-slate-300 px-4 py-2 rounded-lg hover:bg-slate-200 transition-colors shadow-sm font-medium text-sm"
               >
                 <Printer className="w-4 h-4" />
@@ -341,9 +346,11 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
           <FabricSummary summary={fabricSummary} />
         </div>
       )}
-      <div className="hidden">
-        <CutWorkOrderPrint ref={printRef} order={order} />
-      </div>
+            {isPrinting && (
+        <div className="print:block hidden print:absolute print:inset-0">
+          <CutWorkOrderPrint order={order} />
+        </div>
+      )}
     </div>
   );
 }

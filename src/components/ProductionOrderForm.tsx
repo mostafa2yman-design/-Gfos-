@@ -102,7 +102,11 @@ export function ProductionOrderForm({
   ) => {
     if (isReadOnly) return;
     setOrder((prev) => {
-      const next = { ...prev, [field]: value };
+      let finalValue: any = value;
+      if (field === 'printEmbroideryStandardCost' || field === 'standardSewingCostPerPiece') {
+        finalValue = value === '' ? undefined : parseFloat(value);
+      }
+      const next = { ...prev, [field]: finalValue };
 
       // Auto-load BOM if styleName changes and matches a template
       if (field === "styleName") {

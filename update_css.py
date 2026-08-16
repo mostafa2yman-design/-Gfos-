@@ -1,21 +1,11 @@
-@import "tailwindcss";
+with open('src/index.css', 'r') as f:
+    content = f.read()
 
-@media print {
-  @page {
-    size: A4 portrait;
-    margin: 15mm;
-  }
+import re
 
-  html, body {
-    background: white !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-  }
-
+# Update standard print rules to enforce font sizes and table styles
+new_print_rules = """
   .gfos-print-document {
-    font-family: "Cairo", sans-serif;
     width: 100%;
     padding: 0 !important;
     margin: 0 !important;
@@ -67,4 +57,11 @@
   .print-content {
     padding-bottom: 20px;
   }
-}
+"""
+
+# Replace the gfos-print-document part
+pattern = re.compile(r'\.gfos-print-document \{.*\.page-break \{[^\}]*\}', re.DOTALL)
+content = re.sub(pattern, new_print_rules.strip(), content)
+
+with open('src/index.css', 'w') as f:
+    f.write(content)

@@ -2,6 +2,7 @@ import React from 'react';
 import { ProductionOrder, BatchItem } from '../../types';
 import { calculateBatchAccessories } from '../../lib/prepUtils';
 import { CheckSquare, Square } from 'lucide-react';
+import { PrintDocument, PrintHeader, PrintSection, PrintSignatures } from '../print/layout';
 
 interface Props {
   order: ProductionOrder;
@@ -19,36 +20,25 @@ export const BatchPreparationWorkOrder: React.FC<Props> = ({ order, batch }) => 
   });
 
   return (
-    <div className="gfos-print-document print-only hidden print:block text-black bg-white" dir="rtl">
-      {/* Header */}
-      <div className="border-b-2 border-slate-800 pb-4 mb-6 text-center">
-        <h1 className="text-3xl font-bold text-slate-800 mb-2">GFOS</h1>
-        <h2 className="text-xl font-bold text-slate-600">أمر تجهيز باتش</h2>
-      </div>
+    <PrintDocument>
+      <PrintHeader
+        documentTitle="أمر تجهيز باتش"
+        orderNumber={order.orderNumber}
+        modelName={order.styleName}
+        clientName={order.customerName}
+        additionalInfo={[
+          { label: 'رقم الباتش', value: batch.batchNumber },
+          { label: 'إجمالي الكمية', value: `${totalBatchQty} قطعة` }
+        ]}
+      />
 
-      {/* Order Info */}
-      <div className="grid grid-cols-2 gap-4 mb-8 text-sm">
-        <div className="flex flex-col gap-2">
-          <p><span className="font-bold text-slate-600 w-32 inline-block">رقم أمر الإنتاج:</span> <span className="font-bold">{order.orderNumber}</span></p>
-          <p><span className="font-bold text-slate-600 w-32 inline-block">رقم الباتش:</span> <span className="font-bold text-lg">{batch.batchNumber}</span></p>
-          <p><span className="font-bold text-slate-600 w-32 inline-block">تاريخ التجهيز:</span> <span>{new Date().toLocaleDateString('ar-EG')}</span></p>
-        </div>
-        <div className="flex flex-col gap-2">
-          <p><span className="font-bold text-slate-600 w-32 inline-block">اسم القصة:</span> <span className="font-bold">{order.styleName}</span></p>
-          <p><span className="font-bold text-slate-600 w-32 inline-block">العميل:</span> <span>{order.customerName}</span></p>
-          <p><span className="font-bold text-slate-600 w-32 inline-block">إجمالي كمية الباتش:</span> <span className="font-bold">{totalBatchQty} قطعة</span></p>
-        </div>
-      </div>
-
-      {/* Batch Contents */}
-      <div className="mb-8">
-        <h3 className="font-bold text-lg text-slate-800 mb-3">تفاصيل كمية الباتش</h3>
-        <table className="w-full text-right border-collapse border border-slate-300 text-sm">
+      <PrintSection title="تفاصيل كمية الباتش">
+        <table>
           <thead>
-            <tr className="bg-slate-100">
-              <th className="border border-slate-300 p-2 font-bold">المقاس</th>
-              <th className="border border-slate-300 p-2 font-bold">اللون</th>
-              <th className="border border-slate-300 p-2 font-bold">الكمية</th>
+            <tr>
+              <th>المقاس</th>
+              <th>اللون</th>
+              <th className="text-center">الكمية</th>
             </tr>
           </thead>
           <tbody>
@@ -57,53 +47,50 @@ export const BatchPreparationWorkOrder: React.FC<Props> = ({ order, batch }) => 
                 {s.variants.map((v, i) => (
                   <tr key={`${s.size}-${v.color}`}>
                     {i === 0 && (
-                      <td className="border border-slate-300 p-2 font-bold" rowSpan={s.variants.length}>{s.size}</td>
+                      <td className="font-bold text-center align-middle" rowSpan={s.variants.length}>{s.size}</td>
                     )}
-                    <td className="border border-slate-300 p-2">{v.color}</td>
-                    <td className="border border-slate-300 p-2 font-bold">{v.quantity}</td>
+                    <td className="text-center">{v.color}</td>
+                    <td className="font-bold text-center">{v.quantity}</td>
                   </tr>
                 ))}
               </React.Fragment>
             ))}
             <tr className="bg-slate-50 font-bold">
-              <td colSpan={2} className="border border-slate-300 p-2 text-left">إجمالي الباتش:</td>
-              <td className="border border-slate-300 p-2 text-indigo-700">{totalBatchQty}</td>
+              <td colSpan={2}>إجمالي الباتش:</td>
+              <td className="text-center text-indigo-700">{totalBatchQty}</td>
             </tr>
           </tbody>
         </table>
-      </div>
+      </PrintSection>
 
-      {/* Accessories */}
-      <div className="mb-8">
-        <h3 className="font-bold text-lg text-slate-800 mb-3">الإكسسوارات المطلوبة</h3>
+      <PrintSection title="الإكسسوارات المطلوبة">
         {accessories.length > 0 ? (
-          <table className="w-full text-right border-collapse border border-slate-300 text-sm">
+          <table>
             <thead>
-              <tr className="bg-slate-100">
-                <th className="border border-slate-300 p-2 font-bold">الإكسسوار</th>
-                <th className="border border-slate-300 p-2 font-bold text-center">الوحدة</th>
-                <th className="border border-slate-300 p-2 font-bold text-center">المطلوب للقطعة</th>
-                <th className="border border-slate-300 p-2 font-bold text-center">المطلوب للباتش</th>
-                <th className="border border-slate-300 p-2 font-bold text-center w-32">حالة التجهيز</th>
+              <tr>
+                <th>الإكسسوار</th>
+                <th className="text-center">الوحدة</th>
+                <th className="text-center">المطلوب للقطعة</th>
+                <th className="text-center">المطلوب للباتش</th>
+                <th className="text-center">حالة التجهيز</th>
               </tr>
             </thead>
             <tbody>
               {accessories.map(acc => {
-                // Round required to 3 decimal places if needed, otherwise no decimals
                 const roundedRequired = acc.requiredForBatch % 1 === 0 
                   ? acc.requiredForBatch 
                   : Number(Number(acc.requiredForBatch).toFixed(3));
-                  
+                
                 return (
                   <tr key={acc.accessoryId || acc.accessoryName}>
-                    <td className="border border-slate-300 p-2 font-medium">{acc.accessoryName}</td>
-                    <td className="border border-slate-300 p-2 text-center text-slate-600">{acc.unit}</td>
-                    <td className="border border-slate-300 p-2 text-center text-slate-600">{acc.standardPerPiece}</td>
-                    <td className="border border-slate-300 p-2 text-center font-bold text-indigo-700">{roundedRequired}</td>
-                    <td className="border border-slate-300 p-2 text-center">
+                    <td className="font-medium">{acc.accessoryName}</td>
+                    <td className="text-center text-slate-600">{acc.unit}</td>
+                    <td className="text-center text-slate-600">{acc.standardPerPiece}</td>
+                    <td className="text-center font-bold text-indigo-700">{roundedRequired}</td>
+                    <td className="text-center">
                       <div className="flex justify-center items-center gap-1">
-                        {acc.isPrepared ? <CheckSquare className="w-5 h-5 text-slate-800" /> : <Square className="w-5 h-5 text-slate-400" />}
-                        <span className="text-xs">{acc.isPrepared ? 'تم التجهيز' : 'غير مجهز'}</span>
+                        {acc.isPrepared ? <CheckSquare className="w-3 h-3 text-slate-800" /> : <Square className="w-3 h-3 text-slate-400" />}
+                        <span className="text-[9px]">{acc.isPrepared ? 'تم التجهيز' : 'غير مجهز'}</span>
                       </div>
                     </td>
                   </tr>
@@ -112,45 +99,15 @@ export const BatchPreparationWorkOrder: React.FC<Props> = ({ order, batch }) => 
             </tbody>
           </table>
         ) : (
-          <p className="text-slate-500 italic">لا توجد إكسسوارات مطلوبة لهذا الأمر.</p>
+          <p className="text-slate-500 italic text-[10px]">لا توجد إكسسوارات مطلوبة لهذا الأمر.</p>
         )}
-      </div>
+      </PrintSection>
 
-      {/* Notes */}
-      <div className="mb-12 break-inside-avoid">
-        <h3 className="font-bold text-lg text-slate-800 mb-3">ملاحظات التجهيز</h3>
-        <div className="border-2 border-slate-200 rounded-lg h-32 p-4"></div>
-      </div>
+      <PrintSection title="ملاحظات التجهيز" avoidBreak>
+        <div className="border border-slate-300 rounded-lg h-24 p-2 bg-slate-50"></div>
+      </PrintSection>
 
-      {/* Approvals */}
-      <div className="grid grid-cols-4 gap-4 mt-16 pt-8 border-t border-slate-300 break-inside-avoid text-sm">
-        <div className="text-center">
-          <p className="font-bold mb-8">إعداد:</p>
-          <p className="border-b border-slate-400 mx-4"></p>
-        </div>
-        <div className="text-center">
-          <p className="font-bold mb-8">تجهيز:</p>
-          <p className="border-b border-slate-400 mx-4"></p>
-        </div>
-        <div className="text-center">
-          <p className="font-bold mb-8">مراجعة:</p>
-          <p className="border-b border-slate-400 mx-4"></p>
-        </div>
-        <div className="text-center">
-          <p className="font-bold mb-8">اعتماد:</p>
-          <p className="border-b border-slate-400 mx-4"></p>
-        </div>
-      </div>
-      
-      {/* Footer */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 text-xs text-slate-500 flex justify-between border-t border-slate-200">
-        <span>رقم الباتش: {batch.batchNumber}</span>
-        <span>تاريخ الطباعة: {new Date().toLocaleString('ar-EG')}</span>
-        <span>رقم أمر الإنتاج: {order.orderNumber}</span>
-      </div>
-      
-      {/* Ensure printing properties */}
-      
-    </div>
+      <PrintSignatures signatures={[{ role: "إعداد" }, { role: "تجهيز" }, { role: "مراجعة" }, { role: "اعتماد" }]} />
+    </PrintDocument>
   );
 };

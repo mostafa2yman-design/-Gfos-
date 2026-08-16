@@ -1,5 +1,6 @@
 import React, { forwardRef } from 'react';
 import { ProductionOrder } from '../../types';
+import { PrintDocument, PrintHeader, PrintSection, PrintSignatures } from './layout';
 
 interface Props {
   order: ProductionOrder;
@@ -7,68 +8,53 @@ interface Props {
 
 export const PrepWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order }, ref) => {
   return (
-    <div ref={ref} className="gfos-print-document bg-white text-black w-full" dir="rtl">
-      <div className="flex justify-between items-start border-b-2 border-slate-800 pb-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">أمر تشغيل تجهيز</h1>
-          <p className="text-sm text-slate-600 mt-1">رقم الأمر: {order.orderNumber}</p>
-        </div>
-        <div className="text-left">
-          <p className="text-sm font-bold">التاريخ: {new Date().toLocaleDateString('ar-EG')}</p>
-          <p className="text-sm">الموديل: {order.modelName}</p>
-        </div>
-      </div>
+    <PrintDocument ref={ref}>
+      <PrintHeader
+        documentTitle="أمر تشغيل تجهيز شامل"
+        orderNumber={order.orderNumber}
+        modelName={order.modelName}
+        clientName={order.clientName}
+      />
 
-      <div className="mb-8">
-        <h3 className="font-bold border-b border-slate-200 pb-2 mb-3">بيانات الباتشات والمطلوب للتجهيز</h3>
+      <PrintSection title="بيانات الباتشات والمطلوب للتجهيز">
         {order.batches?.map((batch) => (
-          <div key={batch.id} className="mb-6 border border-slate-300 rounded p-4 break-inside-avoid">
-            <div className="flex justify-between items-center mb-4 bg-slate-100 p-2 rounded">
-              <h4 className="font-bold">باتش رقم: {batch.batchNumber}</h4>
-              <span className="text-sm">
-                المقاسات: {batch.sizes.map(s => s.size).join(', ')}
-              </span>
+          <div key={batch.id} className="mb-6 break-inside-avoid">
+            <div className="flex justify-between items-center mb-2 bg-slate-100 p-1 px-2 rounded border border-slate-200 text-[11px]">
+              <span className="font-bold">باتش رقم: {batch.batchNumber}</span>
+              <span>المقاسات: {batch.sizes.map(s => s.size).join(', ')}</span>
             </div>
             
-            <table className="w-full text-sm border-collapse border border-slate-300 mb-4">
+            <table>
               <thead>
-                <tr className="bg-slate-50">
-                  <th className="border border-slate-300 p-2 text-right">الصنف (إكسسوار)</th>
-                  <th className="border border-slate-300 p-2 text-center">الكمية المطلوبة (معياري)</th>
-                  <th className="border border-slate-300 p-2 text-center">المنصرف الفعلي</th>
-                  <th className="border border-slate-300 p-2 text-center">ملاحظات</th>
+                <tr>
+                  <th>الصنف (إكسسوار)</th>
+                  <th className="text-center">الكمية المطلوبة (معياري)</th>
+                  <th className="text-center">المنصرف الفعلي</th>
+                  <th className="text-center">ملاحظات</th>
                 </tr>
               </thead>
               <tbody>
                 {order.accessories.map((acc, i) => (
                   <tr key={i}>
-                    <td className="border border-slate-300 p-2">{acc.item}</td>
-                    <td className="border border-slate-300 p-2 text-center text-slate-500">
-                      {/* Approximation: just show a blank or an estimated if we want. But the prompt says "هيكون فى المطلوب لكل باتش" */}
-                      يُحدد بناءً على كمية الباتش
-                    </td>
-                    <td className="border border-slate-300 p-2"></td>
-                    <td className="border border-slate-300 p-2"></td>
+                    <td>{acc.item}</td>
+                    <td className="text-center text-slate-500">يُحدد بناءً على كمية الباتش</td>
+                    <td></td>
+                    <td></td>
                   </tr>
                 ))}
                 {order.accessories.length === 0 && (
                    <tr>
-                     <td colSpan={4} className="border border-slate-300 p-4 text-center text-slate-500">لا توجد إكسسوارات مسجلة</td>
+                     <td colSpan={4} className="text-center text-slate-500">لا توجد إكسسوارات مسجلة</td>
                    </tr>
                 )}
               </tbody>
             </table>
           </div>
         ))}
-      </div>
+      </PrintSection>
 
-      <div className="mt-16 text-center">
-        <p className="font-bold mb-8">مسئول التجهيز</p>
-        <div className="border-b-2 border-dashed border-slate-400 w-48 mx-auto"></div>
-        <p className="text-sm text-slate-500 mt-2">الاسم / التوقيع</p>
-      </div>
-    </div>
+      <PrintSignatures signatures={[{ role: "مسئول التجهيز" }]} />
+    </PrintDocument>
   );
 });
-
 PrepWorkOrderPrint.displayName = 'PrepWorkOrderPrint';

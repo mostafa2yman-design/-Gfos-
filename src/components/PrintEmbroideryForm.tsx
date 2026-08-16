@@ -241,7 +241,7 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
   };
 
   return (
-    <div className="relative">
+    <>
       <div className={`space-y-6 print:hidden ${printingBatchId ? "hidden" : ""}`}>
       <ConfirmDialog
         isOpen={confirmConfig?.isOpen || false}
@@ -671,6 +671,6 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
         <PrintEmbroideryWorkOrder order={order} batch={batches.find((b) => b.id === printingBatchId)!} />
         </div>
       )}
-    </div>
+    </>
   );
 };

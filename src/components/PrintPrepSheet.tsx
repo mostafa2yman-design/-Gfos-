@@ -147,7 +147,7 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
 
   
   return (
-    <div className="relative">
+    <>
       <div className={`space-y-8 p-6 print:hidden ${printingBatchId ? "hidden" : ""}`}>
         <ConfirmDialog
           isOpen={confirmConfig?.isOpen || false}
@@ -411,6 +411,6 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
           />
         </div>
       )}
-    </div>
+    </>
   );
 }

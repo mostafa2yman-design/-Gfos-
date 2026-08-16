@@ -157,7 +157,7 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
   });
 
   return (
-    <div className="relative">
+    <>
       <div className={`space-y-6 print:hidden ${isPrinting ? "hidden" : ""}`}>
       <ConfirmDialog
         isOpen={confirmConfig?.isOpen || false}
@@ -367,6 +367,6 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
           <CutWorkOrderPrint order={order} fabricSummary={fabricSummary} />
         </div>
       )}
-    </div>
+    </>
   );
 }

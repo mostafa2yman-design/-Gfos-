@@ -107,6 +107,25 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
     }
   };
 
+  const handleToggleAllAccessories = (batchId: string, isPrepared: boolean) => {
+    const updatedBatches = order!.batches!.map((b) => {
+      if (b.id === batchId && b.prepStatus !== "مكتمل") {
+        return {
+          ...b,
+          accessoriesPrep: b.accessoriesPrep.map((a) => ({
+            ...a,
+            isPrepared
+          })),
+        };
+      }
+      return b;
+    });
+
+    const result = Cmd.savePrepData(order!, updatedBatches);
+    if (result.success && result.data) {
+      setOrder(result.data);
+    }
+  };
   const handleApproveBatch = (batchId: string) => {
     setConfirmConfig({
       isOpen: true,
@@ -126,11 +145,10 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
     });
   };
 
+  
   return (
-    <>
-      <div
-        className={`space-y-8 p-6 print:hidden ${printingBatchId ? "hidden" : ""}`}
-      >
+    <div className="relative">
+      <div className={`space-y-8 p-6 print:hidden ${printingBatchId ? "hidden" : ""}`}>
         <ConfirmDialog
           isOpen={confirmConfig?.isOpen || false}
           message={confirmConfig?.message || ""}
@@ -195,10 +213,10 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
                   <div className="flex gap-2">
                     <button
                       onClick={() => handlePrint(batch.id)}
-                      className="p-2 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors border border-slate-200"
-                      title="طباعة أمر التجهيز"
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm"
                     >
-                      <Printer className="w-5 h-5" />
+                      <Printer className="w-4 h-4" />
+                      طباعة
                     </button>
                     {batch.prepStatus !== "مكتمل" ? (
                       <button
@@ -263,9 +281,23 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
                   </div>
 
                   <div>
-                    <h4 className="font-bold text-slate-800 mb-4 border-b pb-2">
-                      تجهيز الإكسسوارات والطباعة
-                    </h4>
+                    <div className="flex justify-between items-center mb-4 border-b pb-2">
+                      <h4 className="font-bold text-slate-800">
+                        تجهيز الإكسسوارات
+                      </h4>
+                      {batch.prepStatus !== "مكتمل" && batch.accessoriesPrep && batch.accessoriesPrep.length > 0 && (
+                        <button
+                          onClick={() => {
+                            const allChecked = calculateBatchAccessories(order, batch).every(a => a.isPrepared);
+                            handleToggleAllAccessories(batch.id, !allChecked);
+                          }}
+                          className="text-xs flex items-center gap-1 bg-indigo-50 text-indigo-700 px-3 py-1.5 rounded hover:bg-indigo-100 transition-colors border border-indigo-200"
+                        >
+                          <CheckSquare className="w-4 h-4" />
+                          تحديد الكل / تجهيز كامل
+                        </button>
+                      )}
+                    </div>
                     {!batch.accessoriesPrep ||
                     batch.accessoriesPrep.length === 0 ? (
                       <p className="text-sm text-slate-500">
@@ -371,13 +403,14 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
           })}
         </div>
       </div>
-
       {printingBatchId && (
-        <BatchPreparationWorkOrder
-          order={order}
-          batch={order.batches.find((b) => b.id === printingBatchId)!}
-        />
+        <div className="hidden print:block print:absolute print:inset-0">
+          <BatchPreparationWorkOrder
+            order={order}
+            batch={order.batches.find((b) => b.id === printingBatchId)!}
+          />
+        </div>
       )}
-    </>
+    </div>
   );
 }

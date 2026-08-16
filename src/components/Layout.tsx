@@ -17,7 +17,7 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
       {/* Top Bar */}
-      <header className="bg-white shadow-sm border-b border-slate-200">
+      <header className="bg-white shadow-sm border-b border-slate-200 print:hidden">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="bg-indigo-600 p-2 rounded-lg flex-shrink-0">
@@ -77,7 +77,7 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0 print:m-0 print:max-w-none">
         {children}
       </main>
     </div>

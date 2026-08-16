@@ -158,6 +158,14 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
     );
   };
 
+  const handlePrintBatch = (batchId: string) => {
+    setPrintingBatchId(batchId);
+    setTimeout(() => {
+      window.print();
+      setPrintingBatchId(null);
+    }, 100);
+  };
+
   const handleSaveDraft = () => {
     const result = Cmd.savePrintEmbroideryData(order, batches);
     if (result.success) {
@@ -328,6 +336,13 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
                       <option value="تطريز">تطريز</option>
                       <option value="طباعة + تطريز">طباعة + تطريز</option>
                     </select>
+                    <button
+                      onClick={() => handlePrintBatch(batch.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded hover:text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm"
+                    >
+                      <Printer className="w-4 h-4" />
+                      طباعة أمر الطباعة
+                    </button>
                   </div>
                 </div>
 
@@ -652,7 +667,9 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
       </div>
       </div>
       {printingBatchId && (
+        <div className="hidden print:block print:absolute print:inset-0">
         <PrintEmbroideryWorkOrder order={order} batch={batches.find((b) => b.id === printingBatchId)!} />
+        </div>
       )}
     </div>
   );

@@ -4,9 +4,10 @@ import { PrintDocument, PrintHeader, PrintSection, PrintSignatures } from './lay
 
 interface Props {
   order: ProductionOrder;
+  fabricSummary?: any;
 }
 
-export const CutWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order }, ref) => {
+export const CutWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order, fabricSummary }, ref) => {
   return (
     <PrintDocument ref={ref}>
       <PrintHeader
@@ -32,43 +33,51 @@ export const CutWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order }, r
             </tr>
           </thead>
           <tbody>
-            {order.sizes.map((size) =>
-              size.variants.map((v) => {
-                const actual = order.cutData?.sizes
-                  .find(s => s.size === size.size)
-                  ?.variants.find(av => av.color === v.color)?.actualQuantity;
-                return (
-                  <tr key={`${size.size}-${v.color}`}>
-                    <td>{size.size}</td>
-                    <td>{v.color}</td>
-                    <td className="text-center font-bold">{v.quantity}</td>
-                    <td className="text-center">{actual !== undefined ? actual : ''}</td>
-                  </tr>
-                );
-              })
-            )}
+            {order.sizes.map((size) => (
+              <React.Fragment key={size.size}>
+                {size.variants.map((v, i) => {
+                  const actual = order.cutData?.sizes
+                    .find(s => s.size === size.size)
+                    ?.variants.find(av => av.color === v.color)?.actualQuantity;
+                  return (
+                    <tr key={`${size.size}-${v.color}`}>
+                      {i === 0 && <td className="font-bold align-middle" rowSpan={size.variants.length}>{size.size}</td>}
+                      <td>{v.color}</td>
+                      <td className="text-center font-bold">{v.quantity}</td>
+                      <td className="text-center text-lg">{actual !== undefined ? actual : ''}</td>
+                    </tr>
+                  );
+                })}
+              </React.Fragment>
+            ))}
           </tbody>
         </table>
       </PrintSection>
 
-      {order.cutData?.actualWeightByColor && Object.keys(order.cutData.actualWeightByColor).length > 0 && (
-        <PrintSection title="بيان المسحوب الفعلي من الأقمشة حسب اللون" avoidBreak>
+      {fabricSummary && fabricSummary.colors.length > 0 && (
+        <PrintSection title="بيان مسحوبات الأقمشة من المخزن حسب اللون" avoidBreak>
           <table>
             <thead>
               <tr>
                 <th>اللون</th>
+                <th className="text-center">المطلوب المعياري ({order.fabricWeightUnit})</th>
                 <th className="text-center">المسحوب الفعلي ({order.fabricWeightUnit})</th>
               </tr>
             </thead>
             <tbody>
-              {Object.entries(order.cutData.actualWeightByColor).map(([color, weight]) => (
-                <tr key={color}>
-                  <td className="font-medium">{color}</td>
-                  <td className="text-center">{weight}</td>
-                </tr>
-              ))}
+              {(fabricSummary?.colors || []).map((c: any) => {
+                const weight = order.cutData?.actualWeightByColor?.[c.color];
+                return (
+                  <tr key={c.color}>
+                    <td className="font-medium">{c.color}</td>
+                    <td className="text-center">{c.requiredFabric ? c.requiredFabric.toFixed(3) : '—'}</td>
+                    <td className="text-center text-lg">{weight !== undefined ? weight : ''}</td>
+                  </tr>
+                );
+              })}
               <tr className="bg-slate-50 font-bold">
-                <td>إجمالي المسحوب الفعلي:</td>
+                <td>الإجمالي:</td>
+                <td className="text-center text-indigo-700">{fabricSummary?.totalRequiredFabric ? fabricSummary.totalRequiredFabric.toFixed(3) : '—'}</td>
                 <td className="text-center text-indigo-700">{order.cutData.actualWeight || 0}</td>
               </tr>
             </tbody>

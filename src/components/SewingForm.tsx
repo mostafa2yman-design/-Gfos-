@@ -255,10 +255,14 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
           return (
             <div key={batch.id} className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
               <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-3">
+                <h3 className="text-lg font-bold text-slate-800 flex items-center gap-4">
                   باتش: {batch.batchNumber}
-                  <button onClick={() => handlePrint(batch.id)} className="text-slate-500 hover:text-indigo-600 transition-colors p-1" title="طباعة إيصال استلام وتسلّم">
-                    <Printer className="w-5 h-5" />
+                  <button 
+                    onClick={() => handlePrint(batch.id)} 
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded hover:text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm"
+                  >
+                    <Printer className="w-4 h-4" />
+                    طباعة الإيصال
                   </button>
                 </h3>
                 <div className="flex items-center gap-4">

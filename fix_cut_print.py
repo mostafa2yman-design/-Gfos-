@@ -1,43 +1,68 @@
 import re
-
-with open('src/components/CutOrderForm.tsx', 'r') as f:
+with open('src/components/print/CutWorkOrderPrint.tsx', 'r') as f:
     content = f.read()
 
-# Make sure we don't hide the print div
-old_return = """  return (
-    <div className="space-y-6">"""
+content = content.replace('interface Props {\n  order: ProductionOrder;\n}', 'interface Props {\n  order: ProductionOrder;\n  fabricSummary?: any;\n}')
 
-new_return = """  return (
-    <div className="relative">
-      <div className="space-y-6 print:hidden">"""
+content = content.replace('export const CutWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order }, ref) => {', 'export const CutWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order, fabricSummary }, ref) => {')
 
-old_end = """        </div>
-      )}
-            {isPrinting && (
-        <div className="print:block hidden print:absolute print:inset-0">
-          <CutWorkOrderPrint order={order} />
-        </div>
-      )}
-    </div>
-  );
-}"""
+old_table = """      {order.cutData?.actualWeightByColor && Object.keys(order.cutData.actualWeightByColor).length > 0 && (
+        <PrintSection title="بيان المسحوب الفعلي من الأقمشة حسب اللون" avoidBreak>
+          <table>
+            <thead>
+              <tr>
+                <th>اللون</th>
+                <th className="text-center">المسحوب الفعلي ({order.fabricWeightUnit})</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(order.cutData.actualWeightByColor).map(([color, weight]) => (
+                <tr key={color}>
+                  <td className="font-medium">{color}</td>
+                  <td className="text-center">{weight}</td>
+                </tr>
+              ))}
+              <tr className="bg-slate-50 font-bold">
+                <td>إجمالي المسحوب الفعلي:</td>
+                <td className="text-center text-indigo-700">{order.cutData.actualWeight || 0}</td>
+              </tr>
+            </tbody>
+          </table>
+        </PrintSection>
+      )}"""
 
-new_end = """        </div>
-      )}
-      </div>
-      {isPrinting && (
-        <div className="hidden print:block absolute top-0 left-0 w-full bg-white z-50">
-          <CutWorkOrderPrint order={order} />
-        </div>
-      )}
-    </div>
-  );
-}"""
+new_table = """      {order.cutData?.actualWeightByColor && Object.keys(order.cutData.actualWeightByColor).length > 0 && (
+        <PrintSection title="بيان مسحوبات الأقمشة من المخزن حسب اللون" avoidBreak>
+          <table>
+            <thead>
+              <tr>
+                <th>اللون</th>
+                <th className="text-center">المطلوب المعياري ({order.fabricWeightUnit})</th>
+                <th className="text-center">المسحوب الفعلي ({order.fabricWeightUnit})</th>
+              </tr>
+            </thead>
+            <tbody>
+              {Object.entries(order.cutData.actualWeightByColor).map(([color, weight]) => {
+                const reqFabric = fabricSummary?.colors?.find((c: any) => c.color === color)?.requiredFabric;
+                return (
+                  <tr key={color}>
+                    <td className="font-medium">{color}</td>
+                    <td className="text-center">{reqFabric ? reqFabric.toFixed(3) : '—'}</td>
+                    <td className="text-center">{weight}</td>
+                  </tr>
+                );
+              })}
+              <tr className="bg-slate-50 font-bold">
+                <td>الإجمالي:</td>
+                <td className="text-center text-indigo-700">{fabricSummary?.totalRequiredFabric ? fabricSummary.totalRequiredFabric.toFixed(3) : '—'}</td>
+                <td className="text-center text-indigo-700">{order.cutData.actualWeight || 0}</td>
+              </tr>
+            </tbody>
+          </table>
+        </PrintSection>
+      )}"""
 
-content = content.replace(old_return, new_return)
-content = content.replace(old_end, new_end)
+content = content.replace(old_table, new_table)
 
-with open('src/components/CutOrderForm.tsx', 'w') as f:
+with open('src/components/print/CutWorkOrderPrint.tsx', 'w') as f:
     f.write(content)
-
-print("Done")

@@ -8,20 +8,20 @@ interface Props {
 }
 
 export const CutWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order, fabricSummary }, ref) => {
+  const primaryFabric = fabricSummary?.primaryFabric;
+
   return (
     <PrintDocument ref={ref}>
       <PrintHeader
         documentTitle="أمر تشغيل قص"
         orderNumber={order.orderNumber}
-        modelName={order.modelName}
-        clientName={order.clientName}
+        modelName={order.styleName}
+        clientName={order.customerName}
         additionalInfo={[
-          { label: 'نوع القماش', value: order.fabricType },
-          { label: 'لون القماش', value: order.fabricColor },
-          { label: 'كمية القماش', value: order.fabricQuantity.toString() }
+          { label: 'نوع القماش', value: primaryFabric ? primaryFabric.item : '-' },
+          { label: 'وحدة القياس', value: primaryFabric ? primaryFabric.unit : '-' }
         ]}
       />
-
       <PrintSection title="الكميات المعيارية والمقصوصة فعلياً">
         <table>
           <thead>
@@ -29,21 +29,21 @@ export const CutWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order, fab
               <th>المقاس</th>
               <th>اللون</th>
               <th className="text-center">المطلوب</th>
-              <th className="text-center">الفعلي (يُعبأ بواسطة القص)</th>
+              <th className="text-center w-1/3">القص الفعلي (يُعبأ يدوياً)</th>
             </tr>
           </thead>
           <tbody>
             {order.sizes.map((size) => (
               <React.Fragment key={size.size}>
-                {size.variants.map((v, i) => {
+                {size.variants.map((v: any, i) => {
                   const actual = order.cutData?.sizes
-                    .find(s => s.size === size.size)
+                    ?.find(s => s.size === size.size)
                     ?.variants.find(av => av.color === v.color)?.actualQuantity;
                   return (
                     <tr key={`${size.size}-${v.color}`}>
                       {i === 0 && <td className="font-bold align-middle" rowSpan={size.variants.length}>{size.size}</td>}
                       <td>{v.color}</td>
-                      <td className="text-center font-bold">{v.quantity}</td>
+                      <td className="text-center font-bold">{v.plannedQuantity || v.quantity || 0}</td>
                       <td className="text-center text-lg">{actual !== undefined ? actual : ''}</td>
                     </tr>
                   );
@@ -55,13 +55,13 @@ export const CutWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order, fab
       </PrintSection>
 
       {fabricSummary && fabricSummary.colors.length > 0 && (
-        <PrintSection title="بيان مسحوبات الأقمشة من المخزن حسب اللون" avoidBreak>
+        <PrintSection title="بيان أوزان الأقمشة حسب اللون" avoidBreak>
           <table>
             <thead>
               <tr>
                 <th>اللون</th>
-                <th className="text-center">المطلوب المعياري ({order.fabricWeightUnit})</th>
-                <th className="text-center">المسحوب الفعلي ({order.fabricWeightUnit})</th>
+                <th className="text-center">الوزن المعياري ({primaryFabric?.unit || 'كجم'})</th>
+                <th className="text-center w-1/3">الوزن الفعلي ({primaryFabric?.unit || 'كجم'}) (يُعبأ يدوياً)</th>
               </tr>
             </thead>
             <tbody>
@@ -78,7 +78,7 @@ export const CutWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order, fab
               <tr className="bg-slate-50 font-bold">
                 <td>الإجمالي:</td>
                 <td className="text-center text-indigo-700">{fabricSummary?.totalRequiredFabric ? fabricSummary.totalRequiredFabric.toFixed(3) : '—'}</td>
-                <td className="text-center text-indigo-700">{order.cutData.actualWeight || 0}</td>
+                <td className="text-center text-indigo-700">{order.cutData?.actualWeight !== undefined ? order.cutData.actualWeight : ''}</td>
               </tr>
             </tbody>
           </table>
@@ -89,4 +89,5 @@ export const CutWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order, fab
     </PrintDocument>
   );
 });
+
 CutWorkOrderPrint.displayName = 'CutWorkOrderPrint';

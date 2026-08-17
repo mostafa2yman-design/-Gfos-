@@ -3,44 +3,101 @@ import re
 with open('src/components/print/CutWorkOrderPrint.tsx', 'r') as f:
     content = f.read()
 
-# Add a section for Actual consumed colors
-# I'll place it right after the basic info section or before the signatures.
-# Actually, I'll place it after the sizes table.
+# Replace the content with the fixed version
+new_content = """import React, { forwardRef } from 'react';
+import { ProductionOrder } from '../../types';
+import { PrintDocument, PrintHeader, PrintSection, PrintSignatures } from './layout';
 
-actual_weight_by_color_html = """      {/* Actual Fabric Used By Color */}
-      {order.cutData?.actualWeightByColor && Object.keys(order.cutData.actualWeightByColor).length > 0 && (
-        <div className="mb-8 break-inside-avoid">
-          <h3 className="font-bold border-b border-slate-200 pb-2 mb-3">بيان المسحوب الفعلي من الأقمشة حسب اللون</h3>
-          <table className="w-full text-sm border-collapse border border-slate-300">
+interface Props {
+  order: ProductionOrder;
+  fabricSummary?: any;
+}
+
+export const CutWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order, fabricSummary }, ref) => {
+  const primaryFabric = fabricSummary?.primaryFabric;
+
+  return (
+    <PrintDocument ref={ref}>
+      <PrintHeader
+        documentTitle="أمر تشغيل قص"
+        orderNumber={order.orderNumber}
+        modelName={order.styleName}
+        clientName={order.customerName}
+        additionalInfo={[
+          { label: 'نوع القماش', value: primaryFabric ? primaryFabric.item : '-' },
+          { label: 'وحدة القياس', value: primaryFabric ? primaryFabric.unit : '-' }
+        ]}
+      />
+      <PrintSection title="الكميات المعيارية والمقصوصة فعلياً">
+        <table>
+          <thead>
+            <tr>
+              <th>المقاس</th>
+              <th>اللون</th>
+              <th className="text-center">المطلوب</th>
+              <th className="text-center w-1/3">القص الفعلي (يُعبأ يدوياً)</th>
+            </tr>
+          </thead>
+          <tbody>
+            {order.sizes.map((size) => (
+              <React.Fragment key={size.size}>
+                {size.variants.map((v: any, i) => {
+                  const actual = order.cutData?.sizes
+                    ?.find(s => s.size === size.size)
+                    ?.variants.find(av => av.color === v.color)?.actualQuantity;
+                  return (
+                    <tr key={`${size.size}-${v.color}`}>
+                      {i === 0 && <td className="font-bold align-middle" rowSpan={size.variants.length}>{size.size}</td>}
+                      <td>{v.color}</td>
+                      <td className="text-center font-bold">{v.plannedQuantity || v.quantity || 0}</td>
+                      <td className="text-center text-lg">{actual !== undefined ? actual : ''}</td>
+                    </tr>
+                  );
+                })}
+              </React.Fragment>
+            ))}
+          </tbody>
+        </table>
+      </PrintSection>
+
+      {fabricSummary && fabricSummary.colors.length > 0 && (
+        <PrintSection title="بيان أوزان الأقمشة حسب اللون" avoidBreak>
+          <table>
             <thead>
-              <tr className="bg-slate-100">
-                <th className="border border-slate-300 p-2 text-right">اللون</th>
-                <th className="border border-slate-300 p-2 text-center">المسحوب الفعلي ({order.fabricWeightUnit})</th>
+              <tr>
+                <th>اللون</th>
+                <th className="text-center">الوزن المعياري ({primaryFabric?.unit || 'كجم'})</th>
+                <th className="text-center w-1/3">الوزن الفعلي ({primaryFabric?.unit || 'كجم'}) (يُعبأ يدوياً)</th>
               </tr>
             </thead>
             <tbody>
-              {Object.entries(order.cutData.actualWeightByColor).map(([color, weight]) => (
-                <tr key={color}>
-                  <td className="border border-slate-300 p-2 font-medium">{color}</td>
-                  <td className="border border-slate-300 p-2 text-center text-lg">{weight}</td>
-                </tr>
-              ))}
+              {(fabricSummary?.colors || []).map((c: any) => {
+                const weight = order.cutData?.actualWeightByColor?.[c.color];
+                return (
+                  <tr key={c.color}>
+                    <td className="font-medium">{c.color}</td>
+                    <td className="text-center">{c.requiredFabric ? c.requiredFabric.toFixed(3) : '—'}</td>
+                    <td className="text-center text-lg">{weight !== undefined ? weight : ''}</td>
+                  </tr>
+                );
+              })}
               <tr className="bg-slate-50 font-bold">
-                <td className="border border-slate-300 p-2 text-left">إجمالي المسحوب الفعلي:</td>
-                <td className="border border-slate-300 p-2 text-center text-lg text-indigo-700">{order.cutData.actualWeight || 0}</td>
+                <td>الإجمالي:</td>
+                <td className="text-center text-indigo-700">{fabricSummary?.totalRequiredFabric ? fabricSummary.totalRequiredFabric.toFixed(3) : '—'}</td>
+                <td className="text-center text-indigo-700">{order.cutData?.actualWeight !== undefined ? order.cutData.actualWeight : ''}</td>
               </tr>
             </tbody>
           </table>
-        </div>
+        </PrintSection>
       )}
+
+      <PrintSignatures signatures={[{ role: "أمين المخزن" }, { role: "مسئول القص" }]} />
+    </PrintDocument>
+  );
+});
+
+CutWorkOrderPrint.displayName = 'CutWorkOrderPrint';
 """
 
-old_signatures = "      {/* Signatures */}"
-new_signatures = actual_weight_by_color_html + "\n" + old_signatures
-
-content = content.replace(old_signatures, new_signatures)
-
 with open('src/components/print/CutWorkOrderPrint.tsx', 'w') as f:
-    f.write(content)
-
-print("Done")
+    f.write(new_content)

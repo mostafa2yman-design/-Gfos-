@@ -4,7 +4,7 @@ import { getOrderById } from "../lib/storage";
 import * as Cmd from "../lib/productionOrderCommands";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Toast } from "./ui/Toast";
-import { Check, Save, Scissors, Printer } from "lucide-react";
+import { Check, Save, Scissors, Printer, CheckSquare } from "lucide-react";
 import { SewingWorkOrder } from './workorders/SewingWorkOrder';
 import { eventBus } from "../lib/events/eventBus";
 
@@ -78,6 +78,33 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
     );
   };
 
+  const handleReceiveFullBatch = (batchId: string) => {
+    setBatches(
+      batches.map((b) => {
+        if (b.id === batchId) {
+          const newActualQuantities: SewingVariantData[] = [];
+          b.sizes.forEach(bs => {
+            bs.variants.forEach(v => {
+              newActualQuantities.push({
+                size: bs.size,
+                color: v.color,
+                actualQuantity: v.quantity
+              });
+            });
+          });
+          return {
+            ...b,
+            sewingData: {
+              ...b.sewingData!,
+              actualQuantities: newActualQuantities
+            }
+          };
+        }
+        return b;
+      })
+    );
+  };
+
   const handleActualQtyChange = (
     batchId: string,
     size: string,
@@ -124,6 +151,39 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
         type: "error",
       });
     }
+  };
+
+
+  const handleApproveBatch = (batchId: string) => {
+    setConfirmConfig({
+      isOpen: true,
+      message: "هل أنت متأكد من اعتماد الخياطة لهذا الباتش؟ لا يمكن تعديل البيانات بعد الاعتماد.",
+      onConfirm: () => {
+        const saveResult = Cmd.saveSewingData(order, batches);
+        if (saveResult.success && saveResult.data) {
+          const approveResult = Cmd.approveBatchSewing(saveResult.data, batchId);
+          if (approveResult.success && approveResult.data) {
+            setOrder(approveResult.data);
+            setToastConfig({
+              message: "تم اعتماد خياطة الباتش بنجاح",
+              type: "success",
+            });
+            if (onSaved) onSaved();
+          } else {
+            setToastConfig({
+              message: approveResult.error || "حدث خطأ أثناء الاعتماد",
+              type: "error",
+            });
+          }
+        } else {
+          setToastConfig({
+            message: saveResult.error || "حدث خطأ أثناء الحفظ",
+            type: "error",
+          });
+        }
+        setConfirmConfig(null);
+      },
+    });
   };
 
   const handleApprove = () => {
@@ -264,6 +324,21 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                     <Printer className="w-4 h-4" />
                     طباعة الإيصال
                   </button>
+                  {batch.sewingData?.status !== 'مكتمل' && (
+                    <button 
+                      onClick={() => handleApproveBatch(batch.id)} 
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100 transition-colors shadow-sm"
+                    >
+                      <Check className="w-4 h-4" />
+                      اعتماد الباتش
+                    </button>
+                  )}
+                  {batch.sewingData?.status === 'مكتمل' && (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded">
+                      <Check className="w-4 h-4" />
+                      تم الاعتماد
+                    </span>
+                  )}
                 </h3>
                 <div className="flex items-center gap-4">
                   <div className="text-sm">
@@ -290,7 +365,7 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                     <select
                       value={sData.manufacturingType || ""}
                       onChange={(e) => handleSewingChange(batch.id, "manufacturingType", e.target.value)}
-                      disabled={isReadOnly}
+                      disabled={isReadOnly || sData.status === 'مكتمل'}
                       className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
                     >
                       <option value="" disabled>اختر الطريقة...</option>
@@ -308,7 +383,7 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                         type="text"
                         value={sData.sewingGroup || ""}
                         onChange={(e) => handleSewingChange(batch.id, "sewingGroup", e.target.value)}
-                        disabled={isReadOnly}
+                        disabled={isReadOnly || sData.status === 'مكتمل'}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="أدخل اسم/رقم المجموعة"
                       />
@@ -324,7 +399,7 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                         type="text"
                         value={sData.externalManufacturer || ""}
                         onChange={(e) => handleSewingChange(batch.id, "externalManufacturer", e.target.value)}
-                        disabled={isReadOnly}
+                        disabled={isReadOnly || sData.status === 'مكتمل'}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="أدخل اسم الجهة الخارجية"
                       />
@@ -342,7 +417,7 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                         step="0.01"
                         value={sData.actualCostPerPiece === undefined ? "" : sData.actualCostPerPiece}
                         onChange={(e) => handleSewingChange(batch.id, "actualCostPerPiece", e.target.value ? parseFloat(e.target.value) : undefined)}
-                        disabled={isReadOnly}
+                        disabled={isReadOnly || sData.status === 'مكتمل'}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="0.00"
                       />
@@ -354,9 +429,21 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                 </div>
 
                 <div>
-                  <h4 className="text-md font-bold text-slate-700 mb-4">
-                    الكميات الفعلية المصنعة
-                  </h4>
+                  <div className="flex justify-between items-center mb-4">
+                    <h4 className="text-md font-bold text-slate-700">
+                      الكميات الفعلية المصنعة
+                    </h4>
+                    {sData.status !== 'مكتمل' && !isReadOnly && (
+                      <button
+                        onClick={() => handleReceiveFullBatch(batch.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-emerald-700 bg-emerald-50 border border-emerald-200 rounded hover:bg-emerald-100 transition-colors shadow-sm"
+                        title="استلام كامل الكمية المطوبة تلقائياً"
+                      >
+                        <CheckSquare className="w-4 h-4" />
+                        استلام كامل للباتش
+                      </button>
+                    )}
+                  </div>
                   <div className="overflow-x-auto rounded-lg border border-slate-200">
                     <table className="w-full text-sm text-right">
                       <thead className="bg-slate-50 text-slate-700">
@@ -399,7 +486,7 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                                       if (val > v.quantity) val = v.quantity;
                                       handleActualQtyChange(batch.id, bs.size, v.color, val);
                                     }}
-                                    disabled={isReadOnly}
+                                    disabled={isReadOnly || sData.status === 'مكتمل'}
                                     className="w-full px-3 py-1 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 outline-none text-left"
                                     placeholder="0"
                                   />

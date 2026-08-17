@@ -13,6 +13,7 @@ import { generateOrderNumber, getOrderById } from "../lib/storage";
 import { getBomTemplateForStyle } from "../lib/bom";
 import { getAvailableSizes, addCustomSize } from "../lib/sizes";
 import { CopyBomModal } from "./CopyBomModal";
+import { CopyOrderModal } from "./CopyOrderModal";
 import {
   Save,
   Copy,
@@ -64,6 +65,7 @@ export function ProductionOrderForm({
   const [isCustomSize, setIsCustomSize] = useState(false);
   const [tempSize, setTempSize] = useState('');
   const [isCopyBomOpen, setIsCopyBomOpen] = useState(false);
+  const [isCopyOrderOpen, setIsCopyOrderOpen] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     message: string;
@@ -398,6 +400,16 @@ export function ProductionOrderForm({
           </div>
         </div>
         <div className="flex gap-3">
+          {!orderId && !isReadOnly && (
+            <button
+              type="button"
+              onClick={() => setIsCopyOrderOpen(true)}
+              className="flex items-center gap-2 bg-indigo-50 text-indigo-700 border border-indigo-200 px-4 py-2.5 rounded-lg hover:bg-indigo-100 transition-colors shadow-sm font-medium"
+            >
+              <Copy className="w-4 h-4" />
+              استيراد من أمر سابق
+            </button>
+          )}
           {orderId && Cmd.canDeleteProductionOrder(order) && (
             <button
               type="button"

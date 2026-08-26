@@ -22,8 +22,11 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
 
   
   useEffect(() => {
-    const found = getOrderById(orderId);
-    if (found) setOrder(found);
+    const load = async () => {
+      const found = await getOrderById(orderId);
+      if (found) setOrder(found);
+    };
+    load();
   }, [orderId]);
 
   if (!order) return <div>جاري التحميل...</div>;

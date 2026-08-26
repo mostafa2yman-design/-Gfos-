@@ -94,7 +94,8 @@ export function ProductionOrderForm({
           setOrder(existing);
         }
       } else {
-        setOrder((prev) => ({ ...prev, orderNumber: generateOrderNumber() }));
+        const newOrderNum = await generateOrderNumber();
+        setOrder((prev) => ({ ...prev, orderNumber: newOrderNum }));
       }
     };
     load();

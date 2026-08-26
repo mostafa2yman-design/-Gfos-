@@ -1,14 +1,16 @@
 import { PREDEFINED_COLORS } from '../types';
 
-export const getAvailableColors = (): string[] => {
+const getCustomColors = (): string[] => {
   try {
     const customColorsStr = localStorage.getItem('CUSTOM_COLORS');
-    const customColors = customColorsStr ? JSON.parse(customColorsStr) : [];
-    // Combine and remove duplicates
-    return Array.from(new Set([...PREDEFINED_COLORS, ...customColors]));
+    return customColorsStr ? JSON.parse(customColorsStr) : [];
   } catch (e) {
-    return PREDEFINED_COLORS;
+    return [];
   }
+};
+
+export const getAvailableColors = (): string[] => {
+  return Array.from(new Set([...PREDEFINED_COLORS, ...getCustomColors()]));
 };
 
 export const addCustomColor = (color: string) => {
@@ -17,8 +19,7 @@ export const addCustomColor = (color: string) => {
   const current = getAvailableColors();
   if (!current.includes(c)) {
     try {
-      const customColorsStr = localStorage.getItem('CUSTOM_COLORS');
-      const customColors = customColorsStr ? JSON.parse(customColorsStr) : [];
+      const customColors = getCustomColors();
       customColors.push(c);
       localStorage.setItem('CUSTOM_COLORS', JSON.stringify(customColors));
     } catch (e) {

@@ -1,3 +1,11 @@
+export type StageStatus = 'لم يبدأ' | 'جاري' | 'مكتمل';
+
+export interface StageInfo {
+  status: StageStatus;
+  approvedBy?: string;
+  approvedAt?: string;
+}
+
 export type OrderStatus = 
   | 'مسودة'
   | 'أمر إنتاج معتمد'
@@ -173,6 +181,16 @@ export interface ProductionOrder {
   createdAt: string;
   updatedAt: string;
   
+  // V0.4 Versioning and Independent Stages
+  version?: number;
+  stageStatuses?: {
+    production?: StageInfo;
+    cut?: StageInfo;
+    batches?: StageInfo;
+    prep?: StageInfo;
+    print?: StageInfo;
+    sewing?: StageInfo;
+  };
   // V0.2 extensions
   materials?: MaterialInstance[];
   accessories?: AccessoryInstance[];

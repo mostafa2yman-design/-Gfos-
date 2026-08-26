@@ -15,14 +15,18 @@ export function CopyBomModal({ isOpen, onClose, onSelect, currentOrderId }: Copy
   const [search, setSearch] = useState('');
 
   useEffect(() => {
-    if (isOpen) {
+    const load = async () => {
+      if (isOpen) {
       // exclude current order
-      const allOrders = getOrders().filter(o => o.id !== currentOrderId);
+      const result = await getOrders();
+      const allOrders = result.filter(o => o.id !== currentOrderId);
       // Sort by order date descending
       allOrders.sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
       setOrders(allOrders);
       setSearch('');
     }
+    };
+    load();
   }, [isOpen, currentOrderId]);
 
   if (!isOpen) return null;

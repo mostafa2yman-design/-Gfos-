@@ -25,7 +25,7 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
   const [printingBatchId, setPrintingBatchId] = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
   
-  const handlePrint = (batchId: string) => {
+  const handlePrint = async (batchId: string) => {
     setPrintingBatchId(batchId);
     setTimeout(() => {
       window.print();
@@ -37,8 +37,8 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
     loadOrder();
   }, [orderId]);
 
-  const loadOrder = () => {
-    const o = getOrderById(orderId);
+  const loadOrder = async () => {
+    const o = await getOrderById(orderId);
     if (o) {
       setOrder(o);
       setBatches(
@@ -78,7 +78,7 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
     );
   };
 
-  const handleReceiveFullBatch = (batchId: string) => {
+  const handleReceiveFullBatch = async (batchId: string) => {
     setBatches(
       batches.map((b) => {
         if (b.id === batchId) {
@@ -136,8 +136,8 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
     );
   };
 
-  const handleSave = () => {
-    const result = Cmd.saveSewingData(order, batches);
+  const handleSave = async () => {
+    const result = await Cmd.saveSewingData(order, batches);
     if (result.success && result.data) {
       setOrder(result.data);
       setToastConfig({
@@ -154,16 +154,16 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
   };
 
 
-  const handleApproveBatch = (batchId: string) => {
+  const handleApproveBatch = async (batchId: string) => {
     setConfirmConfig({
       isOpen: true,
       message: "هل أنت متأكد من اعتماد الخياطة لهذا الباتش؟ لا يمكن تعديل البيانات بعد الاعتماد.",
-      onConfirm: () => {
-        const saveResult = Cmd.saveSewingData(order, batches);
-        if (saveResult.success && saveResult.data) {
-          const approveResult = Cmd.approveBatchSewing(saveResult.data, batchId);
-          if (approveResult.success && approveResult.data) {
-            setOrder(approveResult.data);
+      onConfirm: async () => {
+        const saveResult = await Cmd.saveSewingData(order, batches);
+        if (saveResult.success && saveResult) {
+          const approveResult = await Cmd.approveBatchSewing(saveResult.data!, batchId);
+          if (approveResult.success && approveResult) {
+            if (approveResult.data) setOrder(approveResult.data);
             setToastConfig({
               message: "تم اعتماد خياطة الباتش بنجاح",
               type: "success",
@@ -186,17 +186,17 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
     });
   };
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     setConfirmConfig({
       isOpen: true,
       message:
         "هل أنت متأكد من اعتماد الخياطة؟ لا يمكن تعديل البيانات بعد الاعتماد.",
-      onConfirm: () => {
-        const saveResult = Cmd.saveSewingData(order, batches);
-        if (saveResult.success && saveResult.data) {
-          const approveResult = Cmd.approveSewing(saveResult.data);
-          if (approveResult.success && approveResult.data) {
-            setOrder(approveResult.data);
+      onConfirm: async () => {
+        const saveResult = await Cmd.saveSewingData(order, batches);
+        if (saveResult.success && saveResult) {
+          const approveResult = await Cmd.approveSewing(saveResult.data!);
+          if (approveResult.success && approveResult) {
+            if (approveResult.data) setOrder(approveResult.data);
             setToastConfig({
               message: "تم اعتماد الخياطة بنجاح",
               type: "success",

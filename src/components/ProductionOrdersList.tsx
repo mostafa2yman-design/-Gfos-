@@ -19,18 +19,18 @@ export function ProductionOrdersList({ onEdit, onView }: ProductionOrdersListPro
   const [toastConfig, setToastConfig] = useState<{message: string, type: "success" | "error" | "info"} | null>(null);
 
   useEffect(() => {
-    setOrders(getOrders());
+    getOrders().then(data => setOrders(data));
   }, []);
 
-  const handleDelete = (order: ProductionOrder) => {
+  const handleDelete = async (order: ProductionOrder) => {
     setConfirmConfig({
       isOpen: true,
       message: `هل أنت متأكد من حذف الأمر ${order.orderNumber} نهائياً؟`,
-      onConfirm: () => {
-        const result = Cmd.deleteProductionOrder(order);
+      onConfirm: async () => {
+        const result = await Cmd.deleteProductionOrder(order);
         if (result.success) {
           setConfirmConfig(null);
-          setOrders(getOrders());
+          getOrders().then(data => setOrders(data));
         } else {
           setConfirmConfig(null);
           setToastConfig({ message: result.error || "حدث خطأ", type: "error" });
@@ -120,8 +120,8 @@ export function ProductionOrdersList({ onEdit, onView }: ProductionOrdersListPro
             <tbody className="divide-y divide-slate-100">
               {filteredOrders.length > 0 ? (
                 filteredOrders.map((order) => {
-                  const total = order.sizes.reduce((sum, size) => 
-                    sum + size.variants.reduce((vSum, v) => vSum + (Number(v.quantity) || 0), 0)
+                  const total = (order.sizes || []).reduce((sum, size) => 
+                    sum + (size.variants || []).reduce((vSum, v) => vSum + (Number(v.quantity) || 0), 0)
                   , 0);
                   
                   return (

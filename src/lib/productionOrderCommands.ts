@@ -16,16 +16,16 @@ export function canDeleteProductionOrder(order: ProductionOrder): boolean {
   return ['مسودة', 'أمر إنتاج معتمد', 'أمر قص', 'القص الفعلي مدخل'].includes(order.status);
 }
 
-export function deleteProductionOrder(order: ProductionOrder): CommandResult<null> {
+export async function deleteProductionOrder(order: ProductionOrder): Promise<CommandResult<null>> {
   if (!canDeleteProductionOrder(order)) {
     return { success: false, error: 'لا يمكن حذف أمر الإنتاج في حالته الحالية.' };
   }
-  const deleted = removeOrderFromStorage(order.id);
+  const deleted = await removeOrderFromStorage(order.id);
   if (!deleted) {
     return { success: false, error: 'تعذر حذف أمر الإنتاج، حاول مرة أخرى.' };
   }
   
-  const verifiedOrder = getOrderById(order.id);
+  const verifiedOrder = await getOrderById(order.id);
   if (verifiedOrder) {
     return { success: false, error: 'تمت محاولة الحذف لكن الأمر لا يزال موجوداً.' };
   }
@@ -41,21 +41,22 @@ export function deleteProductionOrder(order: ProductionOrder): CommandResult<nul
   return { success: true, data: null };
 }
 
-export function saveDraft(order: ProductionOrder): CommandResult<ProductionOrder> {
+export async function saveDraft(order: ProductionOrder): Promise<CommandResult<ProductionOrder>> {
   if (!canEditProductionOrder(order)) {
     return { success: false, error: 'لا يمكن حفظ التعديلات لأن الأمر ليس مسودة.' };
   }
   
   // Check if it's new
-  const isNew = !getOrderById(order.id);
+  const existing = await getOrderById(order.id);
+  const isNew = !existing;
 
   const orderToSave = { ...order, status: 'مسودة' as const };
-  const saved = persistOrder(orderToSave);
-  if (!saved) {
-    return { success: false, error: 'تعذر حفظ الأمر كمسودة، حاول مرة أخرى.' };
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) {
+    return { success: false, error: savedResult.error || 'تعذر حفظ الأمر كمسودة، حاول مرة أخرى.' };
   }
   
-  const verifiedOrder = getOrderById(order.id);
+  const verifiedOrder = await getOrderById(order.id);
   if (!verifiedOrder) {
     return { success: false, error: 'تم الحفظ لكن تعذر استرجاع البيانات المؤكدة.' };
   }
@@ -72,7 +73,7 @@ export function saveDraft(order: ProductionOrder): CommandResult<ProductionOrder
   return { success: true, data: verifiedOrder };
 }
 
-export function approveProductionOrder(order: ProductionOrder, user: string = 'المستخدم الحالي'): CommandResult<ProductionOrder> {
+export async function approveProductionOrder(order: ProductionOrder, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
   if (order.status !== 'مسودة') {
     return { success: false, error: 'لا يمكن الاعتماد إلا إذا كان مسودة.' };
   }
@@ -88,12 +89,12 @@ export function approveProductionOrder(order: ProductionOrder, user: string = '�
     productionApprovedAt: new Date().toISOString()
   };
   
-  const saved = persistOrder(orderToSave);
-  if (!saved) {
-    return { success: false, error: 'تعذر حفظ الاعتماد.' };
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) {
+    return { success: false, error: savedResult.error || 'تعذر حفظ الاعتماد.' };
   }
   
-  const verifiedOrder = getOrderById(order.id);
+  const verifiedOrder = await getOrderById(order.id);
   if (!verifiedOrder) {
     return { success: false, error: 'تم الاعتماد لكن تعذر استرجاع البيانات المؤكدة.' };
   }
@@ -111,7 +112,7 @@ export function approveProductionOrder(order: ProductionOrder, user: string = '�
 }
 
 // Cut commands
-export function saveCutData(order: ProductionOrder, cutData: CutOrderData): CommandResult<ProductionOrder> {
+export async function saveCutData(order: ProductionOrder, cutData: CutOrderData): Promise<CommandResult<ProductionOrder>> {
   if (['القص معتمد', 'تقسيم الباتشات', 'الباتشات مثبتة', 'التجهيز جاري', 'التجهيز مكتمل', 'مغلق'].includes(order.status)) {
     return { success: false, error: 'لا يمكن تعديل القص الفعلي بعد الاعتماد.' };
   }
@@ -122,10 +123,10 @@ export function saveCutData(order: ProductionOrder, cutData: CutOrderData): Comm
     status: order.status === 'أمر إنتاج معتمد' || order.status === 'أمر قص' ? 'القص الفعلي مدخل' : order.status
   };
   
-  const saved = persistOrder(orderToSave);
-  if (!saved) return { success: false, error: 'تعذر حفظ أمر القص.' };
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر حفظ أمر القص.' };
   
-  const verifiedOrder = getOrderById(order.id);
+  const verifiedOrder = await getOrderById(order.id);
   if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
   
   eventBus.publish({
@@ -140,7 +141,7 @@ export function saveCutData(order: ProductionOrder, cutData: CutOrderData): Comm
   return { success: true, data: verifiedOrder };
 }
 
-export function approveCutOrder(order: ProductionOrder, cutData: CutOrderData, user: string = 'المستخدم الحالي'): CommandResult<ProductionOrder> {
+export async function approveCutOrder(order: ProductionOrder, cutData: CutOrderData, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
   const orderToSave: ProductionOrder = {
     ...order,
     cutData: {
@@ -151,10 +152,10 @@ export function approveCutOrder(order: ProductionOrder, cutData: CutOrderData, u
     status: 'القص معتمد'
   };
   
-  const saved = persistOrder(orderToSave);
-  if (!saved) return { success: false, error: 'تعذر حفظ اعتماد أمر القص.' };
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر حفظ اعتماد أمر القص.' };
   
-  const verifiedOrder = getOrderById(order.id);
+  const verifiedOrder = await getOrderById(order.id);
   if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
   
   eventBus.publish({
@@ -170,17 +171,17 @@ export function approveCutOrder(order: ProductionOrder, cutData: CutOrderData, u
 }
 
 // Batches commands
-export function saveBatches(order: ProductionOrder, batches: BatchItem[], splitMethod: string): CommandResult<ProductionOrder> {
+export async function saveBatches(order: ProductionOrder, batches: BatchItem[], splitMethod: string): Promise<CommandResult<ProductionOrder>> {
   const orderToSave: ProductionOrder = {
     ...order,
     batches,
     batchSplitMethod: splitMethod as any
   };
   
-  const saved = persistOrder(orderToSave);
-  if (!saved) return { success: false, error: 'تعذر حفظ الباتشات.' };
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر حفظ الباتشات.' };
   
-  const verifiedOrder = getOrderById(order.id);
+  const verifiedOrder = await getOrderById(order.id);
   if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
   
   eventBus.publish({
@@ -195,7 +196,7 @@ export function saveBatches(order: ProductionOrder, batches: BatchItem[], splitM
   return { success: true, data: verifiedOrder };
 }
 
-export function lockBatches(order: ProductionOrder, user: string = 'المستخدم الحالي'): CommandResult<ProductionOrder> {
+export async function lockBatches(order: ProductionOrder, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
   const orderToSave: ProductionOrder = {
     ...order,
     batchesLockedBy: user,
@@ -203,10 +204,10 @@ export function lockBatches(order: ProductionOrder, user: string = 'المستخ
     status: 'الباتشات مثبتة'
   };
   
-  const saved = persistOrder(orderToSave);
-  if (!saved) return { success: false, error: 'تعذر حفظ تثبيت الباتشات.' };
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر حفظ تثبيت الباتشات.' };
   
-  const verifiedOrder = getOrderById(order.id);
+  const verifiedOrder = await getOrderById(order.id);
   if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
   
   eventBus.publish({
@@ -332,7 +333,7 @@ export function updateVariantColor(order: ProductionOrder, sizeName: string, var
 }
 
 // Prep Commands
-export function savePrepData(order: ProductionOrder, updatedBatches: BatchItem[]): CommandResult<ProductionOrder> {
+export async function savePrepData(order: ProductionOrder, updatedBatches: BatchItem[]): Promise<CommandResult<ProductionOrder>> {
   const allCompleted = updatedBatches.every(b => b.prepStatus === 'مكتمل');
   const anyStarted = updatedBatches.some(b => b.prepStatus !== 'جاري' || b.accessoriesPrep.some(a => a.isPrepared));
   
@@ -346,10 +347,10 @@ export function savePrepData(order: ProductionOrder, updatedBatches: BatchItem[]
     status: newStatus as any
   };
 
-  const saved = persistOrder(orderToSave);
-  if (!saved) return { success: false, error: 'تعذر حفظ بيانات التجهيز.' };
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر حفظ بيانات التجهيز.' };
   
-  const verifiedOrder = getOrderById(order.id);
+  const verifiedOrder = await getOrderById(order.id);
   if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
 
   // Only publish if status changed
@@ -366,7 +367,7 @@ export function savePrepData(order: ProductionOrder, updatedBatches: BatchItem[]
   return { success: true, data: verifiedOrder };
 }
 
-export function approveBatchPrep(order: ProductionOrder, batchId: string, user: string = 'المستخدم الحالي'): CommandResult<ProductionOrder> {
+export async function approveBatchPrep(order: ProductionOrder, batchId: string, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
   const updatedBatches = order.batches!.map(b => {
     if (b.id === batchId) {
       return {
@@ -387,10 +388,10 @@ export function approveBatchPrep(order: ProductionOrder, batchId: string, user: 
     status: allCompleted ? 'التجهيز مكتمل' : 'التجهيز جاري'
   };
 
-  const saved = persistOrder(orderToSave);
-  if (!saved) return { success: false, error: 'تعذر اعتماد التجهيز.' };
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر اعتماد التجهيز.' };
 
-  const verifiedOrder = getOrderById(order.id);
+  const verifiedOrder = await getOrderById(order.id);
   if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
 
   eventBus.publish({
@@ -417,7 +418,7 @@ export function approveBatchPrep(order: ProductionOrder, batchId: string, user: 
 
 
 // Print & Embroidery Commands
-export function savePrintEmbroideryData(order: ProductionOrder, updatedBatches: BatchItem[]): CommandResult<ProductionOrder> {
+export async function savePrintEmbroideryData(order: ProductionOrder, updatedBatches: BatchItem[]): Promise<CommandResult<ProductionOrder>> {
   let newStatus = order.status;
   // If previously it was 'التجهيز مكتمل', it might move to 'الطباعة والتطريز جاري' if any batch started
   const anyStarted = updatedBatches.some(b => b.printEmbroideryStatus === 'جاري' || b.printEmbroideryStatus === 'مكتمل');
@@ -432,10 +433,10 @@ export function savePrintEmbroideryData(order: ProductionOrder, updatedBatches: 
     status: newStatus as any
   };
 
-  const saved = persistOrder(orderToSave);
-  if (!saved) return { success: false, error: 'تعذر حفظ بيانات الطباعة والتطريز.' };
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر حفظ بيانات الطباعة والتطريز.' };
   
-  const verifiedOrder = getOrderById(order.id);
+  const verifiedOrder = await getOrderById(order.id);
   if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
 
   eventBus.publish({
@@ -450,7 +451,7 @@ export function savePrintEmbroideryData(order: ProductionOrder, updatedBatches: 
   return { success: true, data: verifiedOrder };
 }
 
-export function approvePrintEmbroidery(order: ProductionOrder, user: string = 'المستخدم الحالي'): CommandResult<ProductionOrder> {
+export async function approvePrintEmbroidery(order: ProductionOrder, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
   const updatedBatches = order.batches!.map(b => ({
     ...b,
     printEmbroideryStatus: 'مكتمل' as const
@@ -462,10 +463,10 @@ export function approvePrintEmbroidery(order: ProductionOrder, user: string = '�
     status: 'الطباعة والتطريز مكتمل'
   };
 
-  const saved = persistOrder(orderToSave);
-  if (!saved) return { success: false, error: 'تعذر اعتماد الطباعة والتطريز.' };
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر اعتماد الطباعة والتطريز.' };
 
-  const verifiedOrder = getOrderById(order.id);
+  const verifiedOrder = await getOrderById(order.id);
   if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
 
   eventBus.publish({
@@ -480,17 +481,17 @@ export function approvePrintEmbroidery(order: ProductionOrder, user: string = '�
   return { success: true, data: verifiedOrder };
 }
 
-export function saveSewingData(order: ProductionOrder, updatedBatches: BatchItem[]): CommandResult<ProductionOrder> {
+export async function saveSewingData(order: ProductionOrder, updatedBatches: BatchItem[]): Promise<CommandResult<ProductionOrder>> {
   const orderToSave: ProductionOrder = {
     ...order,
     batches: updatedBatches,
     updatedAt: new Date().toISOString()
   };
   
-  const saved = persistOrder(orderToSave);
-  if (!saved) return { success: false, error: 'تعذر حفظ بيانات الخياطة.' };
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر حفظ بيانات الخياطة.' };
   
-  const verifiedOrder = getOrderById(order.id);
+  const verifiedOrder = await getOrderById(order.id);
   if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
 
   eventBus.publish({
@@ -505,7 +506,7 @@ export function saveSewingData(order: ProductionOrder, updatedBatches: BatchItem
   return { success: true, data: verifiedOrder };
 }
 
-export function approveSewing(order: ProductionOrder, user: string = 'المستخدم الحالي'): CommandResult<ProductionOrder> {
+export async function approveSewing(order: ProductionOrder, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
   if (!order.batches || order.batches.length === 0) {
     return { success: false, error: 'لا توجد باتشات للاعتماد' };
   }
@@ -549,10 +550,10 @@ export function approveSewing(order: ProductionOrder, user: string = 'المست
     updatedAt: new Date().toISOString()
   };
 
-  const saved = persistOrder(orderToSave);
-  if (!saved) return { success: false, error: 'تعذر اعتماد الخياطة.' };
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر اعتماد الخياطة.' };
   
-  const verifiedOrder = getOrderById(order.id);
+  const verifiedOrder = await getOrderById(order.id);
   if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
 
   eventBus.publish({
@@ -567,7 +568,7 @@ export function approveSewing(order: ProductionOrder, user: string = 'المست
   return { success: true, data: verifiedOrder };
 }
 
-export function approveBatchSewing(order: ProductionOrder, batchId: string, user: string = 'المستخدم الحالي'): CommandResult<ProductionOrder> {
+export async function approveBatchSewing(order: ProductionOrder, batchId: string, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
   if (!order.batches || order.batches.length === 0) {
     return { success: false, error: 'لا توجد باتشات' };
   }
@@ -619,10 +620,10 @@ export function approveBatchSewing(order: ProductionOrder, batchId: string, user
     updatedAt: new Date().toISOString()
   };
 
-  const saved = persistOrder(orderToSave);
-  if (!saved) return { success: false, error: 'تعذر اعتماد الخياطة.' };
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر اعتماد الخياطة.' };
   
-  const verifiedOrder = getOrderById(order.id);
+  const verifiedOrder = await getOrderById(order.id);
   if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
 
   if (allSewingCompleted) {

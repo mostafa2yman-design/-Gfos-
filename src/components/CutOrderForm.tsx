@@ -24,7 +24,7 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
   const [order, setOrder] = useState<ProductionOrder | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
 
-  const handlePrint = () => {
+  const handlePrint = async () => {
     setIsPrinting(true);
     setTimeout(() => {
       window.print();
@@ -46,7 +46,8 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
   const [cutData, setCutData] = useState<CutOrderData | null>(null);
 
   useEffect(() => {
-    const found = getOrderById(orderId);
+    const loadData = async () => {
+      const found = await getOrderById(orderId);
     if (found) {
       setOrder(found);
       if (found.cutData) {
@@ -63,15 +64,17 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
             })),
           })),
         });
+          }
       }
-    }
+    };
+    loadData();
   }, [orderId]);
 
   if (!order || !cutData) return <div>جاري التحميل...</div>;
 
   const isReadOnly = order.status === "مسودة" || ["القص معتمد", "تقسيم الباتشات", "الباتشات مثبتة", "التجهيز جاري", "التجهيز مكتمل", "الطباعة والتطريز جاري", "الطباعة والتطريز مكتمل", "الخياطة مكتملة", "مغلق"].includes(order.status);
 
-  const handleWeightChange = (color: string, value: number) => {
+  const handleWeightChange = async (color: string, value: number) => {
     if (isReadOnly) return;
     setCutData((prev) => {
       if (!prev) return prev;
@@ -111,9 +114,9 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
     setCutData({ ...cutData, sizes: newSizes });
   };
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     if (isReadOnly) return;
-    const result = Cmd.saveCutData(order, cutData);
+    const result = await Cmd.saveCutData(order, cutData);
     if (result.success) {
       onSaved();
     } else {
@@ -121,15 +124,15 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
     }
   };
 
-  const handleApproveCut = () => {
+  const handleApproveCut = async () => {
     if (!order) return;
     if (isReadOnly) return;
     setConfirmConfig({
       isOpen: true,
       message:
         "هل أنت متأكد من اعتماد أمر القص؟ لن تتمكن من تعديل كميات القص أو البيانات الأساسية بعد الاعتماد.",
-      onConfirm: () => {
-        const result = Cmd.approveCutOrder(order, cutData);
+      onConfirm: async () => {
+        const result = await Cmd.approveCutOrder(order, cutData);
         if (result.success) {
           setConfirmConfig(null);
           onSaved();

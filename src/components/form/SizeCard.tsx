@@ -48,7 +48,7 @@ export function SizeCard({
   }, [showCopyModal]);
 
   // Calculate size total directly from the variants
-  const sizeTotal = sizeData.variants.reduce((sum, v) => sum + (Number(v.quantity) || 0), 0);
+  const sizeTotal = (sizeData.variants || []).reduce((sum, v) => sum + (Number(v.quantity) || 0), 0);
 
   // Colors that are not yet selected in this size
   const selectedColors = sizeData.variants.map(v => v.color).filter(Boolean);

@@ -31,7 +31,8 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
   const [printingBatchId, setPrintingBatchId] = useState<string | null>(null);
 
   useEffect(() => {
-    const found = getOrderById(orderId);
+    const loadData = async () => {
+      const found = await getOrderById(orderId);
     if (found) {
       if (
         found.batches &&
@@ -62,7 +63,7 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
         });
 
         if (needsSave && updatedBatches) {
-          const result = Cmd.savePrepData(found, updatedBatches);
+          const result = await Cmd.savePrepData(found, updatedBatches);
           if (result.success && result.data) {
             setOrder(result.data);
           }
@@ -73,12 +74,14 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
         setOrder(found);
       }
     }
+    };
+    loadData();
   }, [orderId]);
 
-  if (!order || !order.batches || order.batches.length === 0)
+  if (!order || !order?.batches || order?.batches.length === 0)
     return <div>لا توجد بيانات باتشات.</div>;
 
-  const handlePrint = (batchId: string) => {
+  const handlePrint = async (batchId: string) => {
     setPrintingBatchId(batchId);
     setTimeout(() => {
       window.print();
@@ -86,8 +89,8 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
     }, 100);
   };
 
-  const handleToggleAccessory = (batchId: string, accessoryName: string) => {
-    const updatedBatches = order.batches!.map((b) => {
+  const handleToggleAccessory = async (batchId: string, accessoryName: string) => {
+    const updatedBatches = order?.batches!.map((b) => {
       if (b.id === batchId && b.prepStatus !== "مكتمل") {
         return {
           ...b,
@@ -101,13 +104,13 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
       return b;
     });
 
-    const result = Cmd.savePrepData(order, updatedBatches);
+    const result = await Cmd.savePrepData(order, updatedBatches);
     if (result.success && result.data) {
-      setOrder(result.data);
-    }
+            setOrder(result.data);
+          }
   };
 
-  const handleToggleAllAccessories = (batchId: string, isPrepared: boolean) => {
+  const handleToggleAllAccessories = async (batchId: string, isPrepared: boolean) => {
     const updatedBatches = order!.batches!.map((b) => {
       if (b.id === batchId && b.prepStatus !== "مكتمل") {
         return {
@@ -121,20 +124,20 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
       return b;
     });
 
-    const result = Cmd.savePrepData(order!, updatedBatches);
+    const result = await Cmd.savePrepData(order!, updatedBatches);
     if (result.success && result.data) {
-      setOrder(result.data);
-    }
+            setOrder(result.data);
+          }
   };
-  const handleApproveBatch = (batchId: string) => {
+  const handleApproveBatch = async (batchId: string) => {
     setConfirmConfig({
       isOpen: true,
       message: "هل أنت متأكد من اعتماد التجهيز لهذا الباتش؟",
-      onConfirm: () => {
-        const result = Cmd.approveBatchPrep(order, batchId);
-        if (result.success && result.data) {
+      onConfirm: async () => {
+        const result = await Cmd.approveBatchPrep(order, batchId);
+        if (result.success && result) {
           setConfirmConfig(null);
-          setOrder(result.data);
+          if (result.data) setOrder(result.data);
           onSaved();
         } else {
           setConfirmConfig(null);
@@ -175,7 +178,7 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
         </div>
 
         <div className="space-y-8">
-          {order.batches.map((batch) => {
+          {order?.batches.map((batch) => {
             const allPrepared =
               batch.accessoriesPrep?.every((a) => a.isPrepared) || false;
 
@@ -407,7 +410,7 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
         <div className="hidden print:block print:absolute print:inset-0">
           <BatchPreparationWorkOrder
             order={order}
-            batch={order.batches.find((b) => b.id === printingBatchId)!}
+            batch={order?.batches.find((b) => b.id === printingBatchId)!}
           />
         </div>
       )}

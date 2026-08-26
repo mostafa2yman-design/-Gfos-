@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import { Settings as SettingsIcon, AlertTriangle } from 'lucide-react';
-import { getOrders, deleteAllOrders } from '../lib/storage';
+import React, { useState, useEffect } from 'react';
+import { Settings as SettingsIcon, AlertTriangle, Download, Database } from 'lucide-react';
+import { getOrders, deleteAllOrders, exportData, importData } from '../lib/storage';
+import { getAllBackups, BackupRecord, setBackupDirectoryHandle, getBackupDirectoryHandle, verifyDirectoryPermission } from '../lib/backupManager';
+import { Upload, FolderOpen } from 'lucide-react';
 
 interface SettingsProps {
   onBack?: () => void;
@@ -11,8 +13,106 @@ export function Settings({ onBack }: SettingsProps) {
   const [confirmText, setConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [ordersCount, setOrdersCount] = useState(0);
+  const [backups, setBackups] = useState<BackupRecord[]>([]);
 
-  const ordersCount = getOrders().length;
+
+  const [hasExternalFolder, setHasExternalFolder] = useState(false);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    getOrders().then(data => setOrdersCount(data.length));
+    loadBackups();
+    checkExternalFolder();
+  }, []);
+
+  const checkExternalFolder = async () => {
+    const handle = await getBackupDirectoryHandle();
+    if (handle) {
+      setHasExternalFolder(true);
+      verifyDirectoryPermission(handle, 'readwrite').then(granted => {
+         if(!granted) {
+            setMessage({ text: 'تم إعداد مجلد للنسخ الاحتياطي سابقاً، يرجى إعادة السماح بالوصول إليه من زر "تحديث الصلاحية".', type: 'error' });
+         }
+      });
+    } else {
+      setHasExternalFolder(false);
+    }
+  };
+
+  const handleSelectFolder = async () => {
+    try {
+      if (!('showDirectoryPicker' in window)) {
+        setMessage({ text: 'متصفحك لا يدعم اختيار مجلد للنسخ التلقائي للديسك. يرجى استخدام جوجل كروم أو إيدج.', type: 'error' });
+        return;
+      }
+      const handle = await (window as any).showDirectoryPicker({ mode: 'readwrite' });
+      await setBackupDirectoryHandle(handle);
+      setHasExternalFolder(true);
+      setMessage({ text: 'تم تحديد مجلد النسخ الاحتياطي التلقائي بنجاح.', type: 'success' });
+    } catch (err: any) {
+      if (err.name !== 'AbortError') {
+        setMessage({ text: 'حدث خطأ أثناء تحديد المجلد.', type: 'error' });
+      }
+    }
+  };
+  
+  const handleImportBackup = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    try {
+      const text = await file.text();
+      const result = await importData(text);
+      if (result.success) {
+        setMessage({ text: `تم استيراد ${result.count} أمر إنتاج بنجاح.`, type: 'success' });
+        getOrders().then(data => setOrdersCount(data.length));
+      } else {
+        setMessage({ text: result.error || 'فشل استيراد النسخة الاحتياطية.', type: 'error' });
+      }
+    } catch (err) {
+      setMessage({ text: 'حدث خطأ أثناء قراءة الملف.', type: 'error' });
+    }
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+
+  const loadBackups = async () => {
+    const records = await getAllBackups();
+    // Sort descending by timestamp
+    records.sort((a, b) => b.timestamp - a.timestamp);
+    setBackups(records);
+  };
+
+  const handleManualExport = async () => {
+    try {
+      const data = await exportData();
+      downloadJSON(data, `gfos_manual_backup_${new Date().toISOString().split('T')[0]}.json`);
+      setMessage({ text: 'تم تصدير البيانات بنجاح.', type: 'success' });
+    } catch (err) {
+      setMessage({ text: 'فشل تصدير البيانات.', type: 'error' });
+    }
+  };
+
+  const downloadBackup = (record: BackupRecord) => {
+    downloadJSON(record.data, `gfos_auto_backup_${record.date}.json`);
+  };
+
+  const downloadJSON = (jsonString: string, filename: string) => {
+    const blob = new Blob([jsonString], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const handleDeleteAll = () => {
     setShowConfirm(true);
@@ -23,15 +123,15 @@ export function Settings({ onBack }: SettingsProps) {
   const confirmDelete = () => {
     setIsDeleting(true);
     setMessage(null);
-
     // Give UI time to update
-    setTimeout(() => {
-      const success = deleteAllOrders();
+    setTimeout(async () => {
+      const success = await deleteAllOrders();
       setIsDeleting(false);
       
       if (success) {
         setMessage({ text: `تم حذف ${ordersCount} أمر إنتاج بنجاح.`, type: 'success' });
         setShowConfirm(false);
+        setOrdersCount(0);
       } else {
         setMessage({ text: 'تعذر حذف أوامر الإنتاج.', type: 'error' });
       }
@@ -41,6 +141,12 @@ export function Settings({ onBack }: SettingsProps) {
   const cancelDelete = () => {
     setShowConfirm(false);
     setConfirmText('');
+  };
+
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    else if (bytes < 1048576) return (bytes / 1024).toFixed(1) + ' KB';
+    else return (bytes / 1048576).toFixed(1) + ' MB';
   };
 
   return (
@@ -58,9 +164,109 @@ export function Settings({ onBack }: SettingsProps) {
         </div>
       )}
 
+      
+      {/* Folder Config Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6 p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div>
+          <h3 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
+            <FolderOpen className="w-5 h-5 text-emerald-600" />
+            مجلد الحفظ التلقائي للديسك
+          </h3>
+          <p className="text-slate-500 text-sm max-w-xl">
+            لتأمين بياناتك أكثر، يمكنك تحديد مجلد على جهازك ليقوم النظام بحفظ نسخة يومية بداخله مباشرة (تعمل الميزة في متصفحات كروم وإيدج).
+          </p>
+        </div>
+        <button
+          onClick={handleSelectFolder}
+          className={`px-4 py-2 rounded-lg font-medium text-sm transition-colors border flex items-center gap-2 shadow-sm whitespace-nowrap ${
+            hasExternalFolder 
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100'
+              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+          }`}
+        >
+          <FolderOpen className="w-4 h-4" />
+          {hasExternalFolder ? 'تحديث صلاحية المجلد / تغييره' : 'تحديد مجلد النسخ التلقائي'}
+        </button>
+      </div>
+
+      {/* Backups Section */}
+
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+        <div className="p-6 border-b border-slate-200 flex justify-between items-center">
+          <div>
+            <h3 className="text-lg font-bold text-slate-800 mb-2 flex items-center gap-2">
+              <Database className="w-5 h-5 text-indigo-600" />
+              النسخ الاحتياطي التلقائي
+            </h3>
+            <p className="text-slate-500 text-sm">
+              يقوم النظام تلقائياً بأخذ نسخة احتياطية يومية الساعة 12 صباحاً ويحتفظ بها لمدة 30 يوماً داخل المتصفح. يمكنك تحميلها كملف للديسك في أي وقت.
+            </p>
+          </div>
+          
+          <div className="flex flex-wrap gap-2">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-4 py-2 bg-white text-slate-700 hover:bg-slate-50 rounded-lg font-medium text-sm transition-colors border border-slate-200 flex items-center gap-2 shadow-sm"
+            >
+              <Upload className="w-4 h-4" />
+              استيراد نسخة
+            </button>
+            <input type="file" accept=".json" className="hidden" ref={fileInputRef} onChange={handleImportBackup} />
+            <button
+              onClick={handleManualExport}
+              className="px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg font-medium text-sm transition-colors border border-indigo-200 flex items-center gap-2 shadow-sm"
+            >
+              <Download className="w-4 h-4" />
+              تنزيل يدوياً
+            </button>
+          </div>
+
+        </div>
+        
+        <div className="p-0">
+          {backups.length === 0 ? (
+            <div className="p-6 text-center text-slate-500 text-sm">
+              لا توجد نسخ احتياطية تلقائية حتى الآن. ستظهر هنا بداية من الغد.
+            </div>
+          ) : (
+            <table className="w-full text-sm text-right">
+              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+                <tr>
+                  <th className="px-6 py-3 font-medium">التاريخ</th>
+                  <th className="px-6 py-3 font-medium">الوقت</th>
+                  <th className="px-6 py-3 font-medium">الحجم</th>
+                  <th className="px-6 py-3 font-medium text-center">إجراء</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {backups.map(record => {
+                  const d = new Date(record.timestamp);
+                  return (
+                    <tr key={record.date} className="hover:bg-slate-50/50">
+                      <td className="px-6 py-3 font-medium text-slate-900" dir="ltr">{record.date}</td>
+                      <td className="px-6 py-3 text-slate-600">{d.toLocaleTimeString('ar-EG')}</td>
+                      <td className="px-6 py-3 text-slate-600" dir="ltr">{formatSize(record.size)}</td>
+                      <td className="px-6 py-3 text-center">
+                        <button
+                          onClick={() => downloadBackup(record)}
+                          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-slate-200 rounded-md text-indigo-600 hover:bg-indigo-50 hover:border-indigo-200 transition-colors text-xs font-medium"
+                        >
+                          <Download className="w-3.5 h-3.5" />
+                          تنزيل للديسك
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </div>
+
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="p-6 border-b border-slate-200">
-          <h3 className="text-lg font-bold text-slate-800 mb-2">أوامر الإنتاج</h3>
+          <h3 className="text-lg font-bold text-slate-800 mb-2 text-red-600">منطقة الخطر</h3>
           <p className="text-slate-500 text-sm">
             يمكنك استخدام هذا الإجراء لمسح جميع أوامر الإنتاج التجريبية الموجودة في النظام.
           </p>
@@ -91,7 +297,8 @@ export function Settings({ onBack }: SettingsProps) {
               </div>
               <h3 className="text-2xl font-bold text-slate-900 mb-2">تحذير</h3>
               <p className="text-slate-600 text-sm mb-6">
-                سيتم حذف جميع أوامر الإنتاج الموجودة حاليًا وما يرتبط بها من بيانات تشغيلية. لا يمكن التراجع عن هذا الإجراء.
+                سيتم حذف جميع أوامر الإنتاج الموجودة حاليًا وما يرتبط بها من بيانات تشغيلية. لا يمكن التراجع عن هذا الإجراء. 
+                <br/><strong>تأكد من تنزيل نسخة احتياطية أولاً!</strong>
               </p>
               
               <div className="bg-red-50 border border-red-100 rounded-lg p-4 mb-6">

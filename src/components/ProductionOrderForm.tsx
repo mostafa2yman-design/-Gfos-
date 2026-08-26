@@ -69,11 +69,14 @@ export function ProductionOrderForm({
   const [previousOrders, setPreviousOrders] = useState<ProductionOrder[]>([]);
 
   useEffect(() => {
-    if (!orderId) {
-      const orders = getOrders();
-      orders.sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
-      setPreviousOrders(orders);
-    }
+    const load = async () => {
+      if (!orderId) {
+        const orders = await getOrders();
+        orders.sort((a, b) => new Date(b.orderDate).getTime() - new Date(a.orderDate).getTime());
+        setPreviousOrders(orders);
+      }
+    };
+    load();
   }, [orderId]);
 
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -84,20 +87,23 @@ export function ProductionOrderForm({
   const addSizeRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (orderId) {
-      const existing = getOrderById(orderId);
-      if (existing) {
-        setOrder(existing);
+    const load = async () => {
+      if (orderId) {
+        const existing = await getOrderById(orderId);
+        if (existing) {
+          setOrder(existing);
+        }
+      } else {
+        setOrder((prev) => ({ ...prev, orderNumber: generateOrderNumber() }));
       }
-    } else {
-      setOrder((prev) => ({ ...prev, orderNumber: generateOrderNumber() }));
-    }
+    };
+    load();
   }, [orderId]);
 
   // Click outside listener for Add Size dropdown
   useEffect(() => {
     if (!isAddSizeOpen) return;
-    const handleClickOutside = (event: MouseEvent | TouchEvent) => {
+    const handleClickOutside = async (event: MouseEvent | TouchEvent) => {
       if (
         addSizeRef.current &&
         !addSizeRef.current.contains(event.target as Node)
@@ -140,7 +146,7 @@ export function ProductionOrderForm({
     setError(null);
   };
 
-  const executeCommand = <Args extends unknown[]>(
+  const executeCommand = async <Args extends unknown[]>(
     commandFn: (o: ProductionOrder, ...args: Args) => ProductionOrder,
     ...args: Args
   ) => {
@@ -149,7 +155,7 @@ export function ProductionOrderForm({
 
     // Autosave immediately if it's already an existing persisted order
     if (orderId && ["مسودة"].includes(order.status)) {
-      const result = Cmd.saveDraft(newOrder);
+      const result = await Cmd.saveDraft(newOrder);
       if (result.success) {
         if (result.data) setOrder(result.data);
       } else {
@@ -162,17 +168,17 @@ export function ProductionOrderForm({
     setError(null);
   };
 
-  const handleAddSize = (sizeName: string) => {
+  const handleAddSize = async (sizeName: string) => {
     executeCommand(Cmd.addSize, sizeName);
     setIsAddSizeOpen(false);
   };
 
-  const handleRemoveSize = (sizeName: string) => {
+  const handleRemoveSize = async (sizeName: string) => {
     if (isReadOnly) return;
     setConfirmConfig({
       isOpen: true,
       message: "هل أنت متأكد من حذف هذا المقاس بجميع ألوانه وكمياته؟",
-      onConfirm: () => {
+      onConfirm: async () => {
         executeCommand(Cmd.removeSize, sizeName);
         setConfirmConfig(null);
       },
@@ -180,11 +186,11 @@ export function ProductionOrderForm({
     });
   };
 
-  const handleCopySize = (sourceSizeName: string, targetSizeName: string) => {
+  const handleCopySize = async (sourceSizeName: string, targetSizeName: string) => {
     executeCommand(Cmd.copySize, sourceSizeName, targetSizeName);
   };
 
-  const handleAddVariant = (sizeName: string) => {
+  const handleAddVariant = async (sizeName: string) => {
     executeCommand(Cmd.addVariant, sizeName, "", 0);
   };
 
@@ -211,7 +217,7 @@ export function ProductionOrderForm({
     }
   };
 
-  const handleRemoveVariant = (sizeName: string, variantIndex: number) => {
+  const handleRemoveVariant = async (sizeName: string, variantIndex: number) => {
     executeCommand(Cmd.removeVariant, sizeName, variantIndex);
   };
 
@@ -272,14 +278,14 @@ export function ProductionOrderForm({
     return true;
   };
 
-  const handleDeleteOrder = () => {
+  const handleDeleteOrder = async () => {
     if (!orderId) return;
     setConfirmConfig({
       isOpen: true,
       message:
         "هل أنت متأكد من حذف أمر الإنتاج؟\n\nسيتم حذف أمر الإنتاج وجميع بياناته التابعة التي لم تدخل في التنفيذ الفعلي. لا يمكن التراجع عن هذه العملية.",
-      onConfirm: () => {
-        const result = Cmd.deleteProductionOrder(order);
+      onConfirm: async () => {
+        const result = await Cmd.deleteProductionOrder(order);
         if (result.success) {
           setConfirmConfig(null);
           if (onDeleted) {
@@ -296,10 +302,10 @@ export function ProductionOrderForm({
     });
   };
 
-  const handleSaveDraft = () => {
+  const handleSaveDraft = async () => {
     if (isReadOnly && order.status !== "مسودة") return;
     if (validate()) {
-      const result = Cmd.saveDraft(order);
+      const result = await Cmd.saveDraft(order);
       if (result.success) {
         setSuccess("تم حفظ الأمر كمسودة بنجاح.");
         setError(null);
@@ -311,15 +317,15 @@ export function ProductionOrderForm({
     }
   };
 
-  const handleApproveOrder = () => {
+  const handleApproveOrder = async () => {
     if (isReadOnly && order.status !== "مسودة") return;
     if (validate()) {
       setConfirmConfig({
         isOpen: true,
         message:
           "هل أنت متأكد من الاعتماد؟ لن تتمكن من تعديل البيانات الأساسية بعد الاعتماد.",
-        onConfirm: () => {
-          const result = Cmd.approveProductionOrder(order);
+        onConfirm: async () => {
+          const result = await Cmd.approveProductionOrder(order);
           if (result.success) {
             setConfirmConfig(null);
             setSuccess("تم الاعتماد بنجاح.");
@@ -344,7 +350,7 @@ export function ProductionOrderForm({
     setOrder((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleCopyBom = (materials: MaterialInstance[], accessories: AccessoryInstance[]) => {
+  const handleCopyBom = async (materials: MaterialInstance[], accessories: AccessoryInstance[]) => {
     setOrder(prev => {
       // Create new UUIDs for the copied items to avoid key collisions
       const newMaterials = materials.map(m => ({ ...m, id: crypto.randomUUID() }));

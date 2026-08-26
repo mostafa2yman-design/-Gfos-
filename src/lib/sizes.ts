@@ -1,14 +1,16 @@
 import { PREDEFINED_SIZES } from '../types';
 
-export const getAvailableSizes = (): string[] => {
+const getCustomSizes = (): string[] => {
   try {
     const customSizesStr = localStorage.getItem('CUSTOM_SIZES');
-    const customSizes = customSizesStr ? JSON.parse(customSizesStr) : [];
-    // Combine and remove duplicates
-    return Array.from(new Set([...PREDEFINED_SIZES, ...customSizes]));
+    return customSizesStr ? JSON.parse(customSizesStr) : [];
   } catch (e) {
-    return PREDEFINED_SIZES;
+    return [];
   }
+};
+
+export const getAvailableSizes = (): string[] => {
+  return Array.from(new Set([...PREDEFINED_SIZES, ...getCustomSizes()]));
 };
 
 export const addCustomSize = (size: string) => {
@@ -17,8 +19,7 @@ export const addCustomSize = (size: string) => {
   const current = getAvailableSizes();
   if (!current.includes(s)) {
     try {
-      const customSizesStr = localStorage.getItem('CUSTOM_SIZES');
-      const customSizes = customSizesStr ? JSON.parse(customSizesStr) : [];
+      const customSizes = getCustomSizes();
       customSizes.push(s);
       localStorage.setItem('CUSTOM_SIZES', JSON.stringify(customSizes));
     } catch (e) {

@@ -2,7 +2,7 @@ import { ProductionOrder } from '../types';
 
 const STORAGE_KEY = 'production_orders_v0.4';
 
-export const getOrders = (): ProductionOrder[] => {
+export const getOrders = async (): Promise<ProductionOrder[]> => {
   try {
     const data = localStorage.getItem(STORAGE_KEY);
     if (!data) return [];
@@ -15,7 +15,7 @@ export const getOrders = (): ProductionOrder[] => {
   }
 };
 
-export const saveOrders = (orders: ProductionOrder[]): boolean => {
+export const saveOrders = async (orders: ProductionOrder[]): Promise<boolean> => {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(orders));
     return true;
@@ -25,54 +25,56 @@ export const saveOrders = (orders: ProductionOrder[]): boolean => {
   }
 };
 
-export const saveOrder = (order: ProductionOrder): boolean => {
-  try {
-    const orders = getOrders();
-    const existingIndex = orders.findIndex(o => o.id === order.id);
+export const saveOrder = async (order: ProductionOrder): Promise<{ success: boolean; error?: string }> => {
+  const orders = await getOrders();
+  const existingIndex = orders.findIndex(o => o.id === order.id);
+  
+  if (existingIndex >= 0) {
+    const existingOrder = orders[existingIndex];
+    const incomingVersion = order.version || 0;
+    const existingVersion = existingOrder.version || 0;
     
-    const updatedOrder: ProductionOrder = {
-      ...order,
-      updatedAt: new Date().toISOString()
-    };
-    
-    let updatedOrders: ProductionOrder[];
-    if (existingIndex >= 0) {
-      updatedOrders = [...orders];
-      updatedOrders[existingIndex] = updatedOrder;
-    } else {
-      updatedOrders = [...orders, updatedOrder];
+    if (incomingVersion < existingVersion) {
+      return { success: false, error: "تم تعديل هذا الأمر من مستخدم أو جهاز آخر. يجب تحديث البيانات قبل الحفظ." };
     }
-    
-    return saveOrders(updatedOrders);
-  } catch (error) {
-    console.error('Failed to save order:', error);
-    return false;
   }
+
+  const updatedOrder: ProductionOrder = {
+    ...order,
+    version: (order.version || 0) + 1,
+    updatedAt: new Date().toISOString()
+  };
+  
+  let updatedOrders: ProductionOrder[];
+  if (existingIndex >= 0) {
+    updatedOrders = [...orders];
+    updatedOrders[existingIndex] = updatedOrder;
+  } else {
+    updatedOrders = [...orders, updatedOrder];
+  }
+  
+  const saved = await saveOrders(updatedOrders);
+  if (!saved) return { success: false, error: "فشل الحفظ" };
+  
+  // Dispatch custom event for cross-tab sync if necessary
+  window.dispatchEvent(new Event('gfos_storage_update'));
+  return { success: true };
 };
 
-export const getOrderById = (id: string): ProductionOrder | undefined => {
-  try {
-    return getOrders().find(o => o.id === id);
-  } catch (error) {
-    console.error('Failed to get order by id:', error);
-    return undefined;
-  }
+export const getOrderById = async (id: string): Promise<ProductionOrder | undefined> => {
+  const orders = await getOrders();
+  return orders.find(o => o.id === id);
 };
 
-export const deleteOrder = (id: string): boolean => {
-  try {
-    const orders = getOrders();
-    const updatedOrders = orders.filter(o => o.id !== id);
-    return saveOrders(updatedOrders);
-  } catch (error) {
-    console.error('Failed to delete order:', error);
-    return false;
-  }
+export const deleteOrder = async (id: string): Promise<boolean> => {
+  const orders = await getOrders();
+  const updatedOrders = orders.filter(o => o.id !== id);
+  return await saveOrders(updatedOrders);
 };
 
-export const generateOrderNumber = (): string => {
+export const generateOrderNumber = async (): Promise<string> => {
   try {
-    const orders = getOrders();
+    const orders = await getOrders();
     const year = new Date().getFullYear();
     const yearPrefix = `PO-${year}-`;
     
@@ -96,12 +98,34 @@ export const generateOrderNumber = (): string => {
   }
 };
 
+export const deleteAllOrders = async (): Promise<boolean> => {
+  return await saveOrders([]);
+};
 
-export const deleteAllOrders = (): boolean => {
+export const exportData = async (): Promise<string> => {
+  const orders = await getOrders();
+  return JSON.stringify({
+    schemaVersion: '0.4',
+    applicationVersion: '1.0.0',
+    exportedAt: new Date().toISOString(),
+    orders
+  });
+};
+
+export const importData = async (jsonData: string): Promise<{ success: boolean; count?: number; error?: string }> => {
   try {
-    return saveOrders([]);
-  } catch (error) {
-    console.error('Failed to delete all orders:', error);
-    return false;
+    const data = JSON.parse(jsonData);
+    if (!data.orders || !Array.isArray(data.orders)) {
+      return { success: false, error: "تنسيق الملف غير صحيح." };
+    }
+    
+    // Simple validation (can be extended)
+    const orders = data.orders as ProductionOrder[];
+    await saveOrders(orders);
+    
+    window.dispatchEvent(new Event('gfos_storage_update'));
+    return { success: true, count: orders.length };
+  } catch (e) {
+    return { success: false, error: "فشل استيراد الملف." };
   }
 };

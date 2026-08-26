@@ -40,7 +40,7 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
   let totalBatches = 0;
   batches.forEach(b => b.sizes.forEach(s => s.variants.forEach(v => totalBatches += v.quantity)));
 
-  const handleSplitMethodChange = (method: BatchSplitMethod) => {
+  const handleSplitMethodChange = async (method: BatchSplitMethod) => {
     if (isReadOnly) return;
     
     // Auto-generate batches based on method
@@ -92,7 +92,7 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
       });
     }
     
-    const result = Cmd.saveBatches(order, newBatches, method);
+    const result = await Cmd.saveBatches(order, newBatches, method);
     if (result.success) {
       if (result.data) setOrder(result.data);
     } else {
@@ -100,7 +100,7 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
     }
   };
 
-  const handleLockBatches = () => {
+  const handleLockBatches = async () => {
     if (isReadOnly) return;
     if (totalBatches !== totalActual) {
       setToastConfig({ message: "لا يمكن التثبيت: إجمالي الباتشات لا يساوي إجمالي القص الفعلي.", type: "error" });
@@ -109,8 +109,8 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
     setConfirmConfig({
       isOpen: true,
       message: "بعد تثبيت الباتشات لن يمكن تعديل توزيع الكميات. هل أنت متأكد؟",
-      onConfirm: () => {
-        const result = Cmd.lockBatches(order);
+      onConfirm: async () => {
+        const result = await Cmd.lockBatches(order);
         if (result.success) {
           setConfirmConfig(null);
           onSaved();

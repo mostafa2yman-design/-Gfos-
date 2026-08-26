@@ -147,7 +147,7 @@ export function calculateOrderCostAnalysis(order: ProductionOrder): OrderCostAna
        if (mat.id !== primaryFabricId) {
          const price = mat.standardPrice || 0;
          order.cutData?.sizes?.forEach(s => {
-           const sQty = s.variants.reduce((sum, v) => sum + (v.actualQuantity || 0), 0);
+           const sQty = (s.variants || []).reduce((sum, v) => sum + (v.actualQuantity || 0), 0);
            const std = mat.standardMethod === 'موحد' 
              ? (mat.unifiedStandard || 0)
              : (mat.sizeStandards?.find(ss => ss.size === s.size)?.standard || 0);
@@ -187,7 +187,7 @@ export function calculateOrderCostAnalysis(order: ProductionOrder): OrderCostAna
       if (b.prepStatus === 'مكتمل') {
         hasAnyPreppedBatch = true;
         b.sizes?.forEach(bs => {
-          const sQty = bs.variants.reduce((sum, v) => sum + v.quantity, 0);
+          const sQty = (bs.variants || []).reduce((sum, v) => sum + v.quantity, 0);
           const std = acc.standardMethod === 'موحد' 
             ? (acc.unifiedStandard || 0)
             : (acc.sizeStandards?.find(ss => ss.size === bs.size)?.standard || 0);

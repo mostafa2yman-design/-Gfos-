@@ -44,9 +44,9 @@ export function OrderManager({
   const [activeTab, setActiveTab] = useState<TabType>("production");
   const [order, setOrder] = useState<ProductionOrder | null>(null);
 
-  const loadOrder = (id: string | null, forceTabChange = true) => {
+  const loadOrder = async (id: string | null, forceTabChange = true) => {
     if (id) {
-      const found = getOrderById(id);
+      const found = await getOrderById(id);
       if (found) {
         setOrder(found);
 

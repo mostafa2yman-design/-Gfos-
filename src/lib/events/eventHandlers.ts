@@ -11,8 +11,8 @@ interface WorkflowCallbacks {
 export function createOrderWorkflowHandlers(callbacks: WorkflowCallbacks) {
   const { onOrderUpdated, onOrderDeleted, onNavigate } = callbacks;
 
-  const reloadOrder = (aggregateId: string) => {
-    const order = getOrderById(aggregateId);
+  const reloadOrder = async (aggregateId: string) => {
+    const order = await getOrderById(aggregateId);
     if (order) {
       onOrderUpdated(order);
     }
@@ -61,18 +61,21 @@ export function createOrderWorkflowHandlers(callbacks: WorkflowCallbacks) {
     
     handleBatchPreparationCompleted: (event: BusinessEvent) => {
       reloadOrder(event.aggregateId);
-    }
-    ,
+    },
+
     handlePrintEmbroiderySaved: (event: BusinessEvent) => {
       reloadOrder(event.aggregateId);
     },
+
     handlePrintEmbroideryCompleted: (event: BusinessEvent) => {
       reloadOrder(event.aggregateId);
       onNavigate('sew');
     },
+
     handleSewingSaved: (event: BusinessEvent) => {
       reloadOrder(event.aggregateId);
     },
+
     handleSewingCompleted: (event: BusinessEvent) => {
       reloadOrder(event.aggregateId);
     }

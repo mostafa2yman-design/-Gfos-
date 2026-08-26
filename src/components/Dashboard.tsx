@@ -20,7 +20,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const [orders, setOrders] = useState<ProductionOrder[]>([]);
 
   useEffect(() => {
-    setOrders(getOrders());
+    getOrders().then(data => setOrders(data));
   }, []);
 
   const costMetrics = calculateGlobalCostMetrics(orders);

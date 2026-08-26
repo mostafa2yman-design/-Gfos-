@@ -33,11 +33,14 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
   const [printingBatchId, setPrintingBatchId] = useState<string | null>(null);
 
   useEffect(() => {
-    const found = getOrderById(orderId);
-    if (found) {
-      setOrder(found);
-      setBatches(found.batches || []);
-    }
+    const loadData = async () => {
+      const found = await getOrderById(orderId);
+      if (found) {
+        setOrder(found);
+        setBatches(found.batches || []);
+      }
+    };
+    loadData();
   }, [orderId]);
 
   if (!order)
@@ -85,7 +88,7 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
   };
 
 
-  const handleCopyDetails = (sourceBatchId: string) => {
+  const handleCopyDetails = async (sourceBatchId: string) => {
     const sourceBatch = batches.find(b => b.id === sourceBatchId);
     if (!sourceBatch) return;
 
@@ -158,7 +161,7 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
     );
   };
 
-  const handlePrintBatch = (batchId: string) => {
+  const handlePrintBatch = async (batchId: string) => {
     setPrintingBatchId(batchId);
     setTimeout(() => {
       window.print();
@@ -166,8 +169,8 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
     }, 100);
   };
 
-  const handleSaveDraft = () => {
-    const result = Cmd.savePrintEmbroideryData(order, batches);
+  const handleSaveDraft = async () => {
+    const result = await Cmd.savePrintEmbroideryData(order, batches);
     if (result.success) {
       setToastConfig({
         message: "تم حفظ البيانات كمسودة بنجاح.",
@@ -182,7 +185,7 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
     }
   };
 
-  const handleApprove = () => {
+  const handleApprove = async () => {
     // Validate
     const invalidBatch = batches.find((b) => {
       if (!b.executionType) return true;
@@ -209,10 +212,10 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
       isOpen: true,
       message:
         "هل أنت متأكد من اعتماد بيانات الطباعة والتطريز؟ لن تتمكن من تعديلها لاحقاً.",
-      onConfirm: () => {
+      onConfirm: async () => {
         const orderToApprove = { ...order, batches };
-        Cmd.savePrintEmbroideryData(orderToApprove, batches);
-        const result = Cmd.approvePrintEmbroidery(orderToApprove);
+        await Cmd.savePrintEmbroideryData(orderToApprove, batches);
+        const result = await Cmd.approvePrintEmbroidery(orderToApprove);
         if (result.success) {
           setConfirmConfig(null);
           setToastConfig({

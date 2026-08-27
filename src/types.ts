@@ -220,3 +220,10 @@ export const PREDEFINED_COLORS = [
 export const CATEGORIES = [
   'رجالي', 'حريمي', 'أطفال', 'أخرى'
 ];
+
+export interface FactorySettings {
+  name: string;
+  address: string;
+  phones: string;
+  logoUrl: string | null;
+}

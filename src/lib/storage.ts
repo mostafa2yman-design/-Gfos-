@@ -8,7 +8,14 @@ export const getOrders = async (): Promise<ProductionOrder[]> => {
     if (!data) return [];
     const parsed = JSON.parse(data);
     if (!Array.isArray(parsed)) return [];
-    return parsed as ProductionOrder[];
+    
+    // Sanitize corrupted orderNumber (was saved as {} due to unhandled Promise)
+    return parsed.map((order: any) => {
+      if (order.orderNumber && typeof order.orderNumber === 'object') {
+        order.orderNumber = `GFOS-FIXED-${Math.floor(Math.random() * 10000)}`;
+      }
+      return order as ProductionOrder;
+    });
   } catch (error) {
     console.error('Failed to parse production orders from storage:', error);
     return [];
@@ -127,5 +134,27 @@ export const importData = async (jsonData: string): Promise<{ success: boolean; 
     return { success: true, count: orders.length };
   } catch (e) {
     return { success: false, error: "فشل استيراد الملف." };
+  }
+};
+
+const FACTORY_SETTINGS_KEY = 'gfos_factory_settings';
+
+export const getFactorySettings = (): import('../types').FactorySettings | null => {
+  try {
+    const data = localStorage.getItem(FACTORY_SETTINGS_KEY);
+    return data ? JSON.parse(data) : null;
+  } catch (error) {
+    console.error('Failed to parse factory settings:', error);
+    return null;
+  }
+};
+
+export const saveFactorySettings = (settings: import('../types').FactorySettings): boolean => {
+  try {
+    localStorage.setItem(FACTORY_SETTINGS_KEY, JSON.stringify(settings));
+    return true;
+  } catch (error) {
+    console.error('Failed to save factory settings:', error);
+    return false;
   }
 };

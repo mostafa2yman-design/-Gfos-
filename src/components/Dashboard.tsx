@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from "react";
-import { getOrders } from "../lib/storage";
-import { ProductionOrder } from "../types";
+import { getOrders, getFactorySettings } from "../lib/storage";
+import { ProductionOrder, FactorySettings } from "../types";
 import {
   FileText,
   ClipboardList,
-  CheckCircle2,
   Archive,
   ArrowLeft,
   Calculator,
   CircleDollarSign,
+  Activity,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { calculateGlobalCostMetrics } from "../lib/costUtils";
 
@@ -18,12 +20,17 @@ interface DashboardProps {
 
 export function Dashboard({ onNavigate }: DashboardProps) {
   const [orders, setOrders] = useState<ProductionOrder[]>([]);
+  const [factory, setFactory] = useState<FactorySettings | null>(null);
+  const [showMap, setShowMap] = useState(false);
 
   useEffect(() => {
     getOrders().then(data => setOrders(data));
+    setFactory(getFactorySettings());
   }, []);
 
   const costMetrics = calculateGlobalCostMetrics(orders);
+  
+  const inProgressOrders = orders.filter((o) => o.status !== "مسودة" && o.status !== "مغلق");
 
   const stats = [
     {
@@ -43,12 +50,15 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       borderColor: "border-amber-100",
     },
     {
-      title: "معتمدة",
-      value: orders.filter((o) => o.status === "أمر إنتاج معتمد").length,
-      icon: CheckCircle2,
-      color: "text-emerald-600",
-      bgColor: "bg-emerald-50",
-      borderColor: "border-emerald-100",
+      title: "قيد التشغيل",
+      value: inProgressOrders.length,
+      icon: Activity,
+      color: "text-indigo-600",
+      bgColor: "bg-indigo-50",
+      borderColor: "border-indigo-100",
+      onClick: () => setShowMap(!showMap),
+      clickable: true,
+      active: showMap
     },
     {
       title: "مغلقة",
@@ -60,14 +70,95 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     },
   ];
 
+  interface StageItem {
+    id: string;
+    orderNumber: string;
+    orderId: string;
+    batchNumber?: string;
+    quantity: number;
+    details?: string;
+    isOrderOnly?: boolean;
+  }
+
+  const getKanbanData = () => {
+    const cutting: StageItem[] = [];
+    const preparation: StageItem[] = [];
+    const printEmb: StageItem[] = [];
+    const sewing: StageItem[] = [];
+
+    inProgressOrders.forEach((order) => {
+      const hasLockedBatches =
+        order.batches &&
+        order.batches.length > 0 &&
+        !["أمر إنتاج معتمد", "أمر قص", "القص الفعلي مدخل", "القص معتمد", "تقسيم الباتشات"].includes(order.status);
+
+      if (!hasLockedBatches) {
+        const totalQty = order.sizes.reduce(
+          (sum, size) => sum + size.variants.reduce((vSum, v) => vSum + (Number(v.quantity) || 0), 0),
+          0
+        );
+        cutting.push({
+          id: `order-${order.id}`,
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          quantity: totalQty,
+          details: order.status,
+          isOrderOnly: true,
+        });
+        return;
+      }
+
+      order.batches?.forEach((batch) => {
+        let batchQty = 0;
+        if (batch.sewingData?.actualQuantities && batch.sewingData.actualQuantities.length > 0) {
+          batchQty = batch.sewingData.actualQuantities.reduce((sum, q) => sum + (Number(q.quantity) || 0), 0);
+        } else {
+          batchQty = batch.sizes.reduce(
+            (sum, size) => sum + size.variants.reduce((vSum, v) => vSum + (Number(v.quantity) || 0), 0),
+            0
+          );
+        }
+
+        const item: StageItem = {
+          id: `batch-${batch.id}`,
+          orderId: order.id,
+          orderNumber: order.orderNumber,
+          batchNumber: batch.batchNumber,
+          quantity: batchQty,
+        };
+
+        const needsPrintEmb = batch.executionType && batch.executionType !== "بدون طباعة / تطريز";
+
+        if (batch.prepStatus !== "مكتمل") {
+          preparation.push({ ...item, details: "جاري التجهيز" });
+        } else if (needsPrintEmb && batch.printEmbroideryStatus !== "مكتمل" && batch.printEmbroideryStatus !== "تم التخطي") {
+          printEmb.push({ ...item, details: batch.executionType || "طباعة وتطريز" });
+        } else if (batch.sewingData?.status !== "مكتمل") {
+          sewing.push({ ...item, details: batch.sewingData?.manufacturingType || "جاري الخياطة" });
+        }
+      });
+    });
+
+    return { cutting, preparation, printEmb, sewing };
+  };
+
+  const kanbanData = getKanbanData();
+
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-800">لوحة التحكم</h2>
-          <p className="text-slate-500 mt-1">
-            نظرة عامة على أوامر الإنتاج الأولي
-          </p>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+        <div className="flex items-center gap-4">
+          {factory?.logoUrl && (
+            <div className="w-16 h-16 bg-white border border-slate-200 rounded-lg shadow-sm flex items-center justify-center overflow-hidden shrink-0">
+               <img src={factory.logoUrl} alt="Logo" className="max-w-full max-h-full object-contain" />
+            </div>
+          )}
+          <div>
+            <h2 className="text-2xl font-bold text-slate-800">{factory?.name || "لوحة التحكم"}</h2>
+            <p className="text-slate-500 mt-1">
+              نظرة عامة على أوامر الإنتاج الأولي
+            </p>
+          </div>
         </div>
         <button
           onClick={() => onNavigate("form")}
@@ -82,12 +173,18 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         {stats.map((stat, index) => (
           <div
             key={index}
-            className={`bg-white rounded-xl border ${stat.borderColor} p-6 shadow-sm`}
+            onClick={stat.onClick}
+            className={`bg-white rounded-xl border ${stat.borderColor} p-6 shadow-sm transition-all ${
+              stat.clickable ? 'cursor-pointer hover:shadow-md hover:border-indigo-300' : ''
+            } ${stat.active ? 'ring-2 ring-indigo-500 bg-indigo-50/30' : ''}`}
           >
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-slate-500 mb-1">
+                <p className="text-sm font-medium text-slate-500 mb-1 flex items-center gap-1">
                   {stat.title}
+                  {stat.clickable && (
+                    stat.active ? <ChevronUp className="w-4 h-4 text-indigo-500" /> : <ChevronDown className="w-4 h-4 text-indigo-500" />
+                  )}
                 </p>
                 <p className="text-3xl font-bold text-slate-800">
                   {stat.value}
@@ -100,6 +197,94 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           </div>
         ))}
       </div>
+
+      {showMap && (
+        <div className="bg-white rounded-xl shadow-sm border border-indigo-100 overflow-hidden mt-4">
+          <div className="p-4 border-b border-indigo-100 bg-indigo-50/50 flex justify-between items-center">
+            <h3 className="font-bold text-indigo-900 flex items-center gap-2">
+              <Activity className="w-5 h-5 text-indigo-600" />
+              خريطة التشغيل الحالية (تفاصيل الباتشات بكل مرحلة)
+            </h3>
+          </div>
+          <div className="p-4 overflow-x-auto">
+            <div className="flex gap-4 min-w-[800px]">
+              {/* Cutting Column */}
+              <div className="flex-1 bg-slate-50 rounded-lg p-3 border border-slate-200">
+                <h4 className="font-semibold text-slate-700 border-b border-slate-200 pb-2 mb-3">القص (الأوامر)</h4>
+                <div className="space-y-3">
+                  {kanbanData.cutting.length === 0 ? (
+                    <p className="text-sm text-slate-400 text-center py-4">لا يوجد</p>
+                  ) : (
+                    kanbanData.cutting.map(item => (
+                      <div key={item.id} className="bg-white p-3 rounded-md shadow-sm border border-slate-200 text-sm">
+                        <div className="font-bold text-slate-800 mb-1">{item.orderNumber}</div>
+                        <div className="text-xs text-slate-500 mb-2">إجمالي الكمية: <span className="font-semibold text-slate-700">{item.quantity}</span></div>
+                        <span className="inline-block px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs">{item.details}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Preparation Column */}
+              <div className="flex-1 bg-blue-50 rounded-lg p-3 border border-blue-200">
+                <h4 className="font-semibold text-blue-700 border-b border-blue-200 pb-2 mb-3">التجهيز (باتشات)</h4>
+                <div className="space-y-3">
+                  {kanbanData.preparation.length === 0 ? (
+                    <p className="text-sm text-blue-400 text-center py-4">لا يوجد</p>
+                  ) : (
+                    kanbanData.preparation.map(item => (
+                      <div key={item.id} className="bg-white p-3 rounded-md shadow-sm border border-blue-100 text-sm">
+                        <div className="font-bold text-slate-800 mb-1">{item.orderNumber} - <span className="text-blue-600">باتش {item.batchNumber}</span></div>
+                        <div className="text-xs text-slate-500 mb-2">الكمية: <span className="font-semibold text-slate-700">{item.quantity}</span></div>
+                        <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">{item.details}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Print / Embroidery Column */}
+              <div className="flex-1 bg-amber-50 rounded-lg p-3 border border-amber-200">
+                <h4 className="font-semibold text-amber-700 border-b border-amber-200 pb-2 mb-3">الطباعة والتطريز (باتشات)</h4>
+                <div className="space-y-3">
+                  {kanbanData.printEmb.length === 0 ? (
+                    <p className="text-sm text-amber-400 text-center py-4">لا يوجد</p>
+                  ) : (
+                    kanbanData.printEmb.map(item => (
+                      <div key={item.id} className="bg-white p-3 rounded-md shadow-sm border border-amber-100 text-sm">
+                        <div className="font-bold text-slate-800 mb-1">{item.orderNumber} - <span className="text-amber-600">باتش {item.batchNumber}</span></div>
+                        <div className="text-xs text-slate-500 mb-2">الكمية: <span className="font-semibold text-slate-700">{item.quantity}</span></div>
+                        <span className="inline-block px-2 py-1 bg-amber-100 text-amber-700 rounded text-xs">{item.details}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Sewing Column */}
+              <div className="flex-1 bg-emerald-50 rounded-lg p-3 border border-emerald-200">
+                <h4 className="font-semibold text-emerald-700 border-b border-emerald-200 pb-2 mb-3">الخياطة (باتشات)</h4>
+                <div className="space-y-3">
+                  {kanbanData.sewing.length === 0 ? (
+                    <p className="text-sm text-emerald-400 text-center py-4">لا يوجد</p>
+                  ) : (
+                    kanbanData.sewing.map(item => (
+                      <div key={item.id} className="bg-white p-3 rounded-md shadow-sm border border-emerald-100 text-sm">
+                        <div className="font-bold text-slate-800 mb-1">{item.orderNumber} - <span className="text-emerald-600">باتش {item.batchNumber}</span></div>
+                        <div className="text-xs text-slate-500 mb-2">الكمية: <span className="font-semibold text-slate-700">{item.quantity}</span></div>
+                        <span className="inline-block px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs">{item.details}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="mt-8">
         <h3 className="text-lg font-bold text-slate-800 mb-4">
           مؤشرات التكلفة (لجميع الأوامر)

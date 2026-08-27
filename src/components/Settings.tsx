@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { Settings as SettingsIcon, AlertTriangle, Download, Database } from 'lucide-react';
-import { getOrders, deleteAllOrders, exportData, importData } from '../lib/storage';
+import React, { useState, useEffect, useRef } from 'react';
+import { Settings as SettingsIcon, AlertTriangle, Download, Database, Building2, Upload, FolderOpen } from 'lucide-react';
+import { getOrders, deleteAllOrders, exportData, importData, getFactorySettings, saveFactorySettings } from '../lib/storage';
 import { getAllBackups, BackupRecord, setBackupDirectoryHandle, getBackupDirectoryHandle, verifyDirectoryPermission } from '../lib/backupManager';
-import { Upload, FolderOpen } from 'lucide-react';
 
 interface SettingsProps {
   onBack?: () => void;
@@ -18,12 +17,27 @@ export function Settings({ onBack }: SettingsProps) {
 
 
   const [hasExternalFolder, setHasExternalFolder] = useState(false);
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const logoInputRef = useRef<HTMLInputElement>(null);
+
+  // Factory Profile State
+  const [factoryName, setFactoryName] = useState('');
+  const [factoryAddress, setFactoryAddress] = useState('');
+  const [factoryPhones, setFactoryPhones] = useState('');
+  const [factoryLogo, setFactoryLogo] = useState<string | null>(null);
 
   useEffect(() => {
     getOrders().then(data => setOrdersCount(data.length));
     loadBackups();
     checkExternalFolder();
+    
+    const settings = getFactorySettings();
+    if (settings) {
+      setFactoryName(settings.name);
+      setFactoryAddress(settings.address);
+      setFactoryPhones(settings.phones);
+      setFactoryLogo(settings.logoUrl);
+    }
   }, []);
 
   const checkExternalFolder = async () => {
@@ -86,6 +100,36 @@ export function Settings({ onBack }: SettingsProps) {
     // Sort descending by timestamp
     records.sort((a, b) => b.timestamp - a.timestamp);
     setBackups(records);
+  };
+
+  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setFactoryLogo(event.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+    
+    // Reset file input
+    if (logoInputRef.current) {
+      logoInputRef.current.value = '';
+    }
+  };
+
+  const handleSaveFactorySettings = () => {
+    const success = saveFactorySettings({
+      name: factoryName,
+      address: factoryAddress,
+      phones: factoryPhones,
+      logoUrl: factoryLogo,
+    });
+    if (success) {
+      setMessage({ text: 'تم حفظ بيانات المصنع بنجاح.', type: 'success' });
+      window.scrollTo(0, 0);
+    } else {
+      setMessage({ text: 'فشل حفظ بيانات المصنع. قد يكون حجم الشعار كبيراً جداً.', type: 'error' });
+    }
   };
 
   const handleManualExport = async () => {
@@ -163,6 +207,96 @@ export function Settings({ onBack }: SettingsProps) {
           {message.text}
         </div>
       )}
+
+      {/* Factory Settings Section */}
+      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+        <div className="p-6 border-b border-slate-200">
+          <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
+            <Building2 className="w-5 h-5 text-indigo-600" />
+            بيانات المصنع
+          </h3>
+          <p className="text-slate-500 text-sm mt-1">
+            هذه البيانات ستظهر في لوحة التحكم وتتم طباعتها على أوامر الإنتاج والتشغيل.
+          </p>
+        </div>
+        <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">اسم المصنع</label>
+            <input
+              type="text"
+              value={factoryName}
+              onChange={(e) => setFactoryName(e.target.value)}
+              className="w-full border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="مثال: مصنع الأمل للملابس الجاهزة"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-2">أرقام التواصل</label>
+            <input
+              type="text"
+              value={factoryPhones}
+              onChange={(e) => setFactoryPhones(e.target.value)}
+              className="w-full border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="مثال: 01000000000 - 01111111111"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-slate-700 mb-2">عنوان المصنع</label>
+            <input
+              type="text"
+              value={factoryAddress}
+              onChange={(e) => setFactoryAddress(e.target.value)}
+              className="w-full border-slate-300 rounded-lg shadow-sm focus:ring-indigo-500 focus:border-indigo-500"
+              placeholder="مثال: المنطقة الصناعية الأولى، قطعة 15، العاشر من رمضان"
+            />
+          </div>
+          <div className="md:col-span-2">
+            <label className="block text-sm font-medium text-slate-700 mb-2">شعار المصنع (اللوجو)</label>
+            <div className="flex items-center gap-4">
+              {factoryLogo && (
+                <div className="w-20 h-20 bg-slate-50 border border-slate-200 rounded-lg overflow-hidden flex items-center justify-center shrink-0">
+                  <img src={factoryLogo} alt="Logo" className="max-w-full max-h-full object-contain" />
+                </div>
+              )}
+              <div className="flex-1">
+                <input
+                  type="file"
+                  accept="image/*"
+                  ref={logoInputRef}
+                  onChange={handleLogoUpload}
+                  className="hidden"
+                />
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => logoInputRef.current?.click()}
+                    className="px-4 py-2 bg-white border border-slate-300 rounded-lg text-slate-700 hover:bg-slate-50 font-medium transition-colors text-sm flex items-center gap-2"
+                  >
+                    <Upload className="w-4 h-4" />
+                    اختيار صورة
+                  </button>
+                  {factoryLogo && (
+                    <button
+                      onClick={() => setFactoryLogo(null)}
+                      className="px-4 py-2 bg-red-50 text-red-700 border border-red-200 rounded-lg hover:bg-red-100 font-medium transition-colors text-sm"
+                    >
+                      إزالة الشعار
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-slate-500 mt-2">يفضل استخدام صورة مربعة بحجم لا يتجاوز 1 ميجابايت.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 text-left">
+          <button
+            onClick={handleSaveFactorySettings}
+            className="px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium shadow-sm"
+          >
+            حفظ بيانات المصنع
+          </button>
+        </div>
+      </div>
 
       
       {/* Folder Config Section */}

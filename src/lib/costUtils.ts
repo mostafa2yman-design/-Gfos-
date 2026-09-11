@@ -58,6 +58,9 @@ export function calculateGlobalCostMetrics(orders: ProductionOrder[]): GlobalCos
     // 5. Calculate Standard Sewing Cost
     totalStandardCost += (order.standardSewingCostPerPiece || 0) * orderTotalQty;
 
+    // 6. Calculate Standard Finishing Cost
+    totalStandardCost += (order.standardFinishingCostPerPiece || 0) * orderTotalQty;
+
 
   });
 
@@ -87,6 +90,9 @@ export interface OrderCostAnalysis {
   accessories: CostComponent;
   printEmbroidery: CostComponent;
   sewing: CostComponent;
+  cutting: CostComponent;
+  finishing: CostComponent;
+  ironing: CostComponent;
   
   totalStandardPerPiece: number;
   totalActualPerPiece: number | null;
@@ -165,6 +171,30 @@ export function calculateOrderCostAnalysis(order: ProductionOrder): OrderCostAna
     actualPerPiece: (fabricActualTotal !== null && actualQty > 0) ? (fabricActualTotal / actualQty) : null,
     isActualAvailable: isFabricActualAvailable
   };
+
+  
+  // 1.5 Cutting
+  let cutStdTotal = (order.standardCutCostPerPiece || 0) * standardQty;
+  let cutActualTotal = 0;
+  let hasIncompleteActualCut = false;
+  let hasCutData = !!order.cutData;
+  if (hasCutData) {
+    if (order.cutData!.actualCostPerPiece !== undefined && order.cutData!.actualCostPerPiece !== null) {
+      cutActualTotal = order.cutData!.actualCostPerPiece * actualQty;
+    } else if (order.status !== 'مسودة') { // Wait, cutting is not 'مسودة'
+       hasIncompleteActualCut = true;
+    }
+  }
+
+  const isCutActualAvailable = hasCutData && !hasIncompleteActualCut;
+  const cutting: CostComponent = {
+    standardTotal: cutStdTotal,
+    standardPerPiece: order.standardCutCostPerPiece || 0,
+    actualTotal: isCutActualAvailable ? cutActualTotal : null,
+    actualPerPiece: isCutActualAvailable ? order.cutData!.actualCostPerPiece || 0 : null,
+    isActualAvailable: isCutActualAvailable
+  };
+
 
   // 2. Accessories
   let accStdTotal = 0;
@@ -254,6 +284,21 @@ export function calculateOrderCostAnalysis(order: ProductionOrder): OrderCostAna
   let hasIncompleteActualSewing = false;
   let hasSewingBatches = false;
 
+  // 5. Finishing
+  let finishingStdTotal = (order.standardFinishingCostPerPiece || 0) * standardQty;
+  let finishingActualTotal = 0;
+  let finishingActualPieces = 0;
+  let hasIncompleteActualFinishing = false;
+  let hasFinishingBatches = false;
+
+  
+  // 6. Ironing
+  let ironingStdTotal = (order.standardIroningCostPerPiece || 0) * standardQty;
+  let ironingActualTotal = 0;
+  let ironingActualPieces = 0;
+  let hasIncompleteActualIroning = false;
+  let hasIroningBatches = false;
+
   order.batches?.forEach(b => {
     if (b.sewingData) {
       hasSewingBatches = true;
@@ -272,7 +317,41 @@ export function calculateOrderCostAnalysis(order: ProductionOrder): OrderCostAna
     } else {
        hasIncompleteActualSewing = true;
     }
+    if (b.finishingData) {
+      hasFinishingBatches = true;
+      let batchActualQty = 0;
+      b.finishingData.actualQuantities?.forEach(q => {
+        batchActualQty += (q as any).actualQuantity || q.quantity || 0;
+      });
+      const actCost = b.finishingData.actualCostPerPiece;
+      if (actCost !== undefined && actCost !== null && !isNaN(actCost) && batchActualQty > 0) {
+        finishingActualTotal += (batchActualQty * actCost);
+        finishingActualPieces += batchActualQty;
+      } else if (b.finishingData.status !== 'مكتمل') {
+        hasIncompleteActualFinishing = true;
+      }
+    } else {
+       hasIncompleteActualFinishing = true;
+    }
+
+    if (b.ironingData) {
+      hasIroningBatches = true;
+      let batchActualQty = 0;
+      b.ironingData.actualQuantities?.forEach(q => {
+        batchActualQty += (q as any).actualQuantity || (q as any).quantity || 0;
+      });
+      const actCost = b.ironingData.actualCostPerPiece;
+      if (actCost !== undefined && actCost !== null && !isNaN(actCost) && batchActualQty > 0) {
+        ironingActualTotal += (batchActualQty * actCost);
+        ironingActualPieces += batchActualQty;
+      } else if (b.ironingData.status !== 'مكتمل') {
+        hasIncompleteActualIroning = true;
+      }
+    } else {
+       hasIncompleteActualIroning = true;
+    }
   });
+
 
   const isSewingActualAvailable = hasSewingBatches && !hasIncompleteActualSewing;
   const sewing: CostComponent = {
@@ -288,18 +367,48 @@ export function calculateOrderCostAnalysis(order: ProductionOrder): OrderCostAna
     sewing.actualPerPiece = 0;
     sewing.isActualAvailable = true;
   }
+  const isFinishingActualAvailable = hasFinishingBatches && !hasIncompleteActualFinishing;
+  const finishing: CostComponent = {
+    standardTotal: finishingStdTotal,
+    standardPerPiece: order.standardFinishingCostPerPiece || 0,
+    actualTotal: isFinishingActualAvailable ? finishingActualTotal : null,
+    actualPerPiece: (isFinishingActualAvailable && finishingActualPieces > 0) ? (finishingActualTotal / finishingActualPieces) : null,
+    isActualAvailable: isFinishingActualAvailable || (!hasFinishingBatches && order.batches && order.batches.length > 0)
+  };
+  if (!hasFinishingBatches && order.batches && order.batches.length > 0) {
+    finishing.actualTotal = 0;
+    finishing.actualPerPiece = 0;
+    finishing.isActualAvailable = true;
+  }
+
+  
 
   // Totals
-  const totalStandardPerPiece = fabric.standardPerPiece + accessories.standardPerPiece + printEmbroidery.standardPerPiece + sewing.standardPerPiece;
+
+  const isIroningActualAvailable = hasIroningBatches && !hasIncompleteActualIroning;
+  const ironing: CostComponent = {
+    standardTotal: ironingStdTotal,
+    standardPerPiece: order.standardIroningCostPerPiece || 0,
+    actualTotal: isIroningActualAvailable ? ironingActualTotal : null,
+    actualPerPiece: (isIroningActualAvailable && ironingActualPieces > 0) ? (ironingActualTotal / ironingActualPieces) : null,
+    isActualAvailable: isIroningActualAvailable || (!hasIroningBatches && order.batches && order.batches.length > 0)
+  };
+  if (!hasIroningBatches && order.batches && order.batches.length > 0) {
+    ironing.actualTotal = 0;
+    ironing.actualPerPiece = 0;
+    ironing.isActualAvailable = true;
+  }
+
+  const totalStandardPerPiece = fabric.standardPerPiece + cutting.standardPerPiece + accessories.standardPerPiece + printEmbroidery.standardPerPiece + sewing.standardPerPiece + finishing.standardPerPiece + ironing.standardPerPiece;
   
-  const isActualComplete = fabric.isActualAvailable && accessories.isActualAvailable && printEmbroidery.isActualAvailable && sewing.isActualAvailable;
+  const isActualComplete = fabric.isActualAvailable && cutting.isActualAvailable && accessories.isActualAvailable && printEmbroidery.isActualAvailable && sewing.isActualAvailable && finishing.isActualAvailable && ironing.isActualAvailable;
   
   let totalActualPerPiece: number | null = null;
   let deviationValue: number | null = null;
   let deviationPercentage: number | null = null;
 
   if (isActualComplete) {
-    totalActualPerPiece = (fabric.actualPerPiece || 0) + (accessories.actualPerPiece || 0) + (printEmbroidery.actualPerPiece || 0) + (sewing.actualPerPiece || 0);
+    totalActualPerPiece = (fabric.actualPerPiece || 0) + (cutting.actualPerPiece || 0) + (accessories.actualPerPiece || 0) + (printEmbroidery.actualPerPiece || 0) + (sewing.actualPerPiece || 0) + (finishing.actualPerPiece || 0) + (ironing.actualPerPiece || 0);
     deviationValue = totalActualPerPiece - totalStandardPerPiece;
     deviationPercentage = totalStandardPerPiece > 0 ? (deviationValue / totalStandardPerPiece) * 100 : 0;
   }
@@ -311,6 +420,9 @@ export function calculateOrderCostAnalysis(order: ProductionOrder): OrderCostAna
     accessories,
     printEmbroidery,
     sewing,
+    cutting,
+    finishing,
+    ironing,
     totalStandardPerPiece,
     totalActualPerPiece,
     deviationValue,

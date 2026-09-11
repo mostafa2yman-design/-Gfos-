@@ -129,7 +129,7 @@ export function VariantRow({ variant, availableColors, onChange, onRemove, readO
             min="1"
             disabled={readOnly}
             value={variant.quantity || ''}
-            onChange={(e) => onChange('quantity', parseInt(e.target.value, 10) || 0)}
+            onChange={(e) => onChange('quantity', (() => { const v = parseInt(e.target.value, 10); return isNaN(v) ? 0 : v; })())}
             placeholder="الكمية"
             className={`w-full px-3 py-2 border border-slate-300 rounded-md text-sm ${
               readOnly ? 'bg-slate-100 text-slate-700 font-semibold cursor-not-allowed' : 'focus:ring-2 focus:ring-indigo-500'

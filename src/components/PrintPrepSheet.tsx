@@ -406,11 +406,11 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
           })}
         </div>
       </div>
-      {printingBatchId && (
+      {printingBatchId && order && order.batches && (
         <div className="hidden print:block print:absolute print:inset-0">
           <BatchPreparationWorkOrder
             order={order}
-            batch={order?.batches.find((b) => b.id === printingBatchId)!}
+            batch={order.batches.find((b) => b.id === printingBatchId)!}
           />
         </div>
       )}

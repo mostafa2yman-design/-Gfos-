@@ -8,8 +8,14 @@ interface OrderBasicInfoProps {
   styleName: string;
   category: string;
   customerName: string;
+  standardCutCostPerPiece?: number;
   printEmbroideryStandardCost?: number;
   standardSewingCostPerPiece?: number;
+  standardFinishingCostPerPiece?: number;
+  standardIroningCostPerPiece?: number;
+  finishingInstructions?: string;
+  ironingInstructions?: string;
+  packingInstructions?: string;
   onChange: (field: string, value: string) => void;
   readOnly?: boolean;
 }
@@ -20,8 +26,14 @@ export function OrderBasicInfo({
   styleName,
   category,
   customerName,
+  standardCutCostPerPiece,
   printEmbroideryStandardCost,
   standardSewingCostPerPiece,
+  standardFinishingCostPerPiece,
+  standardIroningCostPerPiece,
+  finishingInstructions,
+  ironingInstructions,
+  packingInstructions,
   onChange,
   readOnly = false
 }: OrderBasicInfoProps) {
@@ -32,7 +44,7 @@ export function OrderBasicInfo({
       </div>
       
       <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {/* Order Number */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -131,6 +143,33 @@ export function OrderBasicInfo({
             </div>
           </div>
 
+          
+          {/* Cut Standard Cost */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              التكلفة المعيارية للقص للقطعة
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={standardCutCostPerPiece ?? ''}
+                disabled={readOnly}
+                onChange={(e) => onChange('standardCutCostPerPiece', e.target.value)}
+                placeholder="0.00"
+                className={`w-full pl-12 pr-4 py-2 border rounded-lg transition-shadow text-lg font-bold ${
+                  readOnly 
+                    ? 'bg-slate-100 text-slate-700 border-slate-300 cursor-not-allowed' 
+                    : 'bg-indigo-50 text-indigo-900 border-indigo-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-inner'
+                }`}
+              />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                جنيه
+              </span>
+            </div>
+          </div>
+
           {/* Print/Embroidery Standard Cost */}
           <div>
             <label className="block text-sm font-medium text-slate-700 mb-1">
@@ -181,6 +220,78 @@ export function OrderBasicInfo({
               </span>
             </div>
           </div>
+          
+          {/* Standard Finishing Cost */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              التكلفة المعيارية للتشطيب للقطعة
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={standardFinishingCostPerPiece ?? ''}
+                disabled={readOnly}
+                onChange={(e) => onChange('standardFinishingCostPerPiece', e.target.value)}
+                placeholder="0.00"
+                className={`w-full pl-12 pr-4 py-2 border rounded-lg transition-shadow text-lg font-bold ${
+                  readOnly 
+                    ? 'bg-slate-100 text-slate-700 border-slate-300 cursor-not-allowed' 
+                    : 'bg-indigo-50 text-indigo-900 border-indigo-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-inner'
+                }`}
+              />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                جنيه
+              </span>
+            </div>
+          </div>
+        </div>
+        
+        
+          {/* Standard Ironing Cost */}
+          <div>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              التكلفة المعيارية للمكواة للقطعة
+            </label>
+            <div className="relative">
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                value={standardIroningCostPerPiece ?? ''}
+                disabled={readOnly}
+                onChange={(e) => onChange('standardIroningCostPerPiece', e.target.value)}
+                placeholder="0.00"
+                className={`w-full pl-12 pr-4 py-2 border rounded-lg transition-shadow text-lg font-bold ${
+                  readOnly 
+                    ? 'bg-slate-100 text-slate-700 border-slate-300 cursor-not-allowed' 
+                    : 'bg-indigo-50 text-indigo-900 border-indigo-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-inner'
+                }`}
+              />
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
+                جنيه
+              </span>
+            </div>
+          </div>
+
+          {/* Finishing Instructions */}
+        <div className="mt-6">
+          <label className="block text-sm font-medium text-slate-700 mb-1">
+            تعليمات التشطيب
+          </label>
+          <textarea
+            value={finishingInstructions ?? ''}
+            disabled={readOnly}
+            onChange={(e) => onChange('finishingInstructions', e.target.value)}
+            placeholder="مثال: تركيب زرار إضافي، كي بالبخار..."
+            rows={3}
+            className={`w-full px-4 py-2 border rounded-lg transition-shadow ${
+              readOnly 
+                ? 'bg-slate-50 text-slate-700 border-slate-300 cursor-not-allowed' 
+                : 'border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm'
+            }`}
+          />
         </div>
       </div>
     </div>

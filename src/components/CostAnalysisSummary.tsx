@@ -158,9 +158,12 @@ export function CostAnalysisSummary({ order }: CostAnalysisSummaryProps) {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {renderRow("القماش", analysis.fabric.standardPerPiece, analysis.fabric.actualPerPiece)}
+              {renderRow("القص", analysis.cutting?.standardPerPiece || 0, analysis.cutting?.actualPerPiece)}
               {renderRow("الإكسسوارات", analysis.accessories.standardPerPiece, analysis.accessories.actualPerPiece)}
               {renderRow("الطباعة / التطريز", analysis.printEmbroidery.standardPerPiece, analysis.printEmbroidery.actualPerPiece)}
               {renderRow("الخياطة", analysis.sewing.standardPerPiece, analysis.sewing.actualPerPiece)}
+              {renderRow("التشطيب", analysis.finishing?.standardPerPiece || 0, analysis.finishing?.actualPerPiece)}
+              {renderRow("المكواة", analysis.ironing?.standardPerPiece || 0, analysis.ironing?.actualPerPiece)}
               
               <tr className="bg-slate-50">
                 <td className="px-4 py-3 font-bold text-slate-800">الإجمالي</td>

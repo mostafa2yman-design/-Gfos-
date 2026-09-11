@@ -5,8 +5,10 @@ export const isBatchesEnabled = (status: OrderStatus) => true;
 export const isPrepEnabled = (status: OrderStatus) => true;
 export const isPrintEnabled = (status: OrderStatus) => true;
 export const isSewEnabled = (status: OrderStatus) => true;
+export const isFinishEnabled = (status: OrderStatus) => true;
+export const isPackingEnabled = (status: OrderStatus) => true;
 
-export type TabType = 'production' | 'cut' | 'batches' | 'prep' | 'print' | 'sew';
+export type TabType = 'production' | 'cut' | 'batches' | 'prep' | 'print' | 'sew' | 'finish' | 'ironing' | 'packing';
 
 export const getDefaultTabForStatus = (status: OrderStatus): TabType => {
   return 'production'; // Just default to production tab

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Settings as SettingsIcon, AlertTriangle, Download, Database, Building2, Upload, FolderOpen } from 'lucide-react';
+import { useTheme } from "../contexts/ThemeContext";
+import { Settings as SettingsIcon, Palette, AlertTriangle, Download, Database, Building2, Upload, FolderOpen, Check } from "lucide-react";
 import { getOrders, deleteAllOrders, exportData, importData, getFactorySettings, saveFactorySettings } from '../lib/storage';
 import { getAllBackups, BackupRecord, setBackupDirectoryHandle, getBackupDirectoryHandle, verifyDirectoryPermission } from '../lib/backupManager';
 
@@ -8,6 +9,7 @@ interface SettingsProps {
 }
 
 export function Settings({ onBack }: SettingsProps) {
+  const { color, setColor, radius, setRadius } = useTheme();
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);

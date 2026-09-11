@@ -4,18 +4,26 @@ import { Dashboard } from "./components/Dashboard";
 import { ProductionOrdersList } from "./components/ProductionOrdersList";
 import { OrderManager } from "./components/OrderManager";
 import { Settings } from "./components/Settings";
+import { ThemeProvider } from "./contexts/ThemeContext";
 
 type ViewState = "dashboard" | "list" | "form" | "settings";
 
-export default function App() {
+function AppContent() {
   const [currentView, setCurrentView] = useState<ViewState>("dashboard");
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
+  const [selectedTab, setSelectedTab] = useState<string>("production");
 
   const handleNavigate = (view: ViewState) => {
     setCurrentView(view);
     if (view !== "form") {
       setSelectedOrderId(null);
     }
+  };
+
+  const handleNavigateToOrder = (id: string, tab: string = "production") => {
+    setSelectedOrderId(id);
+    setSelectedTab(tab);
+    setCurrentView("form");
   };
 
   const handleEditOrder = (id: string) => {
@@ -35,7 +43,7 @@ export default function App() {
 
   return (
     <Layout currentView={currentView} onNavigate={handleNavigate}>
-      {currentView === "dashboard" && <Dashboard onNavigate={handleNavigate} />}
+      {currentView === "dashboard" && <Dashboard onNavigate={handleNavigate} onNavigateToOrder={handleNavigateToOrder} />}
       {currentView === "list" && (
         <ProductionOrdersList
           onEdit={handleEditOrder}
@@ -43,9 +51,17 @@ export default function App() {
         />
       )}
       {currentView === "form" && (
-        <OrderManager orderId={selectedOrderId} onBack={handleBackToList} />
+        <OrderManager orderId={selectedOrderId} onBack={handleBackToList} initialTab={selectedTab} />
       )}
       {currentView === "settings" && <Settings onBack={handleBackToList} />}
     </Layout>
+  );
+}
+
+export default function App() {
+  return (
+    <ThemeProvider>
+      <AppContent />
+    </ThemeProvider>
   );
 }

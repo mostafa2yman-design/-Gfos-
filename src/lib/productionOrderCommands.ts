@@ -643,3 +643,237 @@ export async function approveBatchSewing(order: ProductionOrder, batchId: string
 
   return { success: true, data: verifiedOrder };
 }
+
+export async function approveBatchFinishing(order: ProductionOrder, batchId: string, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
+  if (!order.batches || order.batches.length === 0) {
+    return { success: false, error: 'لا توجد باتشات' };
+  }
+  
+  const updatedBatches = order.batches.map(batch => {
+    if (batch.id === batchId) {
+      if (!batch.finishingData) throw new Error('بيانات التشطيب مفقودة');
+      return {
+        ...batch,
+        finishingData: {
+          ...batch.finishingData,
+          status: 'مكتمل' as const,
+          approvedBy: user,
+          approvedAt: new Date().toISOString()
+        }
+      };
+    }
+    return batch;
+  });
+
+  const allCompleted = updatedBatches.every(b => b.finishingData?.status === 'مكتمل');
+  
+  const updatedOrder = { 
+    ...order, 
+    batches: updatedBatches,
+    status: allCompleted ? ('التشطيب مكتمل' as import('../types').OrderStatus) : ('التشطيب جاري' as import('../types').OrderStatus)
+  };
+  
+  const savedResult = await persistOrder(updatedOrder);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر الاعتماد.' };
+  const verifiedOrder = await getOrderById(order.id);
+  if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
+  return { success: true, data: verifiedOrder };
+}
+
+export async function approveAllFinishing(order: ProductionOrder, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
+  if (!order.batches || order.batches.length === 0) {
+    return { success: false, error: 'لا توجد باتشات' };
+  }
+  
+  let hasError = false;
+  let errorMessage = '';
+
+  const updatedBatches = order.batches.map(batch => {
+    if (batch.finishingData?.status === 'مكتمل') return batch;
+    
+    if (!batch.finishingData || batch.finishingData.actualCostPerPiece === undefined || batch.finishingData.actualCostPerPiece === null) {
+      hasError = true;
+      errorMessage = `التكلفة الفعلية مفقودة للباتش ${batch.batchNumber}`;
+      return batch;
+    }
+
+    return {
+      ...batch,
+      finishingData: {
+        ...batch.finishingData,
+        status: 'مكتمل' as const,
+        approvedBy: user,
+        approvedAt: new Date().toISOString()
+      }
+    };
+  });
+
+  if (hasError) {
+    return { success: false, error: errorMessage };
+  }
+  
+  const updatedOrder = { 
+    ...order, 
+    batches: updatedBatches,
+    status: 'التشطيب مكتمل' as import('../types').OrderStatus
+  };
+  
+  const savedResult = await persistOrder(updatedOrder);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر الاعتماد.' };
+  const verifiedOrder = await getOrderById(order.id);
+  if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
+  return { success: true, data: verifiedOrder };
+}
+
+export async function saveFinishingData(order: ProductionOrder, updatedBatches: BatchItem[]): Promise<CommandResult<ProductionOrder>> {
+  if (!order.batches || order.batches.length === 0) {
+    return { success: false, error: 'لا توجد باتشات' };
+  }
+
+  const orderToSave = {
+    ...order,
+    batches: updatedBatches,
+    updatedAt: new Date().toISOString()
+  };
+
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر الحفظ.' };
+  const verifiedOrder = await getOrderById(order.id);
+  if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
+  return { success: true, data: verifiedOrder };
+}
+
+
+// ==================== Ironing Commands ====================
+function checkBatchReadyForIroning(batch) {
+  if (batch.prepStatus !== 'مكتمل') {
+    return `الباتش ${batch.batchNumber} لم يتم اعتماد التجهيز له`;
+  }
+  
+  const needsPrintEmb = batch.executionType && batch.executionType !== "بدون طباعة / تطريز";
+  if (needsPrintEmb && batch.printEmbroideryStatus !== 'مكتمل' && batch.printEmbroideryStatus !== 'تم التخطي') {
+    return `الباتش ${batch.batchNumber} لم يتم اعتماد الطباعة/التطريز له`;
+  }
+  
+  if (batch.sewingData?.status !== 'مكتمل') {
+    return `الباتش ${batch.batchNumber} لم يتم اعتماد الخياطة له`;
+  }
+  
+  if (batch.finishingData?.status !== 'مكتمل') {
+    return `الباتش ${batch.batchNumber} لم يتم اعتماد التشطيب له`;
+  }
+  
+  return null;
+}
+
+export async function approveBatchIroning(order: ProductionOrder, batchId: string, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
+  const b = order.batches?.find(x => x.id === batchId);
+  if (b) {
+    const err = checkBatchReadyForIroning(b);
+    if (err) return { success: false, error: err };
+  }
+  if (!order.batches || order.batches.length === 0) {
+    return { success: false, error: 'لا توجد باتشات' };
+  }
+  
+  const updatedBatches = order.batches.map(batch => {
+    if (batch.id === batchId) {
+      if (!batch.ironingData) throw new Error('بيانات المكواة مفقودة');
+      return {
+        ...batch,
+        ironingData: {
+          ...batch.ironingData,
+          status: 'مكتمل' as const,
+          approvedBy: user,
+          approvedAt: new Date().toISOString()
+        }
+      };
+    }
+    return batch;
+  });
+
+  const allCompleted = updatedBatches.every(b => b.ironingData?.status === 'مكتمل');
+  
+  const updatedOrder = { 
+    ...order, 
+    batches: updatedBatches,
+    status: allCompleted ? ('المكواة مكتملة' as import('../types').OrderStatus) : ('المكواة جاري' as import('../types').OrderStatus)
+  };
+  
+  const savedResult = await persistOrder(updatedOrder);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر الاعتماد.' };
+  const verifiedOrder = await getOrderById(order.id);
+  if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
+  return { success: true, data: verifiedOrder };
+}
+
+export async function approveAllIroning(order: ProductionOrder, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
+  if (order.batches) {
+    for (const b of order.batches) {
+      if (b.ironingData?.status !== 'مكتمل') {
+        const err = checkBatchReadyForIroning(b);
+        if (err) return { success: false, error: err };
+      }
+    }
+  }
+  if (!order.batches || order.batches.length === 0) {
+    return { success: false, error: 'لا توجد باتشات' };
+  }
+  
+  let hasError = false;
+  let errorMessage = '';
+
+  const updatedBatches = order.batches.map(batch => {
+    if (batch.ironingData?.status === 'مكتمل') return batch;
+    
+    if (!batch.ironingData || batch.ironingData.actualCostPerPiece === undefined || batch.ironingData.actualCostPerPiece === null) {
+      hasError = true;
+      errorMessage = `التكلفة الفعلية مفقودة للباتش ${batch.batchNumber}`;
+      return batch;
+    }
+
+    return {
+      ...batch,
+      ironingData: {
+        ...batch.ironingData,
+        status: 'مكتمل' as const,
+        approvedBy: user,
+        approvedAt: new Date().toISOString()
+      }
+    };
+  });
+
+  if (hasError) {
+    return { success: false, error: errorMessage };
+  }
+  
+  const updatedOrder = { 
+    ...order, 
+    batches: updatedBatches,
+    status: 'المكواة مكتملة' as import('../types').OrderStatus
+  };
+  
+  const savedResult = await persistOrder(updatedOrder);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر الاعتماد.' };
+  const verifiedOrder = await getOrderById(order.id);
+  if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
+  return { success: true, data: verifiedOrder };
+}
+
+export async function saveIroningData(order: ProductionOrder, updatedBatches: BatchItem[]): Promise<CommandResult<ProductionOrder>> {
+  if (!order.batches || order.batches.length === 0) {
+    return { success: false, error: 'لا توجد باتشات' };
+  }
+
+  const orderToSave = {
+    ...order,
+    batches: updatedBatches,
+    updatedAt: new Date().toISOString()
+  };
+
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر الحفظ.' };
+  const verifiedOrder = await getOrderById(order.id);
+  if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
+  return { success: true, data: verifiedOrder };
+}

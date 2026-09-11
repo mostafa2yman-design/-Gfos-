@@ -15,10 +15,11 @@ import {
 import { calculateGlobalCostMetrics } from "../lib/costUtils";
 
 interface DashboardProps {
-  onNavigate: (view: "dashboard" | "list" | "form") => void;
+  onNavigate: (view: "dashboard" | "list" | "form" | "settings") => void;
+  onNavigateToOrder?: (orderId: string, tab?: string) => void;
 }
 
-export function Dashboard({ onNavigate }: DashboardProps) {
+export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
   const [orders, setOrders] = useState<ProductionOrder[]>([]);
   const [factory, setFactory] = useState<FactorySettings | null>(null);
   const [showMap, setShowMap] = useState(false);
@@ -78,6 +79,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     quantity: number;
     details?: string;
     isOrderOnly?: boolean;
+    tab?: string;
   }
 
   const getKanbanData = () => {
@@ -85,6 +87,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     const preparation: StageItem[] = [];
     const printEmb: StageItem[] = [];
     const sewing: StageItem[] = [];
+    const finishing: StageItem[] = [];
+    const ironing: StageItem[] = [];
+    const packing: StageItem[] = [];
 
     inProgressOrders.forEach((order) => {
       const hasLockedBatches =
@@ -109,37 +114,48 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       }
 
       order.batches?.forEach((batch) => {
-        let batchQty = 0;
-        if (batch.sewingData?.actualQuantities && batch.sewingData.actualQuantities.length > 0) {
-          batchQty = batch.sewingData.actualQuantities.reduce((sum, q) => sum + (Number(q.quantity) || 0), 0);
-        } else {
-          batchQty = batch.sizes.reduce(
-            (sum, size) => sum + size.variants.reduce((vSum, v) => vSum + (Number(v.quantity) || 0), 0),
-            0
-          );
-        }
+        const initialQty = batch.sizes.reduce((sum, size) => sum + size.variants.reduce((vSum, v) => vSum + (Number(v.quantity) || 0), 0), 0);
+        const sewingQty = batch.sewingData?.actualQuantities ? batch.sewingData.actualQuantities.reduce((sum, q) => sum + (Number((q as any).actualQuantity) || 0), 0) : 0;
+        const finishingQty = batch.finishingData?.actualQuantities ? batch.finishingData.actualQuantities.reduce((sum, q) => sum + (Number((q as any).actualQuantity) || 0), 0) : 0;
+        const ironingQty = batch.ironingData?.actualQuantities ? batch.ironingData.actualQuantities.reduce((sum, q) => sum + (Number((q as any).actualQuantity) || 0), 0) : 0;
+        const needsPrintEmb = batch.executionType && batch.executionType !== "بدون طباعة / تطريز";
 
-        const item: StageItem = {
+        const baseItem = {
           id: `batch-${batch.id}`,
           orderId: order.id,
           orderNumber: order.orderNumber,
           batchNumber: batch.batchNumber,
-          quantity: batchQty,
         };
 
-        const needsPrintEmb = batch.executionType && batch.executionType !== "بدون طباعة / تطريز";
-
-        if (batch.prepStatus !== "مكتمل") {
-          preparation.push({ ...item, details: "جاري التجهيز" });
-        } else if (needsPrintEmb && batch.printEmbroideryStatus !== "مكتمل" && batch.printEmbroideryStatus !== "تم التخطي") {
-          printEmb.push({ ...item, details: batch.executionType || "طباعة وتطريز" });
-        } else if (batch.sewingData?.status !== "مكتمل") {
-          sewing.push({ ...item, details: batch.sewingData?.manufacturingType || "جاري الخياطة" });
+        if (batch.ironingData?.status === 'مكتمل') {
+           packing.push({ ...baseItem, quantity: ironingQty || finishingQty || sewingQty || initialQty, details: "متاح للتغليف", tab: 'packing' });
+        } else if (batch.ironingData?.status === 'جاري') {
+          ironing.push({ ...baseItem, quantity: finishingQty || sewingQty || initialQty, details: "جاري المكواة", tab: 'ironing' });
+        } else if (batch.finishingData?.status === 'مكتمل') {
+          ironing.push({ ...baseItem, quantity: finishingQty || sewingQty || initialQty, details: "بانتظار المكواة", tab: 'ironing' });
+        } else if (batch.finishingData?.status === 'جاري') {
+          finishing.push({ ...baseItem, quantity: sewingQty || initialQty, details: "جاري التشطيب", tab: 'finish' });
+        } else if (batch.sewingData?.status === 'مكتمل') {
+          finishing.push({ ...baseItem, quantity: sewingQty || initialQty, details: "بانتظار التشطيب", tab: 'finish' });
+        } else if (batch.sewingData?.status === 'جاري') {
+          sewing.push({ ...baseItem, quantity: initialQty, details: batch.sewingData?.manufacturingType || "جاري الخياطة", tab: 'sew' });
+        } else if (needsPrintEmb && (batch.printEmbroideryStatus === 'مكتمل' || batch.printEmbroideryStatus === 'تم التخطي')) {
+          sewing.push({ ...baseItem, quantity: initialQty, details: "بانتظار الخياطة", tab: 'sew' });
+        } else if (needsPrintEmb && batch.printEmbroideryStatus === 'في المطبعة / التطريز') {
+          printEmb.push({ ...baseItem, quantity: initialQty, details: batch.executionType || "في المطبعة/التطريز", tab: 'print' });
+        } else if (batch.prepStatus === 'مكتمل') {
+          if (needsPrintEmb) {
+            printEmb.push({ ...baseItem, quantity: initialQty, details: "بانتظار الطباعة/التطريز", tab: 'print' });
+          } else {
+            sewing.push({ ...baseItem, quantity: initialQty, details: "بانتظار الخياطة", tab: 'sew' });
+          }
+        } else {
+          preparation.push({ ...baseItem, quantity: initialQty, details: "جاري التجهيز", tab: 'prep' });
         }
       });
     });
 
-    return { cutting, preparation, printEmb, sewing };
+    return { cutting, preparation, printEmb, sewing, finishing, ironing, packing };
   };
 
   const kanbanData = getKanbanData();
@@ -217,7 +233,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   ) : (
                     kanbanData.cutting.map(item => (
                       <div key={item.id} className="bg-white p-3 rounded-md shadow-sm border border-slate-200 text-sm">
-                        <div className="font-bold text-slate-800 mb-1">{item.orderNumber}</div>
+                        <div className="font-bold text-slate-800 mb-1"><button onClick={() => onNavigateToOrder?.(item.orderId, "cut")} className="hover:text-indigo-600 hover:underline text-right">{item.orderNumber}</button></div>
                         <div className="text-xs text-slate-500 mb-2">إجمالي الكمية: <span className="font-semibold text-slate-700">{item.quantity}</span></div>
                         <span className="inline-block px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs">{item.details}</span>
                       </div>
@@ -235,7 +251,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   ) : (
                     kanbanData.preparation.map(item => (
                       <div key={item.id} className="bg-white p-3 rounded-md shadow-sm border border-blue-100 text-sm">
-                        <div className="font-bold text-slate-800 mb-1">{item.orderNumber} - <span className="text-blue-600">باتش {item.batchNumber}</span></div>
+                        <div className="font-bold text-slate-800 mb-1">{item.orderNumber} - <button onClick={() => onNavigateToOrder?.(item.orderId, item.tab || "prep")} className="text-blue-600 hover:text-blue-800 hover:underline transition-colors font-bold text-sm">باتش {item.batchNumber}</button></div>
                         <div className="text-xs text-slate-500 mb-2">الكمية: <span className="font-semibold text-slate-700">{item.quantity}</span></div>
                         <span className="inline-block px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs">{item.details}</span>
                       </div>
@@ -253,7 +269,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   ) : (
                     kanbanData.printEmb.map(item => (
                       <div key={item.id} className="bg-white p-3 rounded-md shadow-sm border border-amber-100 text-sm">
-                        <div className="font-bold text-slate-800 mb-1">{item.orderNumber} - <span className="text-amber-600">باتش {item.batchNumber}</span></div>
+                        <div className="font-bold text-slate-800 mb-1">{item.orderNumber} - <button onClick={() => onNavigateToOrder?.(item.orderId, item.tab || "print")} className="text-amber-600 hover:text-amber-800 hover:underline transition-colors font-bold text-sm">باتش {item.batchNumber}</button></div>
                         <div className="text-xs text-slate-500 mb-2">الكمية: <span className="font-semibold text-slate-700">{item.quantity}</span></div>
                         <span className="inline-block px-2 py-1 bg-amber-100 text-amber-700 rounded text-xs">{item.details}</span>
                       </div>
@@ -271,9 +287,64 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   ) : (
                     kanbanData.sewing.map(item => (
                       <div key={item.id} className="bg-white p-3 rounded-md shadow-sm border border-emerald-100 text-sm">
-                        <div className="font-bold text-slate-800 mb-1">{item.orderNumber} - <span className="text-emerald-600">باتش {item.batchNumber}</span></div>
+                        <div className="font-bold text-slate-800 mb-1">{item.orderNumber} - <button onClick={() => onNavigateToOrder?.(item.orderId, item.tab || "sew")} className="text-emerald-600 hover:text-emerald-800 hover:underline transition-colors font-bold text-sm">باتش {item.batchNumber}</button></div>
                         <div className="text-xs text-slate-500 mb-2">الكمية: <span className="font-semibold text-slate-700">{item.quantity}</span></div>
                         <span className="inline-block px-2 py-1 bg-emerald-100 text-emerald-700 rounded text-xs">{item.details}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Finishing Column */}
+              <div className="flex-1 bg-indigo-50 rounded-lg p-3 border border-indigo-200">
+                <h4 className="font-semibold text-indigo-700 border-b border-indigo-200 pb-2 mb-3">التشطيب (باتشات)</h4>
+                <div className="space-y-3">
+                  {kanbanData.finishing.length === 0 ? (
+                    <p className="text-sm text-indigo-400 text-center py-4">لا يوجد</p>
+                  ) : (
+                    kanbanData.finishing.map(item => (
+                      <div key={item.id} className="bg-white p-3 rounded-md shadow-sm border border-indigo-100 text-sm">
+                        <div className="font-bold text-slate-800 mb-1">{item.orderNumber} - <button onClick={() => onNavigateToOrder?.(item.orderId, item.tab || "finish")} className="text-indigo-600 hover:text-indigo-800 hover:underline transition-colors font-bold text-sm">باتش {item.batchNumber}</button></div>
+                        <div className="text-xs text-slate-500 mb-2">الكمية: <span className="font-semibold text-slate-700">{item.quantity}</span></div>
+                        <span className="inline-block px-2 py-1 bg-indigo-100 text-indigo-700 rounded text-xs">{item.details}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+
+              {/* Ironing Column */}
+              <div className="flex-1 bg-violet-50 rounded-lg p-3 border border-violet-200">
+                <h4 className="font-semibold text-violet-700 border-b border-violet-200 pb-2 mb-3">المكواة (باتشات)</h4>
+                <div className="space-y-3">
+                  {kanbanData.ironing.length === 0 ? (
+                    <p className="text-sm text-violet-400 text-center py-4">لا يوجد</p>
+                  ) : (
+                    kanbanData.ironing.map(item => (
+                      <div key={item.id} className="bg-white p-3 rounded-md shadow-sm border border-violet-100 text-sm">
+                        <div className="font-bold text-slate-800 mb-1">{item.orderNumber} - <button onClick={() => onNavigateToOrder?.(item.orderId, item.tab || "ironing")} className="text-violet-600 hover:text-violet-800 hover:underline transition-colors font-bold text-sm">باتش {item.batchNumber}</button></div>
+                        <div className="text-xs text-slate-500 mb-2">الكمية: <span className="font-semibold text-slate-700">{item.quantity}</span></div>
+                        <span className="inline-block px-2 py-1 bg-violet-100 text-violet-700 rounded text-xs">{item.details}</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+
+              {/* Packing Column */}
+              <div className="flex-1 bg-fuchsia-50 rounded-lg p-3 border border-fuchsia-200">
+                <h4 className="font-semibold text-fuchsia-700 border-b border-fuchsia-200 pb-2 mb-3">التغليف (باتشات جاهزة)</h4>
+                <div className="space-y-3">
+                  {kanbanData.packing.length === 0 ? (
+                    <p className="text-sm text-fuchsia-400 text-center py-4">لا يوجد</p>
+                  ) : (
+                    kanbanData.packing.map(item => (
+                      <div key={item.id} className="bg-white p-3 rounded-md shadow-sm border border-fuchsia-100 text-sm">
+                        <div className="font-bold text-slate-800 mb-1">{item.orderNumber} - <button onClick={() => onNavigateToOrder?.(item.orderId, item.tab || "packing")} className="text-fuchsia-600 hover:text-fuchsia-800 hover:underline transition-colors font-bold text-sm">باتش {item.batchNumber}</button></div>
+                        <div className="text-xs text-slate-500 mb-2">الكمية: <span className="font-semibold text-slate-700">{item.quantity}</span></div>
+                        <span className="inline-block px-2 py-1 bg-fuchsia-100 text-fuchsia-700 rounded text-xs">{item.details}</span>
                       </div>
                     ))
                   )}

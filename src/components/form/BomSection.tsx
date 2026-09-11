@@ -76,7 +76,7 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
           min="0"
           step="0.01"
           value={item.unifiedStandard || ''}
-          onChange={(e) => updateFn('unifiedStandard', parseFloat(e.target.value) || 0)}
+          onChange={(e) => { const v = parseFloat(e.target.value); updateFn('unifiedStandard', isNaN(v) ? 0 : v); }}
           disabled={readOnly}
           className={`w-full px-2 py-1 border rounded text-sm ${readOnly ? 'bg-slate-50' : 'bg-white focus:ring-1 focus:ring-indigo-500'}`}
           placeholder="المعيار"
@@ -100,9 +100,9 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
                   const newStandards = [...(item.sizeStandards || [])];
                   const existingIdx = newStandards.findIndex(s => s.size === size.size);
                   if (existingIdx >= 0) {
-                    newStandards[existingIdx] = { ...newStandards[existingIdx], standard: parseFloat(e.target.value) || 0 };
+                    const v = parseFloat(e.target.value); newStandards[existingIdx] = { ...newStandards[existingIdx], standard: isNaN(v) ? 0 : v };
                   } else {
-                    newStandards.push({ size: size.size, standard: parseFloat(e.target.value) || 0 });
+                    const v = parseFloat(e.target.value); newStandards.push({ size: size.size, standard: isNaN(v) ? 0 : v });
                   }
                   updateFn('sizeStandards', newStandards);
                 }}
@@ -326,7 +326,7 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
                       type="number"
                       min="0"
                       value={mat.standardPrice || ''}
-                      onChange={(e) => handleUpdateMaterial(idx, 'standardPrice', parseFloat(e.target.value) || 0)}
+                      onChange={(e) => { const v = parseFloat(e.target.value); handleUpdateMaterial(idx, 'standardPrice', isNaN(v) ? 0 : v); }}
                       disabled={readOnly}
                       placeholder="غير محدد"
                       className={`w-full px-2 py-1.5 border rounded ${readOnly ? 'bg-slate-50' : 'bg-white focus:ring-1 focus:ring-indigo-500'}`}
@@ -437,7 +437,7 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
                       type="number"
                       min="0"
                       value={acc.standardPrice || ''}
-                      onChange={(e) => handleUpdateAccessory(idx, 'standardPrice', parseFloat(e.target.value) || 0)}
+                      onChange={(e) => { const v = parseFloat(e.target.value); handleUpdateAccessory(idx, 'standardPrice', isNaN(v) ? 0 : v); }}
                       disabled={readOnly}
                       placeholder="غير محدد"
                       className={`w-full px-2 py-1.5 border rounded ${readOnly ? 'bg-slate-50' : 'bg-white focus:ring-1 focus:ring-indigo-500'}`}

@@ -5,6 +5,10 @@ import { BatchesForm } from "./BatchesForm";
 import { PrintPrepSheet } from "./PrintPrepSheet";
 import { PrintEmbroideryForm } from "./PrintEmbroideryForm";
 import { SewingForm } from "./SewingForm";
+import { FinishingForm } from "./FinishingForm";
+import { IroningForm } from "./IroningForm";
+import { PackingForm } from "./PackingForm";
+import { Package } from "lucide-react";
 import { ProductionOrder, OrderStatus } from "../types";
 import { getOrderById } from "../lib/storage";
 import { eventBus } from "../lib/events";
@@ -18,6 +22,7 @@ import {
   CheckSquare,
   Printer,
   Shirt,
+  Sparkles,
 } from "lucide-react";
 import {
   isCutEnabled,
@@ -25,6 +30,7 @@ import {
   isPrepEnabled,
   isPrintEnabled,
   isSewEnabled,
+  isFinishEnabled,
   getDefaultTabForStatus,
   TabType,
 } from "../lib/orderWorkflow";
@@ -32,16 +38,24 @@ import {
 interface OrderManagerProps {
   orderId: string | null;
   onBack: () => void;
+  initialTab?: string;
 }
 
 export function OrderManager({
   orderId: initialOrderId,
   onBack,
+  initialTab = "production",
 }: OrderManagerProps) {
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(
     initialOrderId,
   );
-  const [activeTab, setActiveTab] = useState<TabType>("production");
+  const [activeTab, setActiveTab] = useState<TabType>(initialTab as TabType);
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab as TabType);
+    }
+  }, [initialTab, initialOrderId]);
   const [order, setOrder] = useState<ProductionOrder | null>(null);
 
   const loadOrder = async (id: string | null, forceTabChange = true) => {
@@ -165,6 +179,7 @@ export function OrderManager({
   const isPrepEnabledStatus = isPrepEnabled(order.status);
   const isPrintEnabledStatus = isPrintEnabled(order.status);
   const isSewEnabledStatus = isSewEnabled(order.status);
+  const isFinishEnabledStatus = isFinishEnabled(order.status);
 
   return (
     <div className="space-y-6">
@@ -261,6 +276,39 @@ export function OrderManager({
           <Shirt className="w-5 h-5" />
           الخياطة
         </button>
+<button
+          onClick={() => setActiveTab("finish")}
+          className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors ${
+            activeTab === "finish"
+              ? "bg-indigo-50 text-indigo-700"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          <Sparkles className="w-5 h-5" />
+          التشطيب
+        </button>
+<button
+          onClick={() => setActiveTab("ironing")}
+          className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors ${
+            activeTab === "ironing"
+              ? "bg-violet-50 text-violet-700"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          <Sparkles className="w-5 h-5" />
+          المكواة
+        </button>
+        <button
+          onClick={() => setActiveTab("packing")}
+          className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-colors ${
+            activeTab === "packing"
+              ? "bg-teal-50 text-teal-700"
+              : "text-slate-600 hover:bg-slate-50"
+          }`}
+        >
+          <Package className="w-5 h-5" />
+          التغليف
+        </button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -306,6 +354,28 @@ export function OrderManager({
         )}
         {activeTab === "sew" && (
           <SewingForm
+            key={order.updatedAt}
+            orderId={currentOrderId}
+            onSaved={() => {}}
+          />
+        )}
+        {activeTab === "finish" && (
+          <FinishingForm
+            key={order.updatedAt}
+            orderId={currentOrderId}
+            onSaved={() => {}}
+          />
+        )}
+        {activeTab === "ironing" && (
+          <IroningForm
+            key={order.updatedAt}
+            orderId={currentOrderId}
+            onSaved={() => {}}
+          />
+        )}
+
+        {activeTab === "packing" && (
+          <PackingForm
             key={order.updatedAt}
             orderId={currentOrderId}
             onSaved={() => {}}

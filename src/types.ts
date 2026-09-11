@@ -19,6 +19,10 @@ export type OrderStatus =
   | 'الطباعة والتطريز جاري'
   | 'الطباعة والتطريز مكتمل'
   | 'الخياطة مكتملة'
+  | 'التشطيب جاري'
+  | 'التشطيب مكتمل'
+  | 'المكواة جاري'
+  | 'المكواة مكتملة'
   | 'مغلق'
   | 'معتمد'; // keeping معتمد for backwards compatibility if needed, though replaced by 'أمر إنتاج معتمد'
 
@@ -77,6 +81,7 @@ export interface CutOrderData {
   sizes: CutSizeData[];
   actualWeight: number;
   actualWeightByColor?: Record<string, number>;
+  actualCostPerPiece?: number;
   weightUnit: string;
   weightDate?: string;
   weightUser?: string;
@@ -139,6 +144,35 @@ export interface SewingVariantData {
   actualQuantity: number;
 }
 
+export interface FinishingVariantData {
+  size: string;
+  color: string;
+  actualQuantity?: number; quantity?: number; // Actual quantity finished
+}
+
+export interface FinishingData {
+  status: 'لم يبدأ' | 'جاري' | 'مكتمل';
+  actualCostPerPiece?: number;
+  actualQuantities: FinishingVariantData[];
+  approvedBy?: string;
+  approvedAt?: string;
+}
+
+
+export interface IroningVariantData {
+  size: string;
+  color: string;
+  actualQuantity?: number; quantity?: number;
+}
+
+export interface IroningData {
+  status: 'لم يبدأ' | 'جاري' | 'مكتمل';
+  actualCostPerPiece?: number;
+  actualQuantities: IroningVariantData[];
+  approvedBy?: string;
+  approvedAt?: string;
+}
+
 export interface SewingData {
   manufacturingType?: SewingManufacturingType;
   sewingGroup?: string;
@@ -163,10 +197,26 @@ export interface BatchItem {
   printDetails?: PrintDetails;
   embroideryDetails?: EmbroideryDetails;
   sewingData?: SewingData;
+  finishingData?: FinishingData;
+  ironingData?: IroningData;
   printEmbroideryCost?: {
     standardCost: number;
     actualCost?: number;
   };
+}
+
+
+export interface PackingInvoiceVariant {
+  size: string;
+  color: string;
+  quantity: number;
+}
+
+export interface PackingInvoice {
+  id: string;
+  date: string;
+  customerName: string;
+  variants: PackingInvoiceVariant[];
 }
 
 export interface ProductionOrder {
@@ -199,6 +249,14 @@ export interface ProductionOrder {
   productionApprovedAt?: string;
   printEmbroideryStandardCost?: number;
   standardSewingCostPerPiece?: number;
+  standardFinishingCostPerPiece?: number;
+  standardCutCostPerPiece?: number;
+  standardIroningCostPerPiece?: number;
+  finishingInstructions?: string;
+  ironingInstructions?: string;
+  packingInstructions?: string;
+  packingInvoices?: PackingInvoice[];
+
   
   cutData?: CutOrderData;
   

@@ -4,7 +4,7 @@ import { getOrderById } from "../lib/storage";
 import * as Cmd from "../lib/productionOrderCommands";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Toast } from "./ui/Toast";
-import { Check, Save, Scissors, Printer, CheckSquare } from "lucide-react";
+import { Check, Save, Scissors, Printer, CheckSquare, Copy } from "lucide-react";
 import { SewingWorkOrder } from './workorders/SewingWorkOrder';
 import { eventBus } from "../lib/events/eventBus";
 
@@ -55,7 +55,7 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
 
   if (!order) return null;
 
-  const isReadOnly = ["مسودة", "أمر إنتاج معتمد", "أمر قص", "القص الفعلي مدخل", "القص معتمد", "تقسيم الباتشات", "الباتشات مثبتة", "التجهيز جاري", "التجهيز مكتمل", "الطباعة والتطريز جاري", "الخياطة مكتملة", "مغلق"].includes(order.status);
+  const isReadOnly = ["مسودة", "أمر إنتاج معتمد", "أمر قص", "القص الفعلي مدخل", "القص معتمد", "تقسيم الباتشات", "الباتشات مثبتة", "التجهيز جاري", "الخياطة مكتملة", "مغلق"].includes(order.status);
 
   const handleSewingChange = (
     batchId: string,
@@ -153,6 +153,28 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
     }
   };
 
+
+
+  const handleCopyDetails = (sourceBatchId: string) => {
+    const sourceBatch = batches.find(b => b.id === sourceBatchId);
+    if (!sourceBatch || !sourceBatch.sewingData) return;
+    
+    const updatedBatches = batches.map(b => {
+      if (b.id === sourceBatchId) return b;
+      return {
+        ...b,
+        sewingData: {
+          ...b.sewingData!,
+          manufacturingType: sourceBatch.sewingData.manufacturingType,
+          sewingGroup: sourceBatch.sewingData.sewingGroup,
+          externalManufacturer: sourceBatch.sewingData.externalManufacturer,
+          actualCostPerPiece: sourceBatch.sewingData.actualCostPerPiece
+        }
+      };
+    });
+    setBatches(updatedBatches);
+    setToastConfig({ message: "تم نسخ تفاصيل الخياطة لجميع الباتشات بنجاح", type: "success" });
+  };
 
   const handleApproveBatch = async (batchId: string) => {
     setConfirmConfig({
@@ -324,6 +346,17 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                     <Printer className="w-4 h-4" />
                     طباعة الإيصال
                   </button>
+                  {!isReadOnly && batches.length > 1 && batch.sewingData?.status !== 'مكتمل' && (
+                    <button
+                      onClick={() => handleCopyDetails(batch.id)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded hover:text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm"
+                      title="نسخ تفاصيل الخياطة للباتشات المتبقية"
+                    >
+                      <Copy className="w-4 h-4" />
+                      نسخ للباتشات
+                    </button>
+                  )}
+
                   {batch.sewingData?.status !== 'مكتمل' && (
                     <button 
                       onClick={() => handleApproveBatch(batch.id)} 
@@ -416,7 +449,7 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                         min="0"
                         step="0.01"
                         value={sData.actualCostPerPiece === undefined ? "" : sData.actualCostPerPiece}
-                        onChange={(e) => handleSewingChange(batch.id, "actualCostPerPiece", e.target.value ? parseFloat(e.target.value) : undefined)}
+                        onChange={(e) => { const v = parseFloat(e.target.value); handleSewingChange(batch.id, 'actualCostPerPiece', isNaN(v) ? undefined : v); }}
                         disabled={isReadOnly || sData.status === 'مكتمل'}
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
                         placeholder="0.00"
@@ -482,7 +515,7 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                                     max={v.quantity}
                                     value={actQty === 0 && !actQtyData ? "" : actQty}
                                     onChange={(e) => {
-                                      let val = parseInt(e.target.value) || 0;
+                                      let val = (() => { const v = parseInt(e.target.value, 10); return isNaN(v) ? 0 : v; })();
                                       if (val > v.quantity) val = v.quantity;
                                       handleActualQtyChange(batch.id, bs.size, v.color, val);
                                     }}
@@ -550,7 +583,7 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
     
       {printingBatchId && (
         <div className="print:block hidden print:absolute print:inset-0">
-          <SewingWorkOrder order={order} batch={order.batches.find(b => b.id === printingBatchId)!} />
+          <SewingWorkOrder order={order} batch={batches.find(b => b.id === printingBatchId)!} />
         </div>
       )}
     </>

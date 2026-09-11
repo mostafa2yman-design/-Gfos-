@@ -129,8 +129,8 @@ export function ProductionOrderForm({
     if (isReadOnly) return;
     setOrder((prev) => {
       let finalValue: any = value;
-      if (field === 'printEmbroideryStandardCost' || field === 'standardSewingCostPerPiece') {
-        finalValue = value === '' ? undefined : parseFloat(value);
+      if (field === 'printEmbroideryStandardCost' || field === 'standardSewingCostPerPiece' || field === 'standardFinishingCostPerPiece' || field === 'standardCutCostPerPiece' || field === 'standardIroningCostPerPiece') {
+        const parsed = parseFloat(value); finalValue = isNaN(parsed) ? undefined : parsed;
       }
       const next = { ...prev, [field]: finalValue };
 
@@ -472,8 +472,14 @@ export function ProductionOrderForm({
             styleName={order.styleName}
             category={order.category}
             customerName={order.customerName}
+            standardCutCostPerPiece={order.standardCutCostPerPiece}
             printEmbroideryStandardCost={order.printEmbroideryStandardCost}
             standardSewingCostPerPiece={order.standardSewingCostPerPiece}
+            standardFinishingCostPerPiece={order.standardFinishingCostPerPiece}
+            standardIroningCostPerPiece={order.standardIroningCostPerPiece}
+            finishingInstructions={order.finishingInstructions}
+            ironingInstructions={order.ironingInstructions}
+            packingInstructions={order.packingInstructions}
             onChange={handleBasicInfoChange}
             readOnly={isReadOnly}
           />

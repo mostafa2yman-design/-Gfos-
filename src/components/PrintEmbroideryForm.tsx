@@ -214,8 +214,17 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
         "هل أنت متأكد من اعتماد بيانات الطباعة والتطريز؟ لن تتمكن من تعديلها لاحقاً.",
       onConfirm: async () => {
         const orderToApprove = { ...order, batches };
-        await Cmd.savePrintEmbroideryData(orderToApprove, batches);
-        const result = await Cmd.approvePrintEmbroidery(orderToApprove);
+        const saveResult = await Cmd.savePrintEmbroideryData(orderToApprove, batches);
+        if (!saveResult.success || !saveResult.data) {
+          setConfirmConfig(null);
+          setToastConfig({
+            message: saveResult.error || "حدث خطأ أثناء حفظ البيانات قبل الاعتماد.",
+            type: "error",
+          });
+          return;
+        }
+        
+        const result = await Cmd.approvePrintEmbroidery(saveResult.data);
         if (result.success) {
           setConfirmConfig(null);
           setToastConfig({
@@ -427,7 +436,7 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
                                   handleCostChange(
                                     batch.id,
                                     "actualCost",
-                                    parseFloat(e.target.value) || 0,
+                                    (() => { const v = parseFloat(e.target.value); return isNaN(v) ? 0 : v; })(),
                                   )
                                 }
                                 disabled={isReadOnly}
@@ -522,7 +531,7 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
                               handlePrintChange(
                                 batch.id,
                                 "colorCount",
-                                parseInt(e.target.value, 10) || 1,
+                                (() => { const v = parseInt(e.target.value, 10); return isNaN(v) ? 1 : v; })(),
                               )
                             }
                             disabled={isReadOnly}
@@ -631,7 +640,7 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
                               handleEmbroideryChange(
                                 batch.id,
                                 "colorCount",
-                                parseInt(e.target.value, 10) || 1,
+                                (() => { const v = parseInt(e.target.value, 10); return isNaN(v) ? 1 : v; })(),
                               )
                             }
                             disabled={isReadOnly}

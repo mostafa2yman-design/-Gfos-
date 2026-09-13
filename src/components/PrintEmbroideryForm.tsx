@@ -280,7 +280,7 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
           </div>
           <div className="flex flex-wrap gap-3">
 
-            {!isReadOnly && (
+                        {!isReadOnly && (
               <>
                 <button
                   onClick={handleSaveDraft}
@@ -297,6 +297,12 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
                   اعتماد
                 </button>
               </>
+            )}
+            {isReadOnly && (
+                <div className="flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 px-4 py-2 rounded-lg font-bold text-sm shadow-sm flex-1 md:flex-none">
+                  <Check className="w-4 h-4" />
+                  تم الاعتماد
+                </div>
             )}
           </div>
         </div>

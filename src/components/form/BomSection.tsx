@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { getMaterials } from '../../lib/accountingStorage';
+import { MaterialItem } from '../../types';
 import { ProductionOrder, MaterialInstance, AccessoryInstance, SizeData } from '../../types';
 import { Plus, Trash2 } from 'lucide-react';
 
@@ -9,6 +11,14 @@ interface BomSectionProps {
 }
 
 export function BomSection({ order, onChange, readOnly = false }: BomSectionProps) {
+  const [availableFabrics, setAvailableFabrics] = useState<MaterialItem[]>([]);
+  const [availableAccessories, setAvailableAccessories] = useState<MaterialItem[]>([]);
+  
+  useEffect(() => {
+    const allMaterials = getMaterials();
+    setAvailableFabrics(allMaterials.filter(m => m.type === 'fabric' && m.isActive));
+    setAvailableAccessories(allMaterials.filter(m => m.type === 'accessory' && m.isActive));
+  }, []);
   const { materials = [], accessories = [], sizes = [] } = order;
 
   const handleAddMaterial = () => {
@@ -29,6 +39,13 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
     if (readOnly) return;
     const updated = [...materials];
     updated[index] = { ...updated[index], [field]: value };
+    onChange('materials', updated);
+  };
+
+  const handleSelectMaterial = (index: number, name: string, unit: string, defaultCost: number) => {
+    if (readOnly) return;
+    const updated = [...materials];
+    updated[index] = { ...updated[index], name, unit, standardPrice: defaultCost || 0 };
     onChange('materials', updated);
   };
 
@@ -56,6 +73,13 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
     if (readOnly) return;
     const updated = [...accessories];
     updated[index] = { ...updated[index], [field]: value };
+    onChange('accessories', updated);
+  };
+
+  const handleSelectAccessory = (index: number, name: string, unit: string, defaultCost: number) => {
+    if (readOnly) return;
+    const updated = [...accessories];
+    updated[index] = { ...updated[index], name, unit, standardPrice: defaultCost || 0 };
     onChange('accessories', updated);
   };
 
@@ -277,14 +301,27 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
               {materials.map((mat, idx) => (
                 <tr key={mat.id} className="text-sm">
                   <td className="py-2 pr-1">
-                    <input
-                      type="text"
+                    
+                    <select
                       value={mat.name}
-                      onChange={(e) => handleUpdateMaterial(idx, 'name', e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const found = availableFabrics.find(f => f.name === val);
+                        if (found) {
+                          handleSelectMaterial(idx, val, found.unit, found.defaultCost || 0);
+                        } else {
+                          handleUpdateMaterial(idx, 'name', val);
+                        }
+                      }}
                       disabled={readOnly}
-                      placeholder="اسم الخامة"
                       className={`w-full px-2 py-1.5 border rounded ${readOnly ? 'bg-slate-50' : 'bg-white focus:ring-1 focus:ring-indigo-500'}`}
-                    />
+                    >
+                      <option value="">أدخل اسم الخامة / بدون</option>
+                      {availableFabrics.map(f => (
+                        <option key={f.id} value={f.name}>{f.name}</option>
+                      ))}
+                    </select>
+
                   </td>
                   <td className="py-2 px-1">
                     <input
@@ -388,14 +425,27 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
               {accessories.map((acc, idx) => (
                 <tr key={acc.id} className="text-sm">
                   <td className="py-2 pr-1">
-                    <input
-                      type="text"
+                    
+                    <select
                       value={acc.name}
-                      onChange={(e) => handleUpdateAccessory(idx, 'name', e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        const found = availableAccessories.find(a => a.name === val);
+                        if (found) {
+                          handleSelectAccessory(idx, val, found.unit, found.defaultCost || 0);
+                        } else {
+                          handleUpdateAccessory(idx, 'name', val);
+                        }
+                      }}
                       disabled={readOnly}
-                      placeholder="اسم الإكسسوار"
                       className={`w-full px-2 py-1.5 border rounded ${readOnly ? 'bg-slate-50' : 'bg-white focus:ring-1 focus:ring-indigo-500'}`}
-                    />
+                    >
+                      <option value="">أدخل اسم الإكسسوار / بدون</option>
+                      {availableAccessories.map(a => (
+                        <option key={a.id} value={a.name}>{a.name}</option>
+                      ))}
+                    </select>
+
                   </td>
                   <td className="py-2 px-1">
                     <input

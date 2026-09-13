@@ -6,6 +6,8 @@ import {
   CutVariant,
 } from "../types";
 import { getOrderById } from "../lib/storage";
+import { getLabor, getMaterials } from "../lib/accountingStorage";
+import { LaborProfile, MaterialItem } from "../types";
 import { CutWorkOrderPrint } from "./print/CutWorkOrderPrint";
 import * as Cmd from "../lib/productionOrderCommands";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
@@ -21,6 +23,12 @@ interface CutOrderFormProps {
 }
 
 export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
+  const [laborList, setLaborList] = React.useState<LaborProfile[]>([]);
+  const [fabrics, setFabrics] = React.useState<MaterialItem[]>([]);
+  React.useEffect(() => {
+    setLaborList(getLabor().filter(l => l.role === 'عامل قص' && l.isActive));
+    setFabrics(getMaterials().filter(m => m.type === 'fabric' && m.isActive));
+  }, []);
   const [order, setOrder] = useState<ProductionOrder | null>(null);
   const [isPrinting, setIsPrinting] = useState(false);
 
@@ -191,7 +199,7 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
             <div className="flex gap-2">
                 <div className="bg-emerald-50 text-emerald-700 px-4 py-2 rounded-lg font-medium border border-emerald-200 flex items-center gap-2 text-sm">
                   <Check className="w-4 h-4" />
-                  القص معتمد
+                  تم الاعتماد
                 </div>
                 <button
                   onClick={() => handlePrint()}
@@ -228,6 +236,36 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
         </div>
       </div>
 
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 flex flex-col md:flex-row gap-4">
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-slate-700 mb-1">عامل القص</label>
+          <select
+            value={cutData.cutterName || ''}
+            disabled={isReadOnly}
+            onChange={(e) => setCutData(prev => prev ? { ...prev, cutterName: e.target.value } : prev)}
+            className={`w-full px-3 py-2 border rounded-lg appearance-none ${isReadOnly ? 'bg-slate-100 text-slate-600' : 'bg-white focus:ring-2 focus:ring-indigo-500'}`}
+          >
+            <option value="">اختر عامل القص...</option>
+            {laborList.map(l => (
+              <option key={l.id} value={l.name}>{l.name}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-slate-700 mb-1">الخامة المستخدمة فعلياً</label>
+          <select
+            value={cutData.actualFabricName || ''}
+            disabled={isReadOnly}
+            onChange={(e) => setCutData(prev => prev ? { ...prev, actualFabricName: e.target.value } : prev)}
+            className={`w-full px-3 py-2 border rounded-lg appearance-none ${isReadOnly ? 'bg-slate-100 text-slate-600' : 'bg-white focus:ring-2 focus:ring-indigo-500'}`}
+          >
+            <option value="">اختر الخامة...</option>
+            {fabrics.map(f => (
+              <option key={f.id} value={f.name}>{f.name}</option>
+            ))}
+          </select>
+        </div>
+      </div>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
           <p className="text-sm text-slate-500 mb-1">إجمالي المخطط</p>
@@ -323,15 +361,14 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
           </table>
         </div>
       </div>
-      {fabricSummary && (
-        <div className="mt-8 space-y-6">
+      <div className="mt-8 space-y-6">
           <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden p-6">
             <h4 className="text-md font-bold text-slate-800 mb-4">
               مسحوبات الأقمشة من المخزن لكل لون (كجم)
             </h4>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {colors.map((color: string) => {
-                const reqFabric = fabricSummary.colors.find((c: any) => c.color === color)?.requiredFabric;
+                const reqFabric = fabricSummary?.colors?.find((c: any) => c.color === color)?.requiredFabric;
                 return (
                   <div key={color} className="bg-slate-50 p-4 rounded-lg border border-slate-200">
                     <label className="block text-sm font-bold text-slate-800 mb-3 text-center border-b pb-2">
@@ -398,9 +435,8 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
             </div>
           </div>
 
-          <FabricSummary summary={fabricSummary} />
+          {fabricSummary && <FabricSummary summary={fabricSummary} />}
         </div>
-      )}
       </div>
       {isPrinting && (
         <div className="hidden print:block print:absolute print:inset-0">

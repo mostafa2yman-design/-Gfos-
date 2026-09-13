@@ -1,6 +1,7 @@
 import { ProductionOrder, BatchItem, AccessoryInstance } from '../types';
 
 export interface AccessoryPrepCalculation {
+  actualAccessoryName?: string;
   accessoryId: string;
   accessoryName: string;
   unit: string;

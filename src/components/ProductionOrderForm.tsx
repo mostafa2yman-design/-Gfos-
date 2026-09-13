@@ -129,7 +129,7 @@ export function ProductionOrderForm({
     if (isReadOnly) return;
     setOrder((prev) => {
       let finalValue: any = value;
-      if (field === 'printEmbroideryStandardCost' || field === 'standardSewingCostPerPiece' || field === 'standardFinishingCostPerPiece' || field === 'standardCutCostPerPiece' || field === 'standardIroningCostPerPiece') {
+      if (field === 'printEmbroideryStandardCost' || field === 'standardSewingCostPerPiece' || field === 'standardFinishingCostPerPiece' || field === 'standardCutCostPerPiece' || field === 'standardIroningCostPerPiece' || field === 'sellingPrice') {
         const parsed = parseFloat(value); finalValue = isNaN(parsed) ? undefined : parsed;
       }
       const next = { ...prev, [field]: finalValue };
@@ -477,6 +477,7 @@ export function ProductionOrderForm({
             standardSewingCostPerPiece={order.standardSewingCostPerPiece}
             standardFinishingCostPerPiece={order.standardFinishingCostPerPiece}
             standardIroningCostPerPiece={order.standardIroningCostPerPiece}
+            sellingPrice={order.sellingPrice}
             finishingInstructions={order.finishingInstructions}
             ironingInstructions={order.ironingInstructions}
             packingInstructions={order.packingInstructions}
@@ -484,7 +485,7 @@ export function ProductionOrderForm({
             readOnly={isReadOnly}
           />
 
-          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+          <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-visible">
             <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
               <h3 className="text-lg font-bold text-slate-800">
                 جدول المقاسات والألوان
@@ -671,6 +672,7 @@ export function ProductionOrderForm({
             <OrderSummary sizes={order.sizes} actualSizes={(['القص معتمد', 'تقسيم الباتشات', 'الباتشات مثبتة', 'التجهيز جاري', 'التجهيز مكتمل', 'الطباعة والتطريز جاري', 'الطباعة والتطريز مكتمل', 'مغلق'].includes(order.status) && order.cutData?.sizes) ? order.cutData.sizes : undefined} />
             <CostAnalysisSummary order={order} />
 
+            
             {!isReadOnly && order.status === "مسودة" && (
               <div className="mt-6">
                 <button
@@ -683,6 +685,15 @@ export function ProductionOrderForm({
                 </button>
               </div>
             )}
+            {(isReadOnly || order.status !== "مسودة") && order.id && (
+              <div className="mt-6">
+                <div className="w-full flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 px-5 py-3.5 rounded-xl font-bold text-lg shadow-sm">
+                  <Check className="w-5 h-5" />
+                  تم الاعتماد
+                </div>
+              </div>
+            )}
+
           </div>
         </div>
       </div>

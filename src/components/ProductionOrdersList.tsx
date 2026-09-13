@@ -3,7 +3,7 @@ import { getOrders } from '../lib/storage';
 import { ProductionOrder } from '../types';
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Toast } from "./ui/Toast";
-import { Search, Edit, Eye, Filter, Trash2 } from 'lucide-react';
+import { Search, Edit, Eye, Filter, Trash2, ChevronDown } from 'lucide-react';
 import * as Cmd from '../lib/productionOrderCommands';
 
 interface ProductionOrdersListProps {
@@ -98,6 +98,7 @@ export function ProductionOrdersList({ onEdit, onView }: ProductionOrdersListPro
                 <option value="التجهيز مكتمل">التجهيز مكتمل</option>
                 <option value="مغلق">مغلق</option>
               </select>
+              <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
             </div>
           </div>
         </div>

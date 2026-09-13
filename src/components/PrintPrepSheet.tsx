@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { ProductionOrder, BatchItem, AccessoryPrepItem } from "../types";
 import { getOrderById } from "../lib/storage";
+import { getMaterials } from "../lib/accountingStorage";
+import { MaterialItem } from "../types";
 import * as Cmd from "../lib/productionOrderCommands";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Toast } from "./ui/Toast";
@@ -15,6 +17,10 @@ interface PrintPrepSheetProps {
 }
 
 export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
+  const [accessories, setAccessories] = React.useState<MaterialItem[]>([]);
+  React.useEffect(() => {
+    setAccessories(getMaterials().filter(m => m.type === 'accessory' && m.isActive));
+  }, []);
   const [order, setOrder] = useState<ProductionOrder | null>(null);
 
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -108,6 +114,30 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
     if (result.success && result.data) {
             setOrder(result.data);
           }
+  };
+
+  
+  const handleUpdateActualAccessory = async (batchId: string, accessoryName: string, actualName: string) => {
+    const updatedBatches = order!.batches!.map((b) => {
+      if (b.id === batchId && b.prepStatus !== "مكتمل") {
+        return {
+          ...b,
+          accessoriesPrep: b.accessoriesPrep?.map((a) =>
+            a.accessoryName === accessoryName
+              ? { ...a, actualAccessoryName: actualName }
+              : a,
+          ) || [],
+        };
+      }
+      return b;
+    });
+    
+    setOrder({ ...order!, batches: updatedBatches });
+    
+    const result = await Cmd.savePrepData(order!, updatedBatches);
+    if (result.success && result.data) {
+      setOrder(result.data);
+    }
   };
 
   const handleToggleAllAccessories = async (batchId: string, isPrepared: boolean) => {
@@ -237,7 +267,7 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
                     ) : (
                       <div className="flex items-center gap-2 px-4 py-2 bg-emerald-100 text-emerald-800 rounded-lg font-bold border border-emerald-200">
                         <Check className="w-5 h-5" />
-                        التجهيز مكتمل
+                        تم الاعتماد
                       </div>
                     )}
                   </div>
@@ -311,9 +341,8 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
                         <table className="w-full text-right text-sm border-collapse border border-slate-200">
                           <thead>
                             <tr className="bg-slate-50 text-slate-600">
-                              <th className="border border-slate-200 p-2 font-medium">
-                                الإكسسوار
-                              </th>
+                              <th className="border border-slate-200 p-2 font-medium">الإكسسوار (المطلوب)</th>
+                              <th className="border border-slate-200 p-2 font-medium text-center">الإكسسوار الفعلي (المنصرف)</th>
                               <th className="border border-slate-200 p-2 font-medium text-center">
                                 الوحدة
                               </th>
@@ -345,6 +374,19 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
                                   >
                                     <td className="border border-slate-200 p-2 font-medium">
                                       {acc.accessoryName}
+                                    </td>
+                                    <td className="border border-slate-200 p-2 text-center align-middle w-48">
+                                      <select
+                                        value={acc.actualAccessoryName || ''}
+                                        disabled={batch.prepStatus === "مكتمل"}
+                                        onChange={(e) => handleUpdateActualAccessory(batch.id, acc.accessoryName, e.target.value)}
+                                        className={`w-full px-2 py-1 border rounded text-xs ${batch.prepStatus === "مكتمل" ? "bg-slate-100" : "bg-white"}`}
+                                      >
+                                        <option value="">نفس الإكسسوار</option>
+                                        {accessories.map(a => (
+                                          <option key={a.id} value={a.name}>{a.name}</option>
+                                        ))}
+                                      </select>
                                     </td>
                                     <td className="border border-slate-200 p-2 text-center text-slate-600">
                                       {acc.unit}

@@ -8,7 +8,7 @@ interface PrintSignaturesProps {
   signatures: Signature[];
 }
 
-export const PrintSignatures: React.FC<PrintSignaturesProps> = ({ signatures }) => {
+export const PrintSignatures: React.FC<PrintSignaturesProps> = ({ signatures = [] }) => {
   return (
     <div className="mt-8 pt-4 border-t border-slate-300 break-inside-avoid">
       <div className={`grid gap-4 text-center`} style={{ gridTemplateColumns: `repeat(${signatures.length}, minmax(0, 1fr))` }}>

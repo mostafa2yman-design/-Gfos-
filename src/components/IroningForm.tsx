@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ProductionOrder, BatchItem, IroningData, IroningVariantData } from "../types";
 import { getOrderById } from "../lib/storage";
+import { getLabor } from "../lib/accountingStorage";
+import { LaborProfile } from "../types";
 import * as Cmd from "../lib/productionOrderCommands";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Toast } from "./ui/Toast";
@@ -14,6 +16,10 @@ interface Props {
 }
 
 export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
+  const [ironingWorkers, setIroningWorkers] = React.useState<LaborProfile[]>([]);
+  React.useEffect(() => {
+    setIroningWorkers(getLabor().filter(l => l.isActive && (l.role === 'عامل مكواة' || l.role === 'عامل تشطيب ومكواة' || l.role === 'أخرى')));
+  }, []);
   const [order, setOrder] = useState<ProductionOrder | null>(null);
   const [batches, setBatches] = useState<BatchItem[]>([]);
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -153,7 +159,8 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
         ...b,
         ironingData: {
           ...b.ironingData!,
-          actualCostPerPiece: sourceBatch.ironingData.actualCostPerPiece
+          actualCostPerPiece: sourceBatch.ironingData.actualCostPerPiece,
+          workerName: sourceBatch.ironingData.workerName
         }
       };
     });
@@ -167,7 +174,7 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
     // Check if all batches have ironing cost
     const missingCost = batches.some(b => b.ironingData?.status !== 'مكتمل' && (b.ironingData?.actualCostPerPiece === undefined || b.ironingData?.actualCostPerPiece === null));
     if (missingCost) {
-      setToastConfig({ message: "يجب إدخال التكلفة الفعلية للتشطيب لجميع الباتشات غير المعتمدة.", type: "error" });
+      setToastConfig({ message: "يجب إدخال التكلفة الفعلية للمكواة لجميع الباتشات غير المعتمدة.", type: "error" });
       return;
     }
     
@@ -195,7 +202,8 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
 
   if (!order) return <div>جاري التحميل...</div>;
 
-  const isOrderReadOnly = order.status === 'المكواة مكتملة' || order.status === 'مغلق';
+  const isFullyApproved = batches.length > 0 && batches.every(b => b.ironingData?.status === 'مكتمل');
+  const isOrderReadOnly = isFullyApproved || ['المكواة مكتملة', 'مغلق'].includes(order.status);
 
   return (
     <div className="space-y-6 relative">
@@ -227,14 +235,19 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
               <Printer className="w-4 h-4" />
               طباعة أمر التشغيل الشامل
             </button>
-            {!isOrderReadOnly && (
+            {!isFullyApproved ? (
               <button
                 onClick={approveAllIroning}
-                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors font-medium text-sm shadow-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium text-sm shadow-sm"
               >
                 <CheckSquare className="w-4 h-4" />
                 اعتماد المكواة بالكامل
               </button>
+            ) : (
+               <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold text-sm shadow-sm">
+                  <CheckSquare className="w-4 h-4" />
+                  تم الاعتماد بالكامل
+               </div>
             )}
           </div>
         </div>
@@ -281,6 +294,20 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
 
                 <div className="p-4 space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-50 p-3 rounded border border-slate-200">
+                    <div>
+                      <label className="block text-sm font-medium text-slate-700 mb-1">عامل المكواة</label>
+                      <select
+                        value={fData.workerName || ""}
+                        onChange={(e) => handleUpdateIroningData(batch.id, 'workerName', e.target.value)}
+                        disabled={isBatchReadOnly}
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white disabled:bg-slate-100 disabled:text-slate-500"
+                      >
+                        <option value="">اختر عامل المكواة...</option>
+                        {ironingWorkers.map(w => (
+                          <option key={w.id} value={w.name}>{w.name}</option>
+                        ))}
+                      </select>
+                    </div>
                     <div>
                       <label className="block text-sm font-medium text-slate-700 mb-1">
                         تكلفة المكواة الفعلية (للقطعة)

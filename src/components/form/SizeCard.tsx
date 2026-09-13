@@ -56,7 +56,7 @@ export function SizeCard({
   const availableColors = allAvailable.filter(c => !selectedColors.includes(c));
 
   return (
-    <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-hidden shadow-sm">
+    <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-visible shadow-sm">
       <div className="bg-white px-5 py-4 border-b border-slate-200 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 bg-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center font-bold text-lg">

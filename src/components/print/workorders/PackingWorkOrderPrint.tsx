@@ -134,7 +134,7 @@ export const PackingWorkOrderPrint: React.FC<Props> = ({ order, invoices }) => {
         )}
 
         <div className="mt-12">
-          <PrintSignatures />
+          <PrintSignatures signatures={[{ role: "مسئول التغليف" }, { role: "المستلم" }]} />
         </div>
       </div>
     </div>

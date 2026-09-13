@@ -12,7 +12,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { calculateGlobalCostMetrics } from "../lib/costUtils";
+import { calculateGlobalCostMetrics, calculateOrderCostAnalysis } from "../lib/costUtils";
 
 interface DashboardProps {
   onNavigate: (view: "dashboard" | "list" | "form" | "settings") => void;
@@ -23,6 +23,7 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
   const [orders, setOrders] = useState<ProductionOrder[]>([]);
   const [factory, setFactory] = useState<FactorySettings | null>(null);
   const [showMap, setShowMap] = useState(false);
+  const [showOrdersTable, setShowOrdersTable] = useState(false);
 
   useEffect(() => {
     getOrders().then(data => setOrders(data));
@@ -41,6 +42,9 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
       color: "text-blue-600",
       bgColor: "bg-blue-50",
       borderColor: "border-blue-100",
+      onClick: () => { setShowOrdersTable(!showOrdersTable); setShowMap(false); },
+      clickable: true,
+      active: showOrdersTable
     },
     {
       title: "مسودات",
@@ -57,7 +61,7 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
       color: "text-indigo-600",
       bgColor: "bg-indigo-50",
       borderColor: "border-indigo-100",
-      onClick: () => setShowMap(!showMap),
+      onClick: () => { setShowMap(!showMap); setShowOrdersTable(false); },
       clickable: true,
       active: showMap
     },
@@ -98,7 +102,7 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
         !["أمر إنتاج معتمد", "أمر قص", "القص الفعلي مدخل", "القص معتمد", "تقسيم الباتشات"].includes(order.status);
 
       if (!hasLockedBatches) {
-        const totalQty = order.sizes.reduce(
+        const totalQty = (order.sizes || []).reduce(
           (sum, size) => sum + size.variants.reduce((vSum, v) => vSum + (Number(v.quantity) || 0), 0),
           0
         );
@@ -213,6 +217,108 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
           </div>
         ))}
       </div>
+
+      
+      {showOrdersTable && (
+        <div className="bg-white rounded-xl shadow-sm border border-indigo-100 overflow-hidden mt-4">
+          <div className="p-4 border-b border-indigo-100 bg-indigo-50/50 flex justify-between items-center">
+            <h3 className="font-bold text-indigo-900 flex items-center gap-2">
+              <FileText className="w-5 h-5 text-indigo-600" />
+              تفاصيل جميع الأوامر
+            </h3>
+          </div>
+          <div className="p-0 overflow-x-auto">
+            <table className="w-full text-sm text-right border-collapse min-w-[1200px]">
+              <thead>
+                <tr className="bg-slate-50 text-slate-700">
+                  <th className="border-b border-slate-200 p-3 font-semibold">رقم الأمر</th>
+                  <th className="border-b border-slate-200 p-3 font-semibold">العميل</th>
+                  <th className="border-b border-slate-200 p-3 font-semibold">الحالة</th>
+                  <th className="border-b border-slate-200 p-3 font-semibold">المقاسات</th>
+                  <th className="border-b border-slate-200 p-3 font-semibold text-center">العدد المطلوب</th>
+                  <th className="border-b border-slate-200 p-3 font-semibold text-center">تكلفة م. للقطعة</th>
+                  <th className="border-b border-slate-200 p-3 font-semibold text-center">تكلفة ف. للقطعة</th>
+                  <th className="border-b border-slate-200 p-3 font-semibold text-center">سعر البيع</th>
+                  <th className="border-b border-slate-200 p-3 font-semibold text-center">المتبقي بالمخزن</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100">
+                {orders.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="p-8 text-center text-slate-500">لا توجد أوامر مسجلة</td>
+                  </tr>
+                ) : (
+                  orders.map(order => {
+                    const costAnalysis = calculateOrderCostAnalysis(order);
+                    const sizesStr = (order.sizes || []).map(s => s.size).join(', ');
+                    const totalRequired = (order.sizes || []).reduce((sum, s) => sum + s.variants.reduce((vSum, v) => vSum + (Number(v.quantity) || 0), 0), 0);
+                    
+                    // Calculate Total Available (from Ironing or initial sizes)
+                    let totalAvailable = 0;
+                    let hasActualData = false;
+                    order.batches?.forEach(b => {
+                      if (b.ironingData?.status === 'مكتمل' && b.ironingData.actualQuantities) {
+                        hasActualData = true;
+                        b.ironingData.actualQuantities.forEach(q => {
+                          totalAvailable += (Number(q.actualQuantity ?? q.quantity) || 0);
+                        });
+                      }
+                    });
+                    if (!hasActualData) {
+                      totalAvailable = totalRequired;
+                    }
+                    
+                    // Subtract Packed/Invoiced
+                    let totalInvoiced = 0;
+                    order.packingInvoices?.forEach(inv => {
+                      inv.variants.forEach(v => {
+                        totalInvoiced += (Number(v.quantity) || 0);
+                      });
+                    });
+                    
+                    const remainingInStock = totalAvailable - totalInvoiced;
+                    
+                    return (
+                      <tr key={order.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="p-3">
+                          <button 
+                            onClick={() => onNavigateToOrder?.(order.id, "production")} 
+                            className="text-indigo-600 font-bold hover:text-indigo-800 hover:underline"
+                          >
+                            {order.orderNumber}
+                          </button>
+                        </td>
+                        <td className="p-3 font-medium text-slate-700">{order.customerName || '—'}</td>
+                        <td className="p-3">
+                          <span className="px-2 py-1 bg-slate-100 text-slate-600 rounded text-xs whitespace-nowrap">
+                            {order.status}
+                          </span>
+                        </td>
+                        <td className="p-3 text-slate-600 text-xs truncate max-w-[150px]" title={sizesStr}>
+                          {sizesStr}
+                        </td>
+                        <td className="p-3 text-center font-bold text-slate-800">{totalRequired}</td>
+                        <td className="p-3 text-center text-slate-600">
+                          {Number(costAnalysis.totalStandardPerPiece).toFixed(2)}
+                        </td>
+                        <td className="p-3 text-center text-slate-600">
+                          {costAnalysis.isActualComplete ? Number(costAnalysis.totalActualPerPiece).toFixed(2) : <span className="text-amber-500 text-xs">غير مكتمل</span>}
+                        </td>
+                        <td className="p-3 text-center font-bold text-emerald-600">
+                          {order.sellingPrice ? Number(order.sellingPrice).toFixed(2) : '—'}
+                        </td>
+                        <td className="p-3 text-center font-bold text-blue-600">
+                          {remainingInStock}
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {showMap && (
         <div className="bg-white rounded-xl shadow-sm border border-indigo-100 overflow-hidden mt-4">

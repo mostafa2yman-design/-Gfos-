@@ -4,9 +4,10 @@ import { Dashboard } from "./components/Dashboard";
 import { ProductionOrdersList } from "./components/ProductionOrdersList";
 import { OrderManager } from "./components/OrderManager";
 import { Settings } from "./components/Settings";
+import { ConfigurationDashboard } from "./components/accounting/ConfigurationDashboard";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
-type ViewState = "dashboard" | "list" | "form" | "settings";
+type ViewState = "dashboard" | "list" | "form" | "settings" | "accounting_config";
 
 function AppContent() {
   const [currentView, setCurrentView] = useState<ViewState>("dashboard");
@@ -54,6 +55,7 @@ function AppContent() {
         <OrderManager orderId={selectedOrderId} onBack={handleBackToList} initialTab={selectedTab} />
       )}
       {currentView === "settings" && <Settings onBack={handleBackToList} />}
+      {currentView === "accounting_config" && <ConfigurationDashboard />}
     </Layout>
   );
 }

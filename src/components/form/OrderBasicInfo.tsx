@@ -1,6 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { getCustomersSuppliers } from '../../lib/accountingStorage';
+import { CustomerSupplier } from '../../types';
 import { CATEGORIES } from '../../types';
-import { Calendar, Tag, User, Hash } from 'lucide-react';
+import { Calendar, Tag, User, Hash, ChevronDown } from 'lucide-react';
 
 interface OrderBasicInfoProps {
   orderNumber: string;
@@ -13,6 +15,7 @@ interface OrderBasicInfoProps {
   standardSewingCostPerPiece?: number;
   standardFinishingCostPerPiece?: number;
   standardIroningCostPerPiece?: number;
+  sellingPrice?: number;
   finishingInstructions?: string;
   ironingInstructions?: string;
   packingInstructions?: string;
@@ -31,12 +34,18 @@ export function OrderBasicInfo({
   standardSewingCostPerPiece,
   standardFinishingCostPerPiece,
   standardIroningCostPerPiece,
+  sellingPrice,
   finishingInstructions,
   ironingInstructions,
   packingInstructions,
   onChange,
   readOnly = false
 }: OrderBasicInfoProps) {
+  const [customers, setCustomers] = useState<CustomerSupplier[]>([]);
+  useEffect(() => {
+    const list = getCustomersSuppliers();
+    setCustomers(list.filter(c => c.type === 'customer' || c.type === 'both' && c.isActive));
+  }, []);
   return (
     <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
       <div className="bg-slate-50 px-6 py-4 border-b border-slate-200">
@@ -104,21 +113,24 @@ export function OrderBasicInfo({
             <label className="block text-sm font-medium text-slate-700 mb-1">
               نوع القصة {!readOnly && <span className="text-red-500">*</span>}
             </label>
-            <select
-              value={category}
-              disabled={readOnly}
-              onChange={(e) => onChange('category', e.target.value)}
-              className={`w-full px-3 py-2 border border-slate-300 rounded-lg appearance-none transition-shadow ${
-                readOnly 
-                  ? 'bg-slate-100 text-slate-600 cursor-not-allowed' 
-                  : 'bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
-              }`}
-            >
-              <option value="" disabled>اختر النوع...</option>
-              {CATEGORIES.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
+                        <div className="relative">
+              <select
+                value={category}
+                disabled={readOnly}
+                onChange={(e) => onChange('category', e.target.value)}
+                className={`w-full px-3 py-2 border border-slate-300 rounded-lg appearance-none pr-3 pl-8 transition-shadow ${
+                  readOnly 
+                    ? 'bg-slate-100 text-slate-600 cursor-not-allowed' 
+                    : 'bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
+                }`}
+              >
+                <option value="" disabled>اختر النوع...</option>
+                {CATEGORIES.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
+              </select>
+              <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            </div>
           </div>
 
           {/* Customer Name */}
@@ -128,18 +140,27 @@ export function OrderBasicInfo({
             </label>
             <div className="relative">
               <User className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <input
-                type="text"
-                value={customerName}
-                disabled={readOnly}
-                onChange={(e) => onChange('customerName', e.target.value)}
-                placeholder="أدخل اسم العميل..."
-                className={`w-full pl-3 pr-10 py-2 border border-slate-300 rounded-lg transition-shadow ${
-                  readOnly 
-                    ? 'bg-slate-100 text-slate-600 cursor-not-allowed' 
-                    : 'focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
-                }`}
-              />
+              
+              <div className="relative w-full">
+                <select
+                  value={customerName}
+                  disabled={readOnly}
+                  onChange={(e) => onChange('customerName', e.target.value)}
+                  className={`w-full pl-3 pr-10 py-2 border border-slate-300 rounded-lg transition-shadow appearance-none ${
+                    readOnly 
+                      ? 'bg-slate-100 text-slate-600 cursor-not-allowed' 
+                      : 'bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
+                  }`}
+                >
+                  <option value="">أدخل اسم العميل / بدون</option>
+                  <option value="المصنع">المصنع</option>
+                  {customers.map(c => (
+                    <option key={c.id} value={c.name}>{c.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+
             </div>
           </div>
 

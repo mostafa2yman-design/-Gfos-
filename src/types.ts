@@ -77,6 +77,8 @@ export interface CutSizeData {
 }
 
 export interface CutOrderData {
+  cutterName?: string;
+  actualFabricName?: string;
   cutOrderNumber: string;
   sizes: CutSizeData[];
   actualWeight: number;
@@ -123,6 +125,7 @@ export interface EmbroideryDetails {
 export type BatchPrintEmbroideryStatus = 'لم يبدأ' | 'جاري' | 'مكتمل';
 
 export interface AccessoryPrepItem {
+  actualAccessoryName?: string;
   accessoryId: string;
   accessoryName: string;
   unit: string;
@@ -151,6 +154,7 @@ export interface FinishingVariantData {
 }
 
 export interface FinishingData {
+  workerName?: string; // for finishing
   status: 'لم يبدأ' | 'جاري' | 'مكتمل';
   actualCostPerPiece?: number;
   actualQuantities: FinishingVariantData[];
@@ -166,6 +170,7 @@ export interface IroningVariantData {
 }
 
 export interface IroningData {
+  workerName?: string; // for ironing
   status: 'لم يبدأ' | 'جاري' | 'مكتمل';
   actualCostPerPiece?: number;
   actualQuantities: IroningVariantData[];
@@ -252,6 +257,7 @@ export interface ProductionOrder {
   standardFinishingCostPerPiece?: number;
   standardCutCostPerPiece?: number;
   standardIroningCostPerPiece?: number;
+  sellingPrice?: number;
   finishingInstructions?: string;
   ironingInstructions?: string;
   packingInstructions?: string;
@@ -284,4 +290,65 @@ export interface FactorySettings {
   address: string;
   phones: string;
   logoUrl: string | null;
+}
+
+// --- Accounting Configuration Types ---
+
+export interface AccountNode {
+  id: string;
+  code: string;
+  name: string;
+  type: 'asset' | 'liability' | 'equity' | 'revenue' | 'expense';
+  parentId?: string;
+  description?: string;
+  isActive: boolean;
+}
+
+export interface CustomerSupplier {
+  id: string;
+  type: 'customer' | 'supplier' | 'both';
+  name: string;
+  contactPerson?: string;
+  phone?: string;
+  email?: string;
+  address?: string;
+  taxId?: string;
+  isActive: boolean;
+  linkedAccountId?: string;
+}
+
+export interface MaterialItem {
+  id: string;
+  type: 'fabric' | 'accessory';
+  name: string;
+  code?: string;
+  unit: string;
+  defaultCost?: number;
+  isActive: boolean;
+  linkedExpenseAccountId?: string; 
+}
+
+export interface LaborProfile {
+  id: string;
+  name: string;
+  role: string;
+  phone?: string;
+  baseSalary?: number;
+  isActive: boolean;
+  linkedAccountId?: string;
+  operationalGroupId?: string;
+  salaryType?: 'يومية' | 'بالقطعة';
+  salaryPeriod?: 'يومي' | 'أسبوعي' | 'شهري';
+  dailyWorkingHours?: number;
+}
+
+export interface OperationalGroup {
+  id: string;
+  name: string;
+  type: 'internal' | 'external';
+  specialty: string;
+  contactPerson?: string;
+  phone?: string;
+  isActive: boolean;
+  linkedAccountId?: string;
 }

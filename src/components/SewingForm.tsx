@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { ProductionOrder, BatchItem, SewingData, SewingVariantData, SewingManufacturingType } from "../types";
 import { getOrderById } from "../lib/storage";
+import { getOperationalGroups } from "../lib/accountingStorage";
+import { OperationalGroup } from "../types";
 import * as Cmd from "../lib/productionOrderCommands";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Toast } from "./ui/Toast";
@@ -14,6 +16,14 @@ interface Props {
 }
 
 export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
+  const [internalGroups, setInternalGroups] = useState<OperationalGroup[]>([]);
+  const [externalGroups, setExternalGroups] = useState<OperationalGroup[]>([]);
+  
+  useEffect(() => {
+    const allGroups = getOperationalGroups();
+    setInternalGroups(allGroups.filter(g => g.type === 'internal' && g.isActive));
+    setExternalGroups(allGroups.filter(g => g.type === 'external' && g.isActive));
+  }, []);
   const [order, setOrder] = useState<ProductionOrder | null>(null);
   const [batches, setBatches] = useState<BatchItem[]>([]);
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -412,14 +422,19 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                       <label className="block text-sm font-medium text-slate-700 mb-1">
                         مجموعة الخياطة المسؤولة <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="text"
+                      
+                      <select
                         value={sData.sewingGroup || ""}
                         onChange={(e) => handleSewingChange(batch.id, "sewingGroup", e.target.value)}
                         disabled={isReadOnly || sData.status === 'مكتمل'}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder="أدخل اسم/رقم المجموعة"
-                      />
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                      >
+                        <option value="" disabled>اختر المجموعة...</option>
+                        {internalGroups.map(g => (
+                          <option key={g.id} value={g.name}>{g.name}</option>
+                        ))}
+                      </select>
+
                     </div>
                   )}
 
@@ -428,14 +443,19 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                       <label className="block text-sm font-medium text-slate-700 mb-1">
                         جهة التصنيع الخارجي <span className="text-red-500">*</span>
                       </label>
-                      <input
-                        type="text"
+                      
+                      <select
                         value={sData.externalManufacturer || ""}
                         onChange={(e) => handleSewingChange(batch.id, "externalManufacturer", e.target.value)}
                         disabled={isReadOnly || sData.status === 'مكتمل'}
-                        className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500"
-                        placeholder="أدخل اسم الجهة الخارجية"
-                      />
+                        className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                      >
+                        <option value="" disabled>اختر الجهة الخارجية...</option>
+                        {externalGroups.map(g => (
+                          <option key={g.id} value={g.name}>{g.name}</option>
+                        ))}
+                      </select>
+
                     </div>
                   )}
 
@@ -561,7 +581,7 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
         </>
       )}
 
-      {!isReadOnly && batches.length > 0 && (
+            {!isReadOnly && batches.length > 0 && (
         <div className="flex justify-end gap-3 mt-6">
           <button
             onClick={handleSave}
@@ -577,6 +597,14 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
             <Check className="w-5 h-5" />
             اعتماد الخياطة
           </button>
+        </div>
+      )}
+      {isReadOnly && batches.length > 0 && (
+        <div className="flex justify-center mt-6">
+           <div className="flex items-center gap-2 px-8 py-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl shadow-sm font-bold text-lg">
+              <Check className="w-6 h-6" />
+              تم الاعتماد
+           </div>
         </div>
       )}
     </div>

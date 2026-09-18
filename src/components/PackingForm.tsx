@@ -1,20 +1,27 @@
 import React, { useState, useEffect, useRef } from "react";
-import { ProductionOrder, PackingInvoice, PackingInvoiceVariant } from "../types";
+import { ProductionOrder, PackingInvoice, PackingInvoiceVariant, CustomerSupplier } from "../types";
 import { getOrderById } from "../lib/storage";
+import { getCustomersSuppliers } from "../lib/accountingStorage";
 import * as Cmd from "../lib/productionOrderCommands";
 import { Toast } from "./ui/Toast";
-import { Save, Plus, Printer, Trash2 } from "lucide-react";
+import { Save, Plus, Printer, Trash2, ChevronDown, UserPlus, Users } from "lucide-react";
 import { eventBus } from "../lib/events/eventBus";
 import { PackingWorkOrderPrint } from "./print/workorders/PackingWorkOrderPrint";
 
 interface Props {
   orderId: string;
   onSaved: () => void;
+  onNavigateToAccounting?: (
+    tab?: any,
+    returnInfo?: { orderId: string; tab: string; orderNumber?: string },
+    autoOpenAdd?: boolean
+  ) => void;
 }
 
-export const PackingForm: React.FC<Props> = ({ orderId, onSaved }) => {
+export const PackingForm: React.FC<Props> = ({ orderId, onSaved, onNavigateToAccounting }) => {
   const [order, setOrder] = useState<ProductionOrder | null>(null);
   const [invoices, setInvoices] = useState<PackingInvoice[]>([]);
+  const [customers, setCustomers] = useState<CustomerSupplier[]>([]);
   const [toastConfig, setToastConfig] = useState<{ message: string; type: "success" | "error"; } | null>(null);
   
   const [printing, setPrinting] = useState(false);
@@ -22,6 +29,46 @@ export const PackingForm: React.FC<Props> = ({ orderId, onSaved }) => {
   useEffect(() => {
     loadOrder();
   }, [orderId]);
+
+  const loadCustomers = () => {
+    const list = getCustomersSuppliers();
+    const customerList = list.filter(c => (c.type === 'customer' || c.type === 'both') && c.isActive !== false);
+    setCustomers(customerList);
+  };
+
+  useEffect(() => {
+    loadCustomers();
+    const handleStorageOrUpdate = () => loadCustomers();
+    window.addEventListener('storage', handleStorageOrUpdate);
+    window.addEventListener('customers_updated', handleStorageOrUpdate);
+    return () => {
+      window.removeEventListener('storage', handleStorageOrUpdate);
+      window.removeEventListener('customers_updated', handleStorageOrUpdate);
+    };
+  }, []);
+
+  const handleNavigateToAddCustomer = async () => {
+    // Auto-save draft before navigating so user doesn't lose anything they started filling in
+    if (order) {
+      try {
+        const updatedOrder = { ...order, packingInvoices: invoices };
+        await Cmd.saveDraft(updatedOrder);
+      } catch (err) {
+        console.error("Auto save draft before navigation failed", err);
+      }
+    }
+    if (onNavigateToAccounting) {
+      onNavigateToAccounting(
+        'customers',
+        {
+          orderId,
+          tab: 'packing',
+          orderNumber: order?.orderNumber
+        },
+        true
+      );
+    }
+  };
 
   const loadOrder = async () => {
     const o = await getOrderById(orderId);
@@ -272,13 +319,69 @@ export const PackingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-slate-700 mb-1">اسم العميل</label>
-                    <input
-                      type="text"
-                      value={inv.customerName}
-                      onChange={(e) => handleInvoiceChange(inv.id, 'customerName', e.target.value)}
-                      className="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="block text-sm font-bold text-slate-700">
+                        العميل <span className="text-red-500">*</span>
+                      </label>
+                      <button
+                        type="button"
+                        onClick={handleNavigateToAddCustomer}
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition-colors cursor-pointer shadow-2xs hover:shadow-xs"
+                        title="الانتقال لشاشة العملاء والموردين في التكوين الهيكلي والمالي"
+                      >
+                        <UserPlus className="w-3.5 h-3.5 text-indigo-600" />
+                        <span>إضافة عميل</span>
+                      </button>
+                    </div>
+
+                    <div className="relative">
+                      <select
+                        value={inv.customerName}
+                        onChange={(e) => handleInvoiceChange(inv.id, 'customerName', e.target.value)}
+                        className="w-full pl-8 pr-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 appearance-none font-medium text-slate-800 transition-shadow"
+                      >
+                        <option value="">-- اختر العميل من القائمة --</option>
+                        {order?.customerName && !customers.some(c => c.name === order.customerName) && (
+                          <option value={order.customerName}>
+                            {order.customerName} (عميل أمر الإنتاج)
+                          </option>
+                        )}
+                        <option value="المصنع">المصنع (تشغيل داخلي)</option>
+                        {customers.map((c) => (
+                          <option key={c.id} value={c.name}>
+                            {c.name} {c.phone ? `(${c.phone})` : ''}
+                          </option>
+                        ))}
+                        {/* Preserve existing custom customerName if not found in list */}
+                        {inv.customerName &&
+                          inv.customerName !== "المصنع" &&
+                          inv.customerName !== order?.customerName &&
+                          !customers.some((c) => c.name === inv.customerName) && (
+                            <option value={inv.customerName}>
+                              {inv.customerName} (مسجل سابقاً)
+                            </option>
+                          )}
+                      </select>
+                      <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+                    </div>
+
+                    {/* Customer info chip if available */}
+                    {(() => {
+                      const matched = customers.find(c => c.name === inv.customerName);
+                      if (matched && (matched.phone || matched.address)) {
+                        return (
+                          <div className="flex items-center gap-3 text-xs text-slate-500 pt-1 px-1">
+                            {matched.phone && (
+                              <span>الهاتف: <span dir="ltr" className="font-semibold text-slate-700">{matched.phone}</span></span>
+                            )}
+                            {matched.address && (
+                              <span className="truncate">العنوان: <span className="font-semibold text-slate-700">{matched.address}</span></span>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                 </div>
 

@@ -82,11 +82,14 @@ export async function approveProductionOrder(order: ProductionOrder, user: strin
     return { success: false, error: 'يجب إضافة مقاس واحد على الأقل للاعتماد.' };
   }
   
+  const now = new Date().toISOString();
   const orderToSave: ProductionOrder = {
     ...order,
     status: 'أمر إنتاج معتمد',
     productionApprovedBy: user,
-    productionApprovedAt: new Date().toISOString()
+    productionApprovedAt: now,
+    materialsApprovedBy: user,
+    materialsApprovedAt: now
   };
   
   const savedResult = await persistOrder(orderToSave);
@@ -142,12 +145,15 @@ export async function saveCutData(order: ProductionOrder, cutData: CutOrderData)
 }
 
 export async function approveCutOrder(order: ProductionOrder, cutData: CutOrderData, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
+  const now = new Date().toISOString();
   const orderToSave: ProductionOrder = {
     ...order,
+    cutApprovedBy: user,
+    cutApprovedAt: now,
     cutData: {
       ...cutData,
       approvedBy: user,
-      approvedAt: new Date().toISOString()
+      approvedAt: now
     },
     status: 'القص معتمد'
   };
@@ -416,6 +422,41 @@ export async function approveBatchPrep(order: ProductionOrder, batchId: string, 
   return { success: true, data: verifiedOrder };
 }
 
+export async function approveAllPrep(order: ProductionOrder, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
+  const now = new Date().toISOString();
+  const updatedBatches = order.batches!.map(b => ({
+    ...b,
+    prepStatus: 'مكتمل' as const,
+    prepApprovedBy: b.prepApprovedBy || user,
+    prepApprovedAt: b.prepApprovedAt || now,
+    accessoriesPrep: b.accessoriesPrep?.map(a => ({ ...a, isPrepared: true })) || []
+  }));
+
+  const orderToSave: ProductionOrder = {
+    ...order,
+    batches: updatedBatches,
+    prepApprovedBy: user,
+    prepApprovedAt: now,
+    status: 'التجهيز مكتمل'
+  };
+
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر اعتماد التجهيز بالكامل.' };
+
+  const verifiedOrder = await getOrderById(order.id);
+  if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
+
+  eventBus.publish({
+    id: crypto.randomUUID(),
+    type: "PreparationCompleted",
+    occurredAt: now,
+    aggregateType: "ProductionOrder",
+    aggregateId: order.id,
+    payload: { status: verifiedOrder.status }
+  });
+
+  return { success: true, data: verifiedOrder };
+}
 
 // Print & Embroidery Commands
 export async function savePrintEmbroideryData(order: ProductionOrder, updatedBatches: BatchItem[]): Promise<CommandResult<ProductionOrder>> {
@@ -451,15 +492,70 @@ export async function savePrintEmbroideryData(order: ProductionOrder, updatedBat
   return { success: true, data: verifiedOrder };
 }
 
+export async function approveBatchPrintEmbroidery(order: ProductionOrder, batchId: string, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
+  const now = new Date().toISOString();
+  const updatedBatches = order.batches!.map(b => {
+    if (b.id === batchId) {
+      return {
+        ...b,
+        printEmbroideryStatus: 'مكتمل' as const,
+        printApprovedBy: user,
+        printApprovedAt: now
+      };
+    }
+    return b;
+  });
+
+  const allCompleted = updatedBatches.every(b => b.printEmbroideryStatus === 'مكتمل');
+  const orderToSave: ProductionOrder = {
+    ...order,
+    batches: updatedBatches,
+    status: allCompleted ? 'الطباعة والتطريز مكتمل' : 'الطباعة والتطريز جاري'
+  };
+
+  const savedResult = await persistOrder(orderToSave);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر اعتماد طباعة وتطريز الباتش.' };
+
+  const verifiedOrder = await getOrderById(order.id);
+  if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
+
+  eventBus.publish({
+    id: crypto.randomUUID(),
+    type: "BatchPrintEmbroideryCompleted",
+    occurredAt: now,
+    aggregateType: "ProductionOrder",
+    aggregateId: order.id,
+    payload: { batchId, status: verifiedOrder.status }
+  });
+
+  if (allCompleted) {
+    eventBus.publish({
+      id: crypto.randomUUID(),
+      type: "PrintEmbroideryCompleted",
+      occurredAt: now,
+      aggregateType: "ProductionOrder",
+      aggregateId: order.id,
+      payload: { status: verifiedOrder.status }
+    });
+  }
+
+  return { success: true, data: verifiedOrder };
+}
+
 export async function approvePrintEmbroidery(order: ProductionOrder, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
+  const now = new Date().toISOString();
   const updatedBatches = order.batches!.map(b => ({
     ...b,
-    printEmbroideryStatus: 'مكتمل' as const
+    printEmbroideryStatus: 'مكتمل' as const,
+    printApprovedBy: b.printApprovedBy || user,
+    printApprovedAt: b.printApprovedAt || now
   }));
 
   const orderToSave: ProductionOrder = {
     ...order,
     batches: updatedBatches,
+    printEmbroideryApprovedBy: user,
+    printEmbroideryApprovedAt: now,
     status: 'الطباعة والتطريز مكتمل'
   };
 
@@ -472,7 +568,7 @@ export async function approvePrintEmbroidery(order: ProductionOrder, user: strin
   eventBus.publish({
     id: crypto.randomUUID(),
     type: "PrintEmbroideryCompleted",
-    occurredAt: new Date().toISOString(),
+    occurredAt: now,
     aggregateType: "ProductionOrder",
     aggregateId: order.id,
     payload: { status: verifiedOrder.status }

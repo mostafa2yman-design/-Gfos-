@@ -324,18 +324,18 @@ export function ProductionOrderForm({
       setConfirmConfig({
         isOpen: true,
         message:
-          "هل أنت متأكد من الاعتماد؟ لن تتمكن من تعديل البيانات الأساسية بعد الاعتماد.",
+          "هل أنت متأكد من اعتماد أمر الإنتاج وقائمة الخامات (BOM)؟ لن تتمكن من تعديل البيانات الأساسية أو الكميات أو تفاصيل الخامات بعد الاعتماد.",
         onConfirm: async () => {
           const result = await Cmd.approveProductionOrder(order);
           if (result.success) {
             setConfirmConfig(null);
-            setSuccess("تم الاعتماد بنجاح.");
+            setSuccess("تم اعتماد أمر الإنتاج والخامات بنجاح.");
             setError(null);
             if (result.data) setOrder(result.data);
             onOrderApproved(order.id);
           } else {
             setConfirmConfig(null);
-            setError(result.error || "حدث خطأ");
+            setError(result.error || "حدث خطأ أثناء الاعتماد");
           }
         },
         onCancel: () => setConfirmConfig(null),
@@ -440,15 +440,52 @@ export function ProductionOrderForm({
               <button
                 type="button"
                 onClick={handleSaveDraft}
-                className="flex items-center gap-2 bg-white text-indigo-700 border border-indigo-200 px-5 py-2.5 rounded-lg hover:bg-indigo-50 transition-colors shadow-sm font-medium"
+                className="flex items-center gap-2 bg-white text-indigo-700 border border-indigo-200 px-4 py-2.5 rounded-lg hover:bg-indigo-50 transition-colors shadow-sm font-medium"
               >
                 <Save className="w-4 h-4" />
                 حفظ كمسودة
               </button>
+              {order.status === "مسودة" && (
+                <button
+                  type="button"
+                  onClick={handleApproveOrder}
+                  className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm font-bold text-sm"
+                >
+                  <Check className="w-4 h-4 stroke-[2.5]" />
+                  اعتماد أمر الإنتاج والخامات
+                </button>
+              )}
             </>
           )}
         </div>
       </div>
+
+      {order.status !== "مسودة" && (
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <Check className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-emerald-950 text-sm">
+                  تم اعتماد أمر الإنتاج وقائمة المواد والخامات (BOM) بنجاح
+                </span>
+                <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full font-bold border border-emerald-300">
+                  معتمد
+                </span>
+              </div>
+              <p className="text-xs text-emerald-700 mt-0.5">
+                {order.productionApprovedBy ? `بواسطة: ${order.productionApprovedBy}` : ''}
+                {order.productionApprovedAt ? ` • بتاريخ: ${new Date(order.productionApprovedAt).toLocaleString('ar-EG')}` : ''}
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-semibold text-emerald-800 bg-white/90 border border-emerald-200 px-3 py-1.5 rounded-lg">
+            البيانات الأساسية وتكاليف الخامات مثبتة ومحمية من التعديل
+          </span>
+        </div>
+      )}
 
       {error && (
         <div className="bg-red-50 border-r-4 border-red-500 p-4 rounded-lg flex items-center gap-3 text-red-800">
@@ -674,22 +711,39 @@ export function ProductionOrderForm({
 
             
             {!isReadOnly && order.status === "مسودة" && (
-              <div className="mt-6">
+              <div className="mt-6 space-y-3">
                 <button
                   type="button"
                   onClick={handleApproveOrder}
-                  className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 py-3.5 rounded-xl hover:bg-indigo-700 transition-colors shadow-lg font-bold text-lg"
+                  className="w-full flex items-center justify-center gap-2 bg-indigo-600 text-white px-5 py-3.5 rounded-xl hover:bg-indigo-700 transition-colors shadow-lg font-bold text-base cursor-pointer"
                 >
-                  <Check className="w-5 h-5" />
-                  اعتماد
+                  <Check className="w-5 h-5 stroke-[2.5]" />
+                  اعتماد أمر الإنتاج والخامات
                 </button>
+                <p className="text-xs text-center text-slate-500">
+                  الاعتماد يقوم بتثبيت الكميات والمواصفات وبدء مرحلة القص
+                </p>
               </div>
             )}
             {(isReadOnly || order.status !== "مسودة") && order.id && (
-              <div className="mt-6">
-                <div className="w-full flex items-center justify-center gap-2 bg-emerald-50 text-emerald-700 border border-emerald-200 px-5 py-3.5 rounded-xl font-bold text-lg shadow-sm">
-                  <Check className="w-5 h-5" />
-                  تم الاعتماد
+              <div className="mt-6 p-4 bg-emerald-50/90 border border-emerald-200 rounded-xl space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-emerald-800 font-bold text-sm">
+                    <Check className="w-5 h-5 text-emerald-600 stroke-[2.5]" />
+                    <span>تم الاعتماد بنجاح</span>
+                  </div>
+                  <span className="text-xs font-bold text-emerald-700 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                    معتمد
+                  </span>
+                </div>
+                <div className="text-xs text-emerald-700 pt-1 border-t border-emerald-100 space-y-0.5">
+                  <p>أمر الإنتاج وقائمة الخامات (BOM) معتمدة</p>
+                  {order.productionApprovedBy && (
+                    <p className="font-medium text-emerald-800">بواسطة: {order.productionApprovedBy}</p>
+                  )}
+                  {order.productionApprovedAt && (
+                    <p className="text-slate-500 text-[11px]">{new Date(order.productionApprovedAt).toLocaleString('ar-EG')}</p>
+                  )}
                 </div>
               </div>
             )}

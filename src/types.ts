@@ -198,6 +198,8 @@ export interface BatchItem {
   prepApprovedAt?: string;
   accessoriesPrep: AccessoryPrepItem[];
   printEmbroideryStatus?: BatchPrintEmbroideryStatus;
+  printApprovedBy?: string;
+  printApprovedAt?: string;
   executionType?: PrintEmbroideryExecutionType;
   printDetails?: PrintDetails;
   embroideryDetails?: EmbroideryDetails;
@@ -252,6 +254,14 @@ export interface ProductionOrder {
   
   productionApprovedBy?: string;
   productionApprovedAt?: string;
+  materialsApprovedBy?: string;
+  materialsApprovedAt?: string;
+  cutApprovedBy?: string;
+  cutApprovedAt?: string;
+  prepApprovedBy?: string;
+  prepApprovedAt?: string;
+  printEmbroideryApprovedBy?: string;
+  printEmbroideryApprovedAt?: string;
   printEmbroideryStandardCost?: number;
   standardSewingCostPerPiece?: number;
   standardFinishingCostPerPiece?: number;

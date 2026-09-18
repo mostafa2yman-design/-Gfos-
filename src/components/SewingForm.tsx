@@ -65,7 +65,12 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
 
   if (!order) return null;
 
-  const isReadOnly = ["مسودة", "أمر إنتاج معتمد", "أمر قص", "القص الفعلي مدخل", "القص معتمد", "تقسيم الباتشات", "الباتشات مثبتة", "التجهيز جاري", "الخياطة مكتملة", "مغلق"].includes(order.status);
+  const isSewingCompleted = order.status === 'الخياطة مكتملة' || ["التشطيب جاري", "التشطيب مكتمل", "المكواة جاري", "المكواة مكتملة", "مغلق"].includes(order.status);
+  const isReadOnly = isSewingCompleted || ["مسودة", "أمر إنتاج معتمد", "أمر قص", "القص الفعلي مدخل", "القص معتمد", "تقسيم الباتشات", "الباتشات مثبتة", "التجهيز جاري"].includes(order.status);
+
+  const totalBatches = batches.length;
+  const approvedBatches = batches.filter((b) => b.sewingData?.status === "مكتمل").length;
+  const allBatchesApproved = totalBatches > 0 && approvedBatches === totalBatches;
 
   const handleSewingChange = (
     batchId: string,
@@ -150,6 +155,7 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
     const result = await Cmd.saveSewingData(order, batches);
     if (result.success && result.data) {
       setOrder(result.data);
+      if (result.data.batches) setBatches(result.data.batches);
       setToastConfig({
         message: "تم حفظ بيانات الخياطة بنجاح",
         type: "success",
@@ -162,8 +168,6 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
       });
     }
   };
-
-
 
   const handleCopyDetails = (sourceBatchId: string) => {
     const sourceBatch = batches.find(b => b.id === sourceBatchId);
@@ -187,17 +191,41 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
   };
 
   const handleApproveBatch = async (batchId: string) => {
+    const targetBatch = batches.find(b => b.id === batchId);
+    if (!targetBatch || !targetBatch.sewingData) {
+      setToastConfig({ message: "بيانات الخياطة غير متوفرة لهذا الباتش", type: "error" });
+      return;
+    }
+    const s = targetBatch.sewingData;
+    if (!s.manufacturingType) {
+      setToastConfig({ message: `يجب تحديد نوع التصنيع للباتش ${targetBatch.batchNumber}`, type: "error" });
+      return;
+    }
+    if (s.manufacturingType === 'تصنيع داخلي' && !s.sewingGroup) {
+      setToastConfig({ message: `يجب اختيار مجموعة الخياطة للباتش ${targetBatch.batchNumber}`, type: "error" });
+      return;
+    }
+    if (s.manufacturingType === 'تصنيع خارجي' && !s.externalManufacturer) {
+      setToastConfig({ message: `يجب إدخال أو اختيار جهة التصنيع الخارجي للباتش ${targetBatch.batchNumber}`, type: "error" });
+      return;
+    }
+    if (s.actualCostPerPiece === undefined || s.actualCostPerPiece === null) {
+      setToastConfig({ message: `يجب إدخال سعر التصنيع الفعلي للقطعة للباتش ${targetBatch.batchNumber}`, type: "error" });
+      return;
+    }
+
     setConfirmConfig({
       isOpen: true,
-      message: "هل أنت متأكد من اعتماد الخياطة لهذا الباتش؟ لا يمكن تعديل البيانات بعد الاعتماد.",
+      message: `هل أنت متأكد من اعتماد الخياطة للباتش رقم ${targetBatch.batchNumber}؟ لا يمكن تعديل بيانات الباتش بعد الاعتماد.`,
       onConfirm: async () => {
         const saveResult = await Cmd.saveSewingData(order, batches);
-        if (saveResult.success && saveResult) {
-          const approveResult = await Cmd.approveBatchSewing(saveResult.data!, batchId);
-          if (approveResult.success && approveResult) {
-            if (approveResult.data) setOrder(approveResult.data);
+        if (saveResult.success && saveResult.data) {
+          const approveResult = await Cmd.approveBatchSewing(saveResult.data, batchId);
+          if (approveResult.success && approveResult.data) {
+            setOrder(approveResult.data);
+            setBatches(approveResult.data.batches || []);
             setToastConfig({
-              message: "تم اعتماد خياطة الباتش بنجاح",
+              message: `تم اعتماد خياطة الباتش ${targetBatch.batchNumber} بنجاح`,
               type: "success",
             });
             if (onSaved) onSaved();
@@ -219,18 +247,27 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
   };
 
   const handleApprove = async () => {
+    if (!allBatchesApproved) {
+      setToastConfig({
+        message: `لا يمكن اعتماد كامل مرحلة الخياطة إلا بعد اعتماد جميع الباتشات أولاً. (تم اعتماد ${approvedBatches} من أصل ${totalBatches} باتش)`,
+        type: "error",
+      });
+      return;
+    }
+
     setConfirmConfig({
       isOpen: true,
       message:
-        "هل أنت متأكد من اعتماد الخياطة؟ لا يمكن تعديل البيانات بعد الاعتماد.",
+        "هل أنت متأكد من اعتماد مرحلة الخياطة بالكامل للأوردر؟ لن تتمكن من تعديل بيانات الخياطة لاحقاً.",
       onConfirm: async () => {
         const saveResult = await Cmd.saveSewingData(order, batches);
-        if (saveResult.success && saveResult) {
-          const approveResult = await Cmd.approveSewing(saveResult.data!);
-          if (approveResult.success && approveResult) {
-            if (approveResult.data) setOrder(approveResult.data);
+        if (saveResult.success && saveResult.data) {
+          const approveResult = await Cmd.approveSewing(saveResult.data);
+          if (approveResult.success && approveResult.data) {
+            setOrder(approveResult.data);
+            setBatches(approveResult.data.batches || []);
             setToastConfig({
-              message: "تم اعتماد الخياطة بنجاح",
+              message: "تم اعتماد مرحلة الخياطة بالكامل بنجاح",
               type: "success",
             });
             if (onSaved) onSaved();
@@ -367,19 +404,19 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                     </button>
                   )}
 
-                  {batch.sewingData?.status !== 'مكتمل' && (
+                  {batch.sewingData?.status !== 'مكتمل' ? (
                     <button 
                       onClick={() => handleApproveBatch(batch.id)} 
-                      className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-indigo-700 bg-indigo-50 border border-indigo-200 rounded hover:bg-indigo-100 transition-colors shadow-sm"
+                      disabled={isReadOnly}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors shadow-xs"
                     >
                       <Check className="w-4 h-4" />
                       اعتماد الباتش
                     </button>
-                  )}
-                  {batch.sewingData?.status === 'مكتمل' && (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded">
-                      <Check className="w-4 h-4" />
-                      تم الاعتماد
+                  ) : (
+                    <span className="flex items-center gap-1.5 px-3.5 py-1.5 text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 rounded-lg shadow-xs">
+                      <Check className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
+                      تم الاعتماد {batch.sewingData?.approvedBy ? `(${batch.sewingData.approvedBy})` : ''}
                     </span>
                   )}
                 </h3>
@@ -572,6 +609,30 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                        يوجد نقص إجمالي {missing} قطعة عن الكمية المطلوبة في هذا الباتش.
                     </p>
                   )}
+
+                  {batch.sewingData?.status === 'مكتمل' ? (
+                    <div className="flex justify-between items-center bg-emerald-50/80 border border-emerald-200 p-3.5 rounded-lg mt-4">
+                      <div className="flex items-center gap-2 text-emerald-800 font-medium text-sm">
+                        <Check className="w-5 h-5 text-emerald-600 stroke-[2.5]" />
+                        <span>تم اعتماد خياطة هذا الباتش بنجاح {batch.sewingData.approvedBy ? `بواسطة ${batch.sewingData.approvedBy}` : ''} {batch.sewingData.approvedAt ? `بتاريخ ${new Date(batch.sewingData.approvedAt).toLocaleDateString('ar-EG')}` : ''}</span>
+                      </div>
+                      <span className="text-xs text-emerald-700 font-bold bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300">
+                        معتمد
+                      </span>
+                    </div>
+                  ) : (
+                    !isReadOnly && (
+                      <div className="flex justify-end gap-2 mt-4 pt-3 border-t border-slate-100">
+                        <button
+                          onClick={() => handleApproveBatch(batch.id)}
+                          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-bold text-sm shadow-sm"
+                        >
+                          <Check className="w-4 h-4 stroke-[2.5]" />
+                          اعتماد خياطة الباتش {batch.batchNumber}
+                        </button>
+                      </div>
+                    )
+                  )}
                 </div>
               </div>
             </div>
@@ -581,30 +642,60 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
         </>
       )}
 
-            {!isReadOnly && batches.length > 0 && (
-        <div className="flex justify-end gap-3 mt-6">
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-2 px-6 py-2.5 bg-white border border-indigo-200 text-indigo-700 rounded-lg hover:bg-indigo-50 transition-colors font-medium shadow-sm"
-          >
-            <Save className="w-5 h-5" />
-            حفظ مؤقت
-          </button>
-          <button
-            onClick={handleApprove}
-            className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-bold shadow-sm"
-          >
-            <Check className="w-5 h-5" />
-            اعتماد الخياطة
-          </button>
-        </div>
-      )}
-      {isReadOnly && batches.length > 0 && (
-        <div className="flex justify-center mt-6">
-           <div className="flex items-center gap-2 px-8 py-3 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-xl shadow-sm font-bold text-lg">
-              <Check className="w-6 h-6" />
-              تم الاعتماد
-           </div>
+      {batches.length > 0 && (
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-slate-700">حالة اعتماد الباتشات:</span>
+            <span className={`px-3 py-1 rounded-full text-xs font-bold ${allBatchesApproved ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'}`}>
+              {approvedBatches} من {totalBatches} باتش معتمد
+            </span>
+            {!allBatchesApproved && (
+              <span className="text-xs text-slate-500">
+                (يجب اعتماد جميع الباتشات أولاً لاعتماد كامل الخياطة)
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            {!isReadOnly && (
+              <button
+                onClick={handleSave}
+                className="flex items-center gap-2 px-5 py-2.5 bg-white border border-slate-300 text-slate-700 rounded-lg hover:bg-slate-100 transition-colors font-medium shadow-xs text-sm"
+              >
+                <Save className="w-4 h-4" />
+                حفظ مؤقت
+              </button>
+            )}
+
+            {isSewingCompleted ? (
+              <div className="flex items-center gap-2 px-6 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg shadow-xs font-bold text-sm">
+                <Check className="w-5 h-5 stroke-[2.5]" />
+                تم الاعتماد بالكامل
+              </div>
+            ) : allBatchesApproved ? (
+              <button
+                onClick={handleApprove}
+                className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors font-bold shadow-sm text-sm"
+              >
+                <Check className="w-5 h-5 stroke-[2.5]" />
+                اعتماد الخياطة بالكامل ({approvedBatches} من {totalBatches})
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  setToastConfig({
+                    message: `لا يمكن اعتماد كامل مرحلة الخياطة إلا بعد اعتماد جميع الباتشات أولاً. (تم اعتماد ${approvedBatches} من أصل ${totalBatches} باتش)`,
+                    type: "error",
+                  });
+                }}
+                className="flex items-center gap-2 px-6 py-2.5 bg-slate-200 text-slate-500 rounded-lg cursor-not-allowed font-bold text-sm opacity-80"
+                title={`لا يمكن اعتماد كامل الأوردر، متبقي ${totalBatches - approvedBatches} باتش لم يتم اعتماده`}
+              >
+                <Check className="w-5 h-5 text-slate-400" />
+                اعتماد الخياطة بالكامل ({approvedBatches} من {totalBatches})
+              </button>
+            )}
+          </div>
         </div>
       )}
     </div>

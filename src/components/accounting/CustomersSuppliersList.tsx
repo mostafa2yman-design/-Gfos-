@@ -3,7 +3,11 @@ import { CustomerSupplier } from '../../types';
 import { getCustomersSuppliers, saveCustomersSuppliers } from '../../lib/accountingStorage';
 import { Plus, Edit, Trash2, Search, Users, Phone } from 'lucide-react';
 
-export function CustomersSuppliersList() {
+interface CustomersSuppliersListProps {
+  autoOpenAddModal?: boolean;
+}
+
+export function CustomersSuppliersList({ autoOpenAddModal = false }: CustomersSuppliersListProps = {}) {
   const [items, setItems] = useState<CustomerSupplier[]>([]);
   const [search, setSearch] = useState('');
   const [filterType, setFilterType] = useState<'all'|'customer'|'supplier'|'both'>('all');
@@ -18,6 +22,14 @@ export function CustomersSuppliersList() {
     setItems(getCustomersSuppliers());
   }, []);
 
+  useEffect(() => {
+    if (autoOpenAddModal) {
+      setEditingId(null);
+      setFormData({ name: '', type: 'customer', phone: '', address: '', isActive: true });
+      setShowModal(true);
+    }
+  }, [autoOpenAddModal]);
+
   const handleSave = () => {
     if (!formData.name) return;
     let updated = [...items];
@@ -28,6 +40,7 @@ export function CustomersSuppliersList() {
     }
     setItems(updated);
     saveCustomersSuppliers(updated);
+    window.dispatchEvent(new CustomEvent('customers_updated'));
     setShowModal(false);
   };
 
@@ -36,6 +49,7 @@ export function CustomersSuppliersList() {
       const updated = items.filter(a => a.id !== id);
       setItems(updated);
       saveCustomersSuppliers(updated);
+      window.dispatchEvent(new CustomEvent('customers_updated'));
     }
   };
 

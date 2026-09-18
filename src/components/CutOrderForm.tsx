@@ -185,6 +185,33 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
         <Toast message={error} type="error" onClose={() => setError(null)} />
       )}
 
+      {isReadOnly && (
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <Check className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-emerald-950 text-sm">
+                  تم اعتماد أمر القص الفعلي بنجاح
+                </span>
+                <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full font-bold border border-emerald-300">
+                  معتمد
+                </span>
+              </div>
+              <p className="text-xs text-emerald-700 mt-0.5">
+                {cutData.approvedBy ? `بواسطة: ${cutData.approvedBy}` : (order.cutApprovedBy ? `بواسطة: ${order.cutApprovedBy}` : '')}
+                {(cutData.approvedAt || order.cutApprovedAt) && ` • بتاريخ: ${new Date(cutData.approvedAt || order.cutApprovedAt!).toLocaleString('ar-EG')}`}
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-semibold text-emerald-800 bg-white/90 border border-emerald-200 px-3 py-1.5 rounded-lg">
+            الكميات الفعلية بعد القص مثبتة وجاهزة للمراحل التالية
+          </span>
+        </div>
+      )}
+
       <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <div>
           <h3 className="text-lg font-bold text-slate-800">
@@ -442,6 +469,51 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
           </div>
 
           {fabricSummary && <FabricSummary summary={fabricSummary} />}
+
+          {/* Bottom Approval & Control Bar */}
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6 p-4 bg-slate-50 border border-slate-200 rounded-xl shadow-xs">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-slate-700">حالة مرحلة القص:</span>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                isReadOnly 
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                  : 'bg-amber-100 text-amber-800 border border-amber-300'
+              }`}>
+                {isReadOnly ? 'أمر القص معتمد' : 'مسودة قيد التعديل'}
+              </span>
+              <span className="text-xs text-slate-500">
+                (إجمالي الفعلي: {totalActual} قطعة من أصل {totalPlanned} قطعة مخططة)
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {isReadOnly ? (
+                <div className="flex items-center gap-2 px-6 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg shadow-xs font-bold text-sm">
+                  <Check className="w-5 h-5 stroke-[2.5]" />
+                  تم اعتماد أمر القص بالكامل
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    className="flex items-center gap-2 px-5 py-2.5 bg-white text-indigo-700 border border-indigo-200 rounded-lg hover:bg-indigo-50 font-bold text-sm shadow-xs transition-colors cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    حفظ كمسودة
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApproveCut}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-bold shadow-sm text-sm cursor-pointer"
+                  >
+                    <Check className="w-5 h-5 stroke-[2.5]" />
+                    اعتماد القص الفعلي
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
         </div>
       </div>
       {isPrinting && (

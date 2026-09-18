@@ -130,8 +130,11 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
             
             const approveResult = await Cmd.approveBatchIroning(savedResult.data!, batchId);
             if (approveResult.success) {
-              setToastConfig({ message: "تم الاعتماد بنجاح.", type: "success" });
-              if (approveResult.data) setOrder(approveResult.data);
+              setToastConfig({ message: `تم اعتماد مكواة الباتش ${batch.batchNumber} بنجاح.`, type: "success" });
+              if (approveResult.data) {
+                setOrder(approveResult.data);
+                setBatches(approveResult.data.batches || []);
+              }
               onSaved();
             } else {
               setToastConfig({ message: approveResult.error || "حدث خطأ أثناء الاعتماد.", type: "error" });
@@ -140,7 +143,10 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
         });
       } else {
         setToastConfig({ message: "تم الحفظ بنجاح.", type: "success" });
-        if (savedResult.data) setOrder(savedResult.data);
+        if (savedResult.data) {
+          setOrder(savedResult.data);
+          setBatches(savedResult.data.batches || []);
+        }
         onSaved();
       }
     } else {
@@ -168,33 +174,41 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
     setToastConfig({ message: "تم نسخ تفاصيل المكواة لجميع الباتشات بنجاح", type: "success" });
   };
 
+  const totalBatches = batches.length;
+  const approvedBatches = batches.filter(b => b.ironingData?.status === 'مكتمل').length;
+  const allBatchesApproved = totalBatches > 0 && approvedBatches === totalBatches;
+
   const approveAllIroning = async () => {
     if (!order) return;
     
-    // Check if all batches have ironing cost
-    const missingCost = batches.some(b => b.ironingData?.status !== 'مكتمل' && (b.ironingData?.actualCostPerPiece === undefined || b.ironingData?.actualCostPerPiece === null));
-    if (missingCost) {
-      setToastConfig({ message: "يجب إدخال التكلفة الفعلية للمكواة لجميع الباتشات غير المعتمدة.", type: "error" });
+    if (!allBatchesApproved) {
+      setToastConfig({
+        message: `لا يمكن اعتماد كامل مرحلة المكواة إلا بعد اعتماد جميع الباتشات أولاً. (تم اعتماد ${approvedBatches} من أصل ${totalBatches} باتش)`,
+        type: "error",
+      });
       return;
     }
     
     setConfirmConfig({
       isOpen: true,
-      message: "هل أنت متأكد من اعتماد جميع الباتشات في المكواة؟",
+      message: "هل أنت متأكد من اعتماد مرحلة المكواة بالكامل للأوردر؟ لن تتمكن من تعديل البيانات بعد الاعتماد.",
       onConfirm: async () => {
         setConfirmConfig(null);
         const saveResult = await Cmd.saveIroningData(order, batches);
         if (!saveResult.success || !saveResult.data) {
-          setToastConfig({ message: saveResult.error || "خطأ", type: "error" });
+          setToastConfig({ message: saveResult.error || "خطأ في الحفظ", type: "error" });
           return;
         }
         const approveResult = await Cmd.approveAllIroning(saveResult.data);
         if (approveResult.success) {
-          setToastConfig({ message: "تم الاعتماد بنجاح.", type: "success" });
-          if (approveResult.data) setOrder(approveResult.data);
+          setToastConfig({ message: "تم اعتماد مرحلة المكواة بالكامل بنجاح.", type: "success" });
+          if (approveResult.data) {
+            setOrder(approveResult.data);
+            setBatches(approveResult.data.batches || []);
+          }
           onSaved();
         } else {
-          setToastConfig({ message: approveResult.error || "حدث خطأ.", type: "error" });
+          setToastConfig({ message: approveResult.error || "حدث خطأ أثناء الاعتماد.", type: "error" });
         }
       }
     });
@@ -202,8 +216,8 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
 
   if (!order) return <div>جاري التحميل...</div>;
 
-  const isFullyApproved = batches.length > 0 && batches.every(b => b.ironingData?.status === 'مكتمل');
-  const isOrderReadOnly = isFullyApproved || ['المكواة مكتملة', 'مغلق'].includes(order.status);
+  const isFullyApproved = allBatchesApproved || order.status === 'المكواة مكتملة' || order.status === 'مغلق';
+  const isOrderReadOnly = isFullyApproved;
 
   return (
     <div className="space-y-6 relative">
@@ -235,19 +249,33 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
               <Printer className="w-4 h-4" />
               طباعة أمر التشغيل الشامل
             </button>
-            {!isFullyApproved ? (
+            {isFullyApproved ? (
+               <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg font-bold text-sm shadow-xs">
+                  <CheckSquare className="w-4 h-4 text-emerald-600" />
+                  تم الاعتماد بالكامل ({approvedBatches} من {totalBatches})
+               </div>
+            ) : allBatchesApproved ? (
               <button
                 onClick={approveAllIroning}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-medium text-sm shadow-sm"
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors font-bold text-sm shadow-sm"
               >
                 <CheckSquare className="w-4 h-4" />
-                اعتماد المكواة بالكامل
+                اعتماد المكواة بالكامل ({approvedBatches} من {totalBatches})
               </button>
             ) : (
-               <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg font-bold text-sm shadow-sm">
-                  <CheckSquare className="w-4 h-4" />
-                  تم الاعتماد بالكامل
-               </div>
+              <button
+                onClick={() => {
+                  setToastConfig({
+                    message: `لا يمكن اعتماد كامل مرحلة المكواة إلا بعد اعتماد جميع الباتشات أولاً. (تم اعتماد ${approvedBatches} من أصل ${totalBatches} باتش)`,
+                    type: "error",
+                  });
+                }}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-100 text-slate-400 border border-slate-300 rounded-lg cursor-not-allowed font-medium text-sm shadow-xs"
+                title={`يجب اعتماد جميع الباتشات أولاً (متبقي ${totalBatches - approvedBatches} باتش لم يعتمد)`}
+              >
+                <CheckSquare className="w-4 h-4 text-slate-400" />
+                اعتماد المكواة بالكامل ({approvedBatches} من {totalBatches} معتمد)
+              </button>
             )}
           </div>
         </div>
@@ -272,11 +300,6 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
                     <span className="font-bold text-slate-700 bg-white px-3 py-1 rounded shadow-sm">
                       باتش: {batch.batchNumber}
                     </span>
-                    {fData.status === 'مكتمل' && (
-                      <span className="bg-emerald-100 text-emerald-700 px-2.5 py-0.5 rounded-full text-xs font-semibold flex items-center gap-1">
-                        <Check className="w-3 h-3" /> معتمد
-                      </span>
-                    )}
 
                     {!isOrderReadOnly && batches.length > 1 && fData.status !== 'مكتمل' && (
                       <button
@@ -288,7 +311,25 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
                         نسخ للباتشات
                       </button>
                     )}
+                  </div>
 
+                  <div className="flex items-center gap-2">
+                    {fData.status === 'مكتمل' ? (
+                      <span className="flex items-center gap-1.5 px-3 py-1 text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 rounded-lg shadow-xs">
+                        <Check className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
+                        تم الاعتماد {fData.approvedBy ? `(${fData.approvedBy})` : ''}
+                      </span>
+                    ) : (
+                      !isOrderReadOnly && (
+                        <button
+                          onClick={() => saveIroning(batch.id, true)}
+                          className="flex items-center gap-1.5 px-3 py-1 text-sm font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-lg hover:bg-indigo-100 transition-colors shadow-xs"
+                        >
+                          <Check className="w-4 h-4" />
+                          اعتماد الباتش
+                        </button>
+                      )
+                    )}
                   </div>
                 </div>
 
@@ -421,29 +462,88 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
                     </div>
                   </div>
                   
-                  {!isBatchReadOnly && (
-                    <div className="flex justify-end gap-2 pt-2">
-                      <button
-                        onClick={() => saveIroning(batch.id, false)}
-                        className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg transition-colors font-medium text-sm"
-                      >
-                        <Save className="w-4 h-4" />
-                        حفظ
-                      </button>
-                      <button
-                        onClick={() => saveIroning(batch.id, true)}
-                        className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors font-medium text-sm shadow-sm"
-                      >
-                        <Check className="w-4 h-4" />
-                        اعتماد الباتش
-                      </button>
+                  {fData.status === 'مكتمل' ? (
+                    <div className="flex justify-between items-center bg-emerald-50/80 border border-emerald-200 p-3.5 rounded-lg mt-4">
+                      <div className="flex items-center gap-2 text-emerald-800 font-medium text-sm">
+                        <Check className="w-5 h-5 text-emerald-600 stroke-[2.5]" />
+                        <span>تم اعتماد مكواة هذا الباتش بنجاح {fData.approvedBy ? `بواسطة ${fData.approvedBy}` : ''} {fData.approvedAt ? `بتاريخ ${new Date(fData.approvedAt).toLocaleDateString('ar-EG')}` : ''}</span>
+                      </div>
+                      <span className="text-xs text-emerald-700 font-bold bg-emerald-100 px-3 py-1 rounded-full border border-emerald-300">
+                        معتمد
+                      </span>
                     </div>
+                  ) : (
+                    !isBatchReadOnly && (
+                      <div className="flex justify-end gap-2 pt-2">
+                        <button
+                          onClick={() => saveIroning(batch.id, false)}
+                          className="flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 hover:bg-indigo-100 rounded-lg transition-colors font-medium text-sm"
+                        >
+                          <Save className="w-4 h-4" />
+                          حفظ مؤقت
+                        </button>
+                        <button
+                          onClick={() => saveIroning(batch.id, true)}
+                          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-bold text-sm shadow-sm"
+                        >
+                          <Check className="w-4 h-4" />
+                          اعتماد مكواة الباتش {batch.batchNumber}
+                        </button>
+                      </div>
+                    )
                   )}
                 </div>
               </div>
             );
           })}
         </div>
+
+        {batches.length > 0 && (
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 m-6 p-4 bg-slate-50 border border-slate-200 rounded-xl">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-slate-700">حالة اعتماد الباتشات:</span>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${allBatchesApproved ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-amber-100 text-amber-800 border border-amber-300'}`}>
+                {approvedBatches} من {totalBatches} باتش معتمد
+              </span>
+              {!allBatchesApproved && (
+                <span className="text-xs text-slate-500">
+                  (يجب اعتماد جميع الباتشات أولاً لاعتماد كامل المكواة)
+                </span>
+              )}
+            </div>
+
+            <div className="flex items-center gap-3">
+              {isFullyApproved ? (
+                <div className="flex items-center gap-2 px-6 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg shadow-xs font-bold text-sm">
+                  <CheckSquare className="w-5 h-5 stroke-[2.5]" />
+                  تم الاعتماد بالكامل
+                </div>
+              ) : allBatchesApproved ? (
+                <button
+                  onClick={approveAllIroning}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg transition-colors font-bold shadow-sm text-sm"
+                >
+                  <CheckSquare className="w-5 h-5 stroke-[2.5]" />
+                  اعتماد المكواة بالكامل ({approvedBatches} من {totalBatches})
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    setToastConfig({
+                      message: `لا يمكن اعتماد كامل مرحلة المكواة إلا بعد اعتماد جميع الباتشات أولاً. (تم اعتماد ${approvedBatches} من أصل ${totalBatches} باتش)`,
+                      type: "error",
+                    });
+                  }}
+                  className="flex items-center gap-2 px-6 py-2.5 bg-slate-200 text-slate-500 rounded-lg cursor-not-allowed font-bold text-sm opacity-80"
+                  title={`لا يمكن اعتماد كامل الأوردر، متبقي ${totalBatches - approvedBatches} باتش لم يتم اعتماده`}
+                >
+                  <CheckSquare className="w-5 h-5 text-slate-400" />
+                  اعتماد المكواة بالكامل ({approvedBatches} من {totalBatches})
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
       
       {/* Hidden Print Container */}

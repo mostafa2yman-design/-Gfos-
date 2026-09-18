@@ -39,6 +39,11 @@ interface OrderManagerProps {
   orderId: string | null;
   onBack: () => void;
   initialTab?: string;
+  onNavigateToAccounting?: (
+    tab?: any,
+    returnInfo?: { orderId: string; tab: string; orderNumber?: string },
+    autoOpenAdd?: boolean
+  ) => void;
 }
 
 
@@ -109,6 +114,7 @@ export function OrderManager({
   orderId: initialOrderId,
   onBack,
   initialTab = "production",
+  onNavigateToAccounting,
 }: OrderManagerProps) {
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(
     initialOrderId,
@@ -403,6 +409,7 @@ export function OrderManager({
             key={order.updatedAt}
             orderId={currentOrderId}
             onSaved={() => {}}
+            onNavigateToAccounting={onNavigateToAccounting}
           />
         )}
       </div>

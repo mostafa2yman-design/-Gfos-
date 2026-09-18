@@ -162,7 +162,7 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
   const handleApproveBatch = async (batchId: string) => {
     setConfirmConfig({
       isOpen: true,
-      message: "هل أنت متأكد من اعتماد التجهيز لهذا الباتش؟",
+      message: "هل أنت متأكد من اعتماد التجهيز لهذا الباتش؟ لن تتمكن من تعديل الإكسسوارات بعد الاعتماد.",
       onConfirm: async () => {
         const result = await Cmd.approveBatchPrep(order, batchId);
         if (result.success && result) {
@@ -178,10 +178,34 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
     });
   };
 
-  
+  const handleApproveAll = async () => {
+    if (!order) return;
+    setConfirmConfig({
+      isOpen: true,
+      message: "هل أنت متأكد من اعتماد مرحلة التجهيز بالكامل لجميع الباتشات؟ لن تتمكن من تعديل تجهيز الإكسسوارات بعد الاعتماد.",
+      onConfirm: async () => {
+        const result = await Cmd.approveAllPrep(order);
+        if (result.success) {
+          setConfirmConfig(null);
+          if (result.data) setOrder(result.data);
+          onSaved();
+        } else {
+          setConfirmConfig(null);
+          setToastConfig({ message: result.error || "حدث خطأ أثناء الاعتماد", type: "error" });
+        }
+      },
+      onCancel: () => setConfirmConfig(null),
+    });
+  };
+
+  const totalBatches = order?.batches?.length || 0;
+  const approvedBatches = order?.batches?.filter((b) => b.prepStatus === "مكتمل").length || 0;
+  const allBatchesApproved = totalBatches > 0 && approvedBatches === totalBatches;
+  const isPrepCompleted = order?.status === "التجهيز مكتمل" || allBatchesApproved;
+
   return (
     <>
-      <div className={`space-y-8 p-6 print:hidden ${printingBatchId ? "hidden" : ""}`}>
+      <div className={`space-y-6 p-6 print:hidden ${printingBatchId ? "hidden" : ""}`}>
         <ConfirmDialog
           isOpen={confirmConfig?.isOpen || false}
           message={confirmConfig?.message || ""}
@@ -194,6 +218,33 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
             type={toastConfig.type}
             onClose={() => setToastConfig(null)}
           />
+        )}
+
+        {isPrepCompleted && (
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                <Check className="w-5 h-5 stroke-[2.5]" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-emerald-950 text-sm">
+                    تم اعتماد مرحلة تجهيز الباتشات والإكسسوارات بالكامل
+                  </span>
+                  <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full font-bold border border-emerald-300">
+                    معتمد بالكامل
+                  </span>
+                </div>
+                <p className="text-xs text-emerald-700 mt-0.5">
+                  {order.prepApprovedBy ? `بواسطة: ${order.prepApprovedBy}` : ''}
+                  {order.prepApprovedAt ? ` • بتاريخ: ${new Date(order.prepApprovedAt).toLocaleString('ar-EG')}` : ''}
+                </p>
+              </div>
+            </div>
+            <span className="text-xs font-semibold text-emerald-800 bg-white/90 border border-emerald-200 px-3 py-1.5 rounded-lg">
+              جميع الباتشات مجهزة ومؤهلة لمرحلة الطباعة والتطريز أو الخياطة
+            </span>
+          </div>
         )}
 
         <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200">
@@ -430,22 +481,82 @@ export function PrintPrepSheet({ orderId, onSaved }: PrintPrepSheetProps) {
                   </div>
                 </div>
 
-                {batch.prepStatus === "مكتمل" && (
-                  <div className="bg-emerald-50 p-4 border-t border-emerald-100 flex justify-between items-center text-sm text-emerald-700">
-                    <span>
-                      تم التجهيز بواسطة: <strong>{batch.prepApprovedBy}</strong>
+                {batch.prepStatus === "مكتمل" ? (
+                  <div className="bg-emerald-50/90 p-4 border-t border-emerald-200 flex justify-between items-center text-sm text-emerald-800">
+                    <div className="flex items-center gap-2 font-medium">
+                      <Check className="w-5 h-5 text-emerald-600 stroke-[2.5]" />
+                      <span>
+                        تم اعتماد تجهيز هذا الباتش بنجاح
+                        {batch.prepApprovedBy ? ` بواسطة: ${batch.prepApprovedBy}` : ''}
+                        {batch.prepApprovedAt ? ` بتاريخ: ${new Date(batch.prepApprovedAt).toLocaleString('ar-EG')}` : ''}
+                      </span>
+                    </div>
+                    <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full border border-emerald-300">
+                      معتمد
                     </span>
-                    <span>
-                      تاريخ:{" "}
-                      {new Date(batch.prepApprovedAt!).toLocaleDateString(
-                        "ar-EG",
-                      )}
-                    </span>
+                  </div>
+                ) : (
+                  <div className="bg-slate-50 p-4 border-t border-slate-100 flex justify-end">
+                    <button
+                      onClick={() => handleApproveBatch(batch.id)}
+                      disabled={!allPrepared}
+                      className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-colors shadow-xs ${
+                        allPrepared
+                          ? 'bg-indigo-600 hover:bg-indigo-700 text-white cursor-pointer'
+                          : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                      }`}
+                    >
+                      <Check className="w-4 h-4 stroke-[2.5]" />
+                      اعتماد تجهيز الباتش {batch.batchNumber}
+                    </button>
                   </div>
                 )}
               </div>
             );
           })}
+        </div>
+
+        {/* Bottom Overall Approval Bar */}
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8 p-4 bg-slate-50 border border-slate-200 rounded-xl shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-slate-700">حالة اعتماد تجهيز الباتشات:</span>
+            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+              isPrepCompleted 
+                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' 
+                : 'bg-amber-100 text-amber-800 border border-amber-300'
+            }`}>
+              {approvedBatches} من {totalBatches} باتش معتمد
+            </span>
+            {!isPrepCompleted && (
+              <span className="text-xs text-slate-500">
+                (يلزم تجهيز واعتماد جميع الباتشات أولاً لاعتماد كامل مرحلة التجهيز)
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3">
+            {isPrepCompleted ? (
+              <div className="flex items-center gap-2 px-6 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg shadow-xs font-bold text-sm">
+                <Check className="w-5 h-5 stroke-[2.5]" />
+                تم اعتماد مرحلة التجهيز بالكامل
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleApproveAll}
+                disabled={!allBatchesApproved}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-lg transition-colors font-bold shadow-sm text-sm cursor-pointer ${
+                  allBatchesApproved
+                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                }`}
+                title={!allBatchesApproved ? `متبقي ${totalBatches - approvedBatches} باتش لم يتم اعتماده` : ''}
+              >
+                <Check className="w-5 h-5 stroke-[2.5]" />
+                اعتماد مرحلة التجهيز بالكامل ({approvedBatches} من {totalBatches})
+              </button>
+            )}
+          </div>
         </div>
       </div>
       {printingBatchId && order && order.batches && (

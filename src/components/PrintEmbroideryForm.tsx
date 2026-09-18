@@ -185,6 +185,63 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
     }
   };
 
+  const handleApproveBatch = async (batchId: string) => {
+    const batch = batches.find((b) => b.id === batchId);
+    if (!batch) return;
+    if (!batch.executionType) {
+      setToastConfig({
+        message: `يرجى اختيار نوع التنفيذ للباتش ${batch.batchNumber} أولاً.`,
+        type: "error",
+      });
+      return;
+    }
+    if (batch.executionType === "طباعة" || batch.executionType === "طباعة + تطريز") {
+      if (!batch.printDetails?.designName || !batch.printDetails?.placement) {
+        setToastConfig({
+          message: `يرجى إدخال اسم التصميم وموضع الطباعة للباتش ${batch.batchNumber}.`,
+          type: "error",
+        });
+        return;
+      }
+    }
+    if (batch.executionType === "تطريز" || batch.executionType === "طباعة + تطريز") {
+      if (!batch.embroideryDetails?.designName || !batch.embroideryDetails?.placement) {
+        setToastConfig({
+          message: `يرجى إدخال اسم التصميم وموضع التطريز للباتش ${batch.batchNumber}.`,
+          type: "error",
+        });
+        return;
+      }
+    }
+
+    setConfirmConfig({
+      isOpen: true,
+      message: `هل أنت متأكد من اعتماد الطباعة والتطريز للباتش ${batch.batchNumber}؟ لن تتمكن من تعديل المواصفات بعد الاعتماد.`,
+      onConfirm: async () => {
+        const orderToApprove = { ...order, batches };
+        const saveRes = await Cmd.savePrintEmbroideryData(orderToApprove, batches);
+        const currentOrder = saveRes.success && saveRes.data ? saveRes.data : orderToApprove;
+        const result = await Cmd.approveBatchPrintEmbroidery(currentOrder, batchId);
+        if (result.success && result.data) {
+          setConfirmConfig(null);
+          setBatches(result.data.batches || []);
+          setToastConfig({
+            message: `تم اعتماد الباتش ${batch.batchNumber} بنجاح.`,
+            type: "success",
+          });
+          onSaved();
+        } else {
+          setConfirmConfig(null);
+          setToastConfig({
+            message: result.error || "حدث خطأ أثناء الاعتماد.",
+            type: "error",
+          });
+        }
+      },
+      onCancel: () => setConfirmConfig(null),
+    });
+  };
+
   const handleApprove = async () => {
     // Validate
     const invalidBatch = batches.find((b) => {
@@ -267,6 +324,33 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
           type={toastConfig.type}
           onClose={() => setToastConfig(null)}
         />
+      )}
+
+      {isReadOnly && (
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <Check className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-emerald-950 text-sm">
+                  تم اعتماد مرحلة الطباعة والتطريز بالكامل بنجاح
+                </span>
+                <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full font-bold border border-emerald-300">
+                  معتمد بالكامل
+                </span>
+              </div>
+              <p className="text-xs text-emerald-700 mt-0.5">
+                {order.printEmbroideryApprovedBy ? `بواسطة: ${order.printEmbroideryApprovedBy}` : ''}
+                {order.printEmbroideryApprovedAt ? ` • بتاريخ: ${new Date(order.printEmbroideryApprovedAt).toLocaleString('ar-EG')}` : ''}
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-semibold text-emerald-800 bg-white/90 border border-emerald-200 px-3 py-1.5 rounded-lg">
+            جميع مواصفات وتكاليف الطباعة والتطريز معتمدة وجاهزة لمرحلة الخياطة
+          </span>
+        </div>
       )}
 
         <div className="flex flex-col md:flex-row md:justify-between md:items-center bg-white p-4 rounded-xl shadow-sm border border-slate-200 gap-4">
@@ -687,11 +771,85 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
                       لمرحلة الخياطة
                     </div>
                   )}
+
+                  {/* Batch Approval Section */}
+                  {batch.printEmbroideryStatus === "مكتمل" ? (
+                    <div className="bg-emerald-50/90 p-4 rounded-xl border border-emerald-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 text-sm text-emerald-800">
+                      <div className="flex items-center gap-2 font-medium">
+                        <Check className="w-5 h-5 text-emerald-600 stroke-[2.5]" />
+                        <span>
+                          تم اعتماد الطباعة والتطريز لهذا الباتش بنجاح
+                          {batch.printApprovedBy ? ` بواسطة: ${batch.printApprovedBy}` : ''}
+                          {batch.printApprovedAt ? ` بتاريخ: ${new Date(batch.printApprovedAt).toLocaleString('ar-EG')}` : ''}
+                        </span>
+                      </div>
+                      <span className="text-xs font-bold bg-emerald-100 text-emerald-700 px-3 py-1 rounded-full border border-emerald-300">
+                        معتمد
+                      </span>
+                    </div>
+                  ) : (
+                    !isReadOnly && batch.executionType && (
+                      <div className="flex justify-end pt-2">
+                        <button
+                          type="button"
+                          onClick={() => handleApproveBatch(batch.id)}
+                          className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-bold text-sm transition-colors shadow-xs cursor-pointer"
+                        >
+                          <Check className="w-4 h-4 stroke-[2.5]" />
+                          اعتماد مواصفات الباتش {batch.batchNumber}
+                        </button>
+                      </div>
+                    )
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
+
+        {/* Bottom Control Bar */}
+        {batches.length > 0 && (
+          <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-8 p-4 bg-slate-50 border border-slate-200 rounded-xl shadow-xs">
+            <div className="flex items-center gap-3">
+              <span className="text-sm font-medium text-slate-700">حالة اعتماد الطباعة والتطريز:</span>
+              <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                isReadOnly
+                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                  : 'bg-amber-100 text-amber-800 border border-amber-300'
+              }`}>
+                {batches.filter(b => b.printEmbroideryStatus === 'مكتمل').length} من {batches.length} باتش معتمد
+              </span>
+            </div>
+
+            <div className="flex items-center gap-3">
+              {isReadOnly ? (
+                <div className="flex items-center gap-2 px-6 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg shadow-xs font-bold text-sm">
+                  <Check className="w-5 h-5 stroke-[2.5]" />
+                  تم اعتماد مرحلة الطباعة والتطريز بالكامل
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={handleSaveDraft}
+                    className="flex items-center gap-2 bg-white text-indigo-700 border border-indigo-200 px-4 py-2.5 rounded-lg hover:bg-indigo-50 transition-colors shadow-sm font-bold text-sm cursor-pointer"
+                  >
+                    <Save className="w-4 h-4" />
+                    حفظ كمسودة
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApprove}
+                    className="flex items-center gap-2 px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors font-bold shadow-sm text-sm cursor-pointer"
+                  >
+                    <Check className="w-5 h-5 stroke-[2.5]" />
+                    اعتماد مرحلة الطباعة والتطريز بالكامل
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        )}
       </div>
       </div>
       {printingBatchId && (

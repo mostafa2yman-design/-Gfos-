@@ -141,6 +141,33 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
       {error && <Toast message={error} type="error" onClose={() => setError(null)} />}
 
     <div className="space-y-6 p-6">
+      {(isReadOnly || order.batchesLockedAt) && (
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 bg-emerald-50 border border-emerald-200 p-4 rounded-xl shadow-xs">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-lg bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+              <Check className="w-5 h-5 stroke-[2.5]" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="font-bold text-emerald-950 text-sm">
+                  تم اعتماد وتثبيت تقسيم الباتشات بنجاح
+                </span>
+                <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full font-bold border border-emerald-300">
+                  معتمد ومثبت
+                </span>
+              </div>
+              <p className="text-xs text-emerald-700 mt-0.5">
+                {order.batchesLockedBy ? `بواسطة: ${order.batchesLockedBy}` : ''}
+                {order.batchesLockedAt ? ` • بتاريخ: ${new Date(order.batchesLockedAt).toLocaleString('ar-EG')}` : ''}
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-semibold text-emerald-800 bg-white/90 border border-emerald-200 px-3 py-1.5 rounded-lg">
+            تم قفل توزيع الباتشات وتثبيتها للتشغيل
+          </span>
+        </div>
+      )}
+
       <div className="flex justify-between items-center bg-slate-50 p-4 rounded-lg border border-slate-200">
         <div>
           <h3 className="font-bold text-slate-800">تقسيم الباتشات</h3>
@@ -264,6 +291,48 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
           </div>
         )}
       </div>
+
+      {/* Bottom Approval & Control Bar */}
+      {batches.length > 0 && (
+        <div className="flex flex-col sm:flex-row justify-between items-center gap-4 mt-6 p-4 bg-slate-50 border border-slate-200 rounded-xl shadow-xs">
+          <div className="flex items-center gap-3">
+            <span className="text-sm font-medium text-slate-700">حالة اعتماد الباتشات:</span>
+            <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+              (isReadOnly || order.batchesLockedAt)
+                ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                : 'bg-amber-100 text-amber-800 border border-amber-300'
+            }`}>
+              {(isReadOnly || order.batchesLockedAt) ? 'البـاتشات معتمدة ومثبتة' : 'قيد التوزيع والتعديل'}
+            </span>
+            <span className="text-xs text-slate-500">
+              ({batches.length} باتش بإجمالي {totalBatches} قطعة من أصل {totalActual} مقصوصة)
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {(isReadOnly || order.batchesLockedAt) ? (
+              <div className="flex items-center gap-2 px-6 py-2.5 bg-emerald-50 text-emerald-700 border border-emerald-300 rounded-lg shadow-xs font-bold text-sm">
+                <Check className="w-5 h-5 stroke-[2.5]" />
+                تم اعتماد وتثبيت الباتشات بالكامل
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleLockBatches}
+                disabled={totalBatches !== totalActual}
+                className={`flex items-center gap-2 px-6 py-2.5 rounded-lg transition-colors font-bold shadow-sm text-sm cursor-pointer ${
+                  totalBatches === totalActual
+                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                    : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                }`}
+              >
+                <Check className="w-5 h-5 stroke-[2.5]" />
+                اعتماد وتثبيت الباتشات
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
     </>
   );

@@ -26,7 +26,7 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
   const [laborList, setLaborList] = React.useState<LaborProfile[]>([]);
   const [fabrics, setFabrics] = React.useState<MaterialItem[]>([]);
   React.useEffect(() => {
-    setLaborList(getLabor().filter(l => l.role === 'عامل قص' && l.isActive));
+    setLaborList(getLabor().filter(l => l.isActive));
     setFabrics(getMaterials().filter(m => m.type === 'fabric' && m.isActive));
   }, []);
   const [order, setOrder] = useState<ProductionOrder | null>(null);
@@ -246,9 +246,15 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
             className={`w-full px-3 py-2 border rounded-lg appearance-none ${isReadOnly ? 'bg-slate-100 text-slate-600' : 'bg-white focus:ring-2 focus:ring-indigo-500'}`}
           >
             <option value="">اختر عامل القص...</option>
-            {laborList.map(l => (
-              <option key={l.id} value={l.name}>{l.name}</option>
+            
+            {Array.from(new Set(laborList.map(l => l.role || 'غير محدد'))).map(role => (
+              <optgroup key={role} label={role}>
+                {laborList.filter(l => (l.role || 'غير محدد') === role).map(l => (
+                  <option key={l.id} value={l.name}>{l.name}</option>
+                ))}
+              </optgroup>
             ))}
+
           </select>
         </div>
         <div className="flex-1">

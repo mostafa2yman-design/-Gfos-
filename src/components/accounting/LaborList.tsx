@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { LaborProfile } from '../../types';
-import { getLabor, saveLabor, getOperationalGroups } from '../../lib/accountingStorage';
-import { OperationalGroup } from '../../types';
+import { getLabor, saveLabor, getOperationalGroups, getDepartments } from '../../lib/accountingStorage';
+import { OperationalGroup, Department } from '../../types';
 import { Plus, Edit, Trash2, Search, HardHat, Phone } from 'lucide-react';
 
 export function LaborList() {
   const [items, setItems] = useState<LaborProfile[]>([]);
   const [groups, setGroups] = useState<OperationalGroup[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -18,6 +19,7 @@ export function LaborList() {
   useEffect(() => {
     setItems(getLabor());
     setGroups(getOperationalGroups());
+    setDepartments(getDepartments());
   }, []);
 
   const handleSave = () => {
@@ -167,16 +169,10 @@ export function LaborList() {
                     onChange={e => setFormData({...formData, role: e.target.value})}
                     className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
                   >
-                    <option value="عامل قص">عامل قص</option>
-                    <option value="عامل تجهيز">عامل تجهيز</option>
-                    <option value="عامل خياطة">عامل خياطة</option>
-                    <option value="عامل تشطيب">عامل تشطيب</option>
-                    <option value="عامل تجهيز وتشطيب">عامل تجهيز وتشطيب</option>
-                    <option value="عامل مكواة">عامل مكواة</option>
-                    <option value="عامل تشطيب ومكواة">عامل تشطيب ومكواة</option>
-                    <option value="عامل تعبئة">عامل تعبئة</option>
-                    <option value="مشرف">مشرف</option>
-                    <option value="أخرى">أخرى</option>
+                    <option value="">اختر القسم</option>
+                    {departments.map(d => (
+                      <option key={d.id} value={d.name}>{d.name}</option>
+                    ))}
                   </select>
                 </div>
               </div>

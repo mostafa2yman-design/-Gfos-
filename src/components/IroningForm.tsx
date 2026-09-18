@@ -18,7 +18,7 @@ interface Props {
 export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
   const [ironingWorkers, setIroningWorkers] = React.useState<LaborProfile[]>([]);
   React.useEffect(() => {
-    setIroningWorkers(getLabor().filter(l => l.isActive && (l.role === 'عامل مكواة' || l.role === 'عامل تشطيب ومكواة' || l.role === 'أخرى')));
+    setIroningWorkers(getLabor().filter(l => l.isActive));
   }, []);
   const [order, setOrder] = useState<ProductionOrder | null>(null);
   const [batches, setBatches] = useState<BatchItem[]>([]);
@@ -303,9 +303,15 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
                         className="w-full px-3 py-2 border border-slate-300 rounded-lg outline-none focus:ring-2 focus:ring-indigo-500 bg-white disabled:bg-slate-100 disabled:text-slate-500"
                       >
                         <option value="">اختر عامل المكواة...</option>
-                        {ironingWorkers.map(w => (
-                          <option key={w.id} value={w.name}>{w.name}</option>
+                        
+                        {Array.from(new Set(ironingWorkers.map(w => w.role || 'غير محدد'))).map(role => (
+                          <optgroup key={role} label={role}>
+                            {ironingWorkers.filter(w => (w.role || 'غير محدد') === role).map(w => (
+                              <option key={w.id} value={w.name}>{w.name}</option>
+                            ))}
+                          </optgroup>
                         ))}
+
                       </select>
                     </div>
                     <div>

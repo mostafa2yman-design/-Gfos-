@@ -12,14 +12,16 @@ import { CustomersSuppliersList } from './CustomersSuppliersList';
 import { MaterialsList } from './MaterialsList';
 import { LaborList } from './LaborList';
 import { OperationalGroupsList } from './OperationalGroupsList';
+import { DepartmentsList } from './DepartmentsList';
 
-type Tab = 'accounts' | 'customers' | 'materials' | 'labor' | 'groups';
+type Tab = 'accounts' | 'departments' | 'customers' | 'materials' | 'labor' | 'groups';
 
 export function ConfigurationDashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('accounts');
 
   const tabs = [
     { id: 'accounts', label: 'شجرة الحسابات', icon: Network },
+    { id: 'departments', label: 'الأقسام', icon: Building2 },
     { id: 'customers', label: 'العملاء والموردين', icon: Users },
     { id: 'materials', label: 'خامات القماش والاكسسوارات', icon: PackageSearch },
     { id: 'labor', label: 'العمالة', icon: HardHat },
@@ -65,6 +67,7 @@ export function ConfigurationDashboard() {
           {activeTab === 'customers' && <CustomersSuppliersList />}
           {activeTab === 'materials' && <MaterialsList />}
           {activeTab === 'labor' && <LaborList />}
+          {activeTab === 'departments' && <DepartmentsList />}
           {activeTab === 'groups' && <OperationalGroupsList />}
         </div>
       </div>

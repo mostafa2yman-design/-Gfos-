@@ -352,3 +352,10 @@ export interface OperationalGroup {
   isActive: boolean;
   linkedAccountId?: string;
 }
+
+export interface Department {
+  id: string;
+  name: string;
+  description?: string;
+  createdAt: string;
+}

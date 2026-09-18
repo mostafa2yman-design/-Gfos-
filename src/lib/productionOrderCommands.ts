@@ -973,3 +973,44 @@ export async function saveIroningData(order: ProductionOrder, updatedBatches: Ba
   if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
   return { success: true, data: verifiedOrder };
 }
+
+export async function approvePacking(
+  order: ProductionOrder,
+  invoices: import('../types').PackingInvoice[],
+  user: string = 'المستخدم الحالي'
+): Promise<CommandResult<ProductionOrder>> {
+  const updatedOrder: ProductionOrder = {
+    ...order,
+    packingInvoices: invoices,
+    packingStatus: 'مكتمل',
+    packingApprovedBy: user,
+    packingApprovedAt: new Date().toISOString(),
+    status: 'التغليف معتمد',
+    updatedAt: new Date().toISOString()
+  };
+
+  const savedResult = await persistOrder(updatedOrder);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر اعتماد التغليف.' };
+  const verifiedOrder = await getOrderById(order.id);
+  if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
+  return { success: true, data: verifiedOrder };
+}
+
+export async function unapprovePacking(
+  order: ProductionOrder
+): Promise<CommandResult<ProductionOrder>> {
+  const updatedOrder: ProductionOrder = {
+    ...order,
+    packingStatus: 'جاري',
+    packingApprovedBy: undefined,
+    packingApprovedAt: undefined,
+    status: 'المكواة مكتملة',
+    updatedAt: new Date().toISOString()
+  };
+
+  const savedResult = await persistOrder(updatedOrder);
+  if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر إلغاء اعتماد التغليف.' };
+  const verifiedOrder = await getOrderById(order.id);
+  if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
+  return { success: true, data: verifiedOrder };
+}

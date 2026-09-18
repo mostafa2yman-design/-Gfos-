@@ -707,8 +707,6 @@ export function ProductionOrderForm({
         <div className="xl:col-span-1">
           <div className="sticky top-6">
             <OrderSummary sizes={order.sizes} actualSizes={(['القص معتمد', 'تقسيم الباتشات', 'الباتشات مثبتة', 'التجهيز جاري', 'التجهيز مكتمل', 'الطباعة والتطريز جاري', 'الطباعة والتطريز مكتمل', 'مغلق'].includes(order.status) && order.cutData?.sizes) ? order.cutData.sizes : undefined} />
-            <CostAnalysisSummary order={order} />
-
             
             {!isReadOnly && order.status === "مسودة" && (
               <div className="mt-6 space-y-3">
@@ -750,6 +748,11 @@ export function ProductionOrderForm({
 
           </div>
         </div>
+      </div>
+
+      {/* جدول تحليل التكلفة المعيارية والفعلية بشكل كامل */}
+      <div className="mt-8">
+        <CostAnalysisSummary order={order} defaultExpanded={true} />
       </div>
     </div>
   );

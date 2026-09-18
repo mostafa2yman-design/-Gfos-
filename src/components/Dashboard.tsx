@@ -19,6 +19,13 @@ import {
   ArrowUpRight,
   X,
   Scissors,
+  LayoutList,
+  Columns,
+  CheckCircle2,
+  Sparkles,
+  Shirt,
+  Flame,
+  PackageCheck,
 } from "lucide-react";
 import { calculateGlobalCostMetrics, calculateOrderCostAnalysis } from "../lib/costUtils";
 
@@ -199,6 +206,7 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
   const [showOrdersTable, setShowOrdersTable] = useState(false);
   const [mapSearch, setMapSearch] = useState("");
   const [selectedSizeFilter, setSelectedSizeFilter] = useState<string>("الكل");
+  const [mapLayoutMode, setMapLayoutMode] = useState<"rows" | "columns">("rows");
 
   useEffect(() => {
     getOrders().then(data => setOrders(data));
@@ -590,7 +598,8 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
           {
             id: "cutting",
             title: "القص",
-            subTitle: "أوامر التشغيل",
+            subTitle: "أوامر التشغيل والقص",
+            icon: Scissors,
             items: kanbanData.cutting.filter(filterItem),
             headerBg: "bg-slate-100",
             columnBg: "bg-slate-50/70",
@@ -601,7 +610,8 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
           {
             id: "preparation",
             title: "التجهيز",
-            subTitle: "باتشات",
+            subTitle: "تجهيز الباتشات والإكسسوارات",
+            icon: Box,
             items: kanbanData.preparation.filter(filterItem),
             headerBg: "bg-blue-100/70",
             columnBg: "bg-blue-50/40",
@@ -612,7 +622,8 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
           {
             id: "printEmb",
             title: "الطباعة والتطريز",
-            subTitle: "باتشات",
+            subTitle: "المطابع وورش التطريز",
+            icon: Sparkles,
             items: kanbanData.printEmb.filter(filterItem),
             headerBg: "bg-amber-100/70",
             columnBg: "bg-amber-50/40",
@@ -623,7 +634,8 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
           {
             id: "sewing",
             title: "الخياطة",
-            subTitle: "باتشات",
+            subTitle: "خطوط ومراحل التجميع",
+            icon: Shirt,
             items: kanbanData.sewing.filter(filterItem),
             headerBg: "bg-emerald-100/70",
             columnBg: "bg-emerald-50/40",
@@ -634,7 +646,8 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
           {
             id: "finishing",
             title: "التشطيب",
-            subTitle: "باتشات",
+            subTitle: "تنظيف وتركيب الملحقات",
+            icon: CheckCircle2,
             items: kanbanData.finishing.filter(filterItem),
             headerBg: "bg-indigo-100/70",
             columnBg: "bg-indigo-50/40",
@@ -645,7 +658,8 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
           {
             id: "ironing",
             title: "المكواة",
-            subTitle: "باتشات",
+            subTitle: "كي وتجهيز للفرز",
+            icon: Flame,
             items: kanbanData.ironing.filter(filterItem),
             headerBg: "bg-violet-100/70",
             columnBg: "bg-violet-50/40",
@@ -656,7 +670,8 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
           {
             id: "packing",
             title: "التغليف",
-            subTitle: "جاهز للتسليم",
+            subTitle: "الفحص والتسليم للمخزن",
+            icon: PackageCheck,
             items: kanbanData.packing.filter(filterItem),
             headerBg: "bg-fuchsia-100/70",
             columnBg: "bg-fuchsia-50/40",
@@ -682,7 +697,7 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
                     </span>
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    تتبع تفصيلي لكل باتش يشمل اسم القصة، مقاس الباتش، والكميات الجاري تنفيذها
+                    تتبع تفصيلي لكل مرحلة وباتش يشمل اسم القصة، مقاس الباتش، والكميات
                   </p>
                 </div>
               </div>
@@ -697,107 +712,208 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
               </div>
             </div>
 
-            {/* Filter Bar: Quick Search & Size Filter Chips */}
-            <div className="p-3 bg-slate-50 border-b border-slate-200 flex flex-col md:flex-row items-center justify-between gap-3">
-              <div className="relative w-full md:w-80">
-                <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  value={mapSearch}
-                  onChange={(e) => setMapSearch(e.target.value)}
-                  placeholder="بحث باسم القصة، رقم الأوردر، الباتش، المقاس..."
-                  className="w-full pr-9 pl-8 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder:text-slate-400 font-medium"
-                />
-                {mapSearch && (
-                  <button
-                    onClick={() => setMapSearch("")}
-                    className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                    title="مسح البحث"
-                  >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+            {/* Filter Bar: Quick Search & Size Filter Chips & Layout Toggle */}
+            <div className="p-3 bg-slate-50 border-b border-slate-200 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 min-w-0">
+                <div className="relative w-full sm:w-72">
+                  <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={mapSearch}
+                    onChange={(e) => setMapSearch(e.target.value)}
+                    placeholder="بحث باسم القصة، رقم الأوردر، الباتش، المقاس..."
+                    className="w-full pr-9 pl-8 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder:text-slate-400 font-medium"
+                  />
+                  {mapSearch && (
+                    <button
+                      onClick={() => setMapSearch("")}
+                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                      title="مسح البحث"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                {/* Size Filter Pills */}
+                {allActiveSizes.length > 0 && (
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-thin">
+                    <span className="text-[11px] text-slate-500 font-bold whitespace-nowrap flex items-center gap-1">
+                      <Filter className="w-3 h-3 text-indigo-600" />
+                      تصفية بالمقاس:
+                    </span>
+                    <button
+                      onClick={() => setSelectedSizeFilter("الكل")}
+                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap cursor-pointer ${
+                        selectedSizeFilter === "الكل"
+                          ? "bg-indigo-600 text-white shadow-2xs"
+                          : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                      }`}
+                    >
+                      الكل
+                    </button>
+                    {allActiveSizes.map((size) => (
+                      <button
+                        key={size}
+                        onClick={() => setSelectedSizeFilter(size)}
+                        className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap cursor-pointer ${
+                          selectedSizeFilter === size
+                            ? "bg-amber-500 text-white shadow-2xs font-extrabold"
+                            : "bg-white text-slate-700 border border-slate-200 hover:border-amber-300 hover:bg-amber-50"
+                        }`}
+                      >
+                        {size}
+                      </button>
+                    ))}
+                  </div>
                 )}
               </div>
 
-              {/* Size Filter Pills */}
-              {allActiveSizes.length > 0 && (
-                <div className="flex items-center gap-1.5 overflow-x-auto w-full md:w-auto pb-1 md:pb-0 scrollbar-thin">
-                  <span className="text-[11px] text-slate-500 font-bold whitespace-nowrap flex items-center gap-1">
-                    <Filter className="w-3 h-3 text-indigo-600" />
-                    تصفية بالمقاس:
-                  </span>
-                  <button
-                    onClick={() => setSelectedSizeFilter("الكل")}
-                    className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap ${
-                      selectedSizeFilter === "الكل"
-                        ? "bg-indigo-600 text-white shadow-2xs"
-                        : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
-                    }`}
-                  >
-                    الكل
-                  </button>
-                  {allActiveSizes.map((size) => (
-                    <button
-                      key={size}
-                      onClick={() => setSelectedSizeFilter(size)}
-                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap ${
-                        selectedSizeFilter === size
-                          ? "bg-amber-500 text-white shadow-2xs font-extrabold"
-                          : "bg-white text-slate-700 border border-slate-200 hover:border-amber-300 hover:bg-amber-50"
-                      }`}
-                    >
-                      {size}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* View Layout Mode Switcher */}
+              <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 shadow-2xs shrink-0 self-end lg:self-center">
+                <button
+                  type="button"
+                  onClick={() => setMapLayoutMode("rows")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                    mapLayoutMode === "rows"
+                      ? "bg-indigo-600 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  }`}
+                  title="عرض الأقسام تحت بعض وتفاصيل الباتشات بجوار كل قسم"
+                >
+                  <LayoutList className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>أقسام تحت بعض (صفوف)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMapLayoutMode("columns")}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                    mapLayoutMode === "columns"
+                      ? "bg-indigo-600 text-white shadow-2xs"
+                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  }`}
+                  title="عرض أعمدة كانبان عمودية"
+                >
+                  <Columns className="w-3.5 h-3.5 stroke-[2.5]" />
+                  <span>أعمدة كانبان</span>
+                </button>
+              </div>
             </div>
 
-            {/* Kanban Columns */}
-            <div className="p-4 overflow-x-auto">
-              <div className="flex gap-4 min-w-[1250px]">
+            {/* Content Display: Rows Mode (Default: Sections under each other, batches next to them) */}
+            {mapLayoutMode === "rows" ? (
+              <div className="p-4 space-y-4">
                 {columns.map((col) => {
                   const totalColPieces = col.items.reduce((sum, it) => sum + (it.quantity || 0), 0);
+                  const StageIcon = col.icon || Layers;
+
                   return (
                     <div
                       key={col.id}
-                      className={`flex-1 min-w-[260px] max-w-[320px] ${col.columnBg} rounded-xl p-3 border ${col.borderColor} flex flex-col`}
+                      className={`rounded-2xl border ${col.borderColor} ${col.columnBg} p-3.5 md:p-4 shadow-2xs transition-all flex flex-col md:flex-row items-stretch gap-4`}
                     >
-                      {/* Column Header */}
-                      <div className={`p-3 rounded-lg border ${col.borderColor} ${col.headerBg} mb-3 shadow-2xs`}>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1.5">
-                            <h4 className={`font-bold text-sm ${col.textColor}`}>{col.title}</h4>
-                            <span className="text-[11px] text-slate-500 font-medium">({col.subTitle})</span>
+                      {/* Section Info / Header (القسم على اليمين) */}
+                      <div
+                        className={`w-full md:w-64 shrink-0 rounded-xl p-4 border ${col.borderColor} ${col.headerBg} flex flex-col justify-between shadow-2xs`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between gap-2 mb-2">
+                            <div className="flex items-center gap-2">
+                              <div className={`p-2 rounded-lg bg-white shadow-2xs ${col.textColor}`}>
+                                <StageIcon className="w-5 h-5 stroke-[2.2]" />
+                              </div>
+                              <h4 className={`font-black text-base ${col.textColor}`}>{col.title}</h4>
+                            </div>
+                            <span className={`px-2.5 py-1 rounded-full text-xs font-black ${col.badgeColor}`}>
+                              {col.items.length} {col.items.length === 1 ? "باتش" : "باتشات"}
+                            </span>
                           </div>
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-extrabold ${col.badgeColor}`}>
-                            {col.items.length}
-                          </span>
+                          <p className="text-xs text-slate-600 font-medium mt-1">
+                            {col.subTitle}
+                          </p>
                         </div>
-                        <div className="text-[11px] text-slate-600 mt-1.5 flex items-center justify-between font-medium">
-                          <span>إجمالي القطع:</span>
-                          <span className="font-bold text-slate-800">{totalColPieces} قطعة</span>
+
+                        <div className="pt-3 mt-4 border-t border-slate-200/80 flex items-center justify-between text-xs">
+                          <span className="text-slate-600 font-bold">إجمالي القطع:</span>
+                          <span className="font-black text-slate-900 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs text-sm">
+                            {totalColPieces} قطعة
+                          </span>
                         </div>
                       </div>
 
-                      {/* Items List */}
-                      <div className="space-y-3 flex-1 overflow-y-auto max-h-[650px] pr-0.5 scrollbar-thin">
+                      {/* Batches next to section (تفاصيل الباتش جمبها) */}
+                      <div className="flex-1 min-w-0 flex items-center">
                         {col.items.length === 0 ? (
-                          <div className="text-center py-8 px-2 border-2 border-dashed border-slate-200/80 rounded-xl bg-white/60">
+                          <div className="w-full py-8 px-4 text-center border-2 border-dashed border-slate-200/90 rounded-xl bg-white/70">
                             <Layers className="w-6 h-6 text-slate-300 mx-auto mb-1.5" />
-                            <p className="text-xs text-slate-400 font-medium">لا توجد باتشات حالياً</p>
+                            <p className="text-xs text-slate-400 font-bold">
+                              لا توجد باتشات حالياً في مرحلة {col.title}
+                            </p>
                           </div>
                         ) : (
-                          col.items.map((item) => (
-                            <KanbanCard key={item.id} item={item} onNavigateToOrder={onNavigateToOrder} />
-                          ))
+                          <div className="flex gap-3.5 overflow-x-auto w-full pb-2 pt-1 px-1 scrollbar-thin items-stretch">
+                            {col.items.map((item) => (
+                              <div key={item.id} className="min-w-[285px] sm:min-w-[310px] max-w-[330px] shrink-0">
+                                <KanbanCard item={item} onNavigateToOrder={onNavigateToOrder} />
+                              </div>
+                            ))}
+                          </div>
                         )}
                       </div>
                     </div>
                   );
                 })}
               </div>
-            </div>
+            ) : (
+              /* Alternate: Kanban Columns Mode */
+              <div className="p-4 overflow-x-auto">
+                <div className="flex gap-4 min-w-[1250px]">
+                  {columns.map((col) => {
+                    const totalColPieces = col.items.reduce((sum, it) => sum + (it.quantity || 0), 0);
+                    const StageIcon = col.icon || Layers;
+                    return (
+                      <div
+                        key={col.id}
+                        className={`flex-1 min-w-[260px] max-w-[320px] ${col.columnBg} rounded-xl p-3 border ${col.borderColor} flex flex-col`}
+                      >
+                        {/* Column Header */}
+                        <div className={`p-3 rounded-lg border ${col.borderColor} ${col.headerBg} mb-3 shadow-2xs`}>
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                              <div className={`p-1.5 rounded-md bg-white shadow-2xs ${col.textColor}`}>
+                                <StageIcon className="w-4 h-4 stroke-[2.2]" />
+                              </div>
+                              <h4 className={`font-bold text-sm ${col.textColor}`}>{col.title}</h4>
+                            </div>
+                            <span className={`px-2 py-0.5 rounded-full text-xs font-extrabold ${col.badgeColor}`}>
+                              {col.items.length}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-600 mt-2 flex items-center justify-between font-medium">
+                            <span>إجمالي القطع:</span>
+                            <span className="font-bold text-slate-800">{totalColPieces} قطعة</span>
+                          </div>
+                        </div>
+
+                        {/* Items List */}
+                        <div className="space-y-3 flex-1 overflow-y-auto max-h-[650px] pr-0.5 scrollbar-thin">
+                          {col.items.length === 0 ? (
+                            <div className="text-center py-8 px-2 border-2 border-dashed border-slate-200/80 rounded-xl bg-white/60">
+                              <Layers className="w-6 h-6 text-slate-300 mx-auto mb-1.5" />
+                              <p className="text-xs text-slate-400 font-medium">لا توجد باتشات حالياً</p>
+                            </div>
+                          ) : (
+                            col.items.map((item) => (
+                              <KanbanCard key={item.id} item={item} onNavigateToOrder={onNavigateToOrder} />
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </div>
         );
       })()}

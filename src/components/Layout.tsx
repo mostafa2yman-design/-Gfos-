@@ -15,15 +15,16 @@ import {
   ShieldCheck,
   Grid,
   Menu,
-  X
+  X,
+  PackageCheck
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { getPrimaryBg, getPrimaryText, getRadiusClass } from "../lib/theme";
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentView: "dashboard" | "list" | "form" | "settings" | "accounting_config";
-  onNavigate: (view: "dashboard" | "list" | "form" | "settings" | "accounting_config") => void;
+  currentView: "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse";
+  onNavigate: (view: "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse") => void;
 }
 
 export function Layout({ children, currentView, onNavigate }: LayoutProps) {
@@ -32,7 +33,7 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
   const [expandedSection, setExpandedSection] = useState<string>("admin");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const handleNavClick = (view: "dashboard" | "list" | "form" | "settings" | "accounting_config") => {
+  const handleNavClick = (view: "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse") => {
     onNavigate(view);
     setIsMobileMenuOpen(false);
   };
@@ -45,7 +46,7 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
   const radiusClass = getRadiusClass(radius);
 
   return (
-    <div className="flex h-screen bg-slate-100 flex-col md:flex-row-reverse overflow-hidden">
+    <div className="flex h-screen bg-slate-100 flex-col md:flex-row overflow-hidden">
       {/* Mobile Header */}
       <div className="md:hidden flex items-center justify-between bg-[#0f172a] p-4 text-white print:hidden">
         <div className="flex items-center gap-3">
@@ -192,13 +193,31 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
 
           {/* Section 4: Sales & Purchases */}
           <div>
-            <button className="w-full flex items-center justify-between py-3 px-2 text-sm font-bold text-slate-300 hover:text-white transition-colors">
-              <ChevronDown className="w-4 h-4" />
+            <button 
+              onClick={() => toggleSection('sales')}
+              className="w-full flex items-center justify-between py-3 px-2 text-sm font-bold text-slate-300 hover:text-white transition-colors"
+            >
+              {expandedSection === 'sales' ? <ChevronUp className={`w-4 h-4 ${getPrimaryText(color)}`} /> : <ChevronDown className="w-4 h-4" />}
               <div className="flex items-center gap-3">
                 <span>المبيعات والمشتريات وتدفق النقدية</span>
-                <Briefcase className="w-5 h-5 text-slate-500" />
+                <Briefcase className={`w-5 h-5 ${expandedSection === 'sales' ? getPrimaryText(color) : 'text-slate-500'}`} />
               </div>
             </button>
+            {expandedSection === 'sales' && (
+              <div className="mt-1 space-y-1 mb-3">
+                <button
+                  onClick={() => handleNavClick("finished_goods_warehouse")}
+                  className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${
+                    currentView === "finished_goods_warehouse"
+                      ? `${primaryBg} ${color === 'orange' ? 'text-slate-900' : 'text-white'}`
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <span>مخزن المنتجات التامة</span>
+                  <PackageCheck className="w-4 h-4" />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Section 5: Costing */}

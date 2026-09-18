@@ -4,7 +4,7 @@ import { getOrderById } from "../lib/storage";
 import { getCustomersSuppliers } from "../lib/accountingStorage";
 import * as Cmd from "../lib/productionOrderCommands";
 import { Toast } from "./ui/Toast";
-import { Save, Plus, Printer, Trash2, ChevronDown, UserPlus, Users } from "lucide-react";
+import { Save, Plus, Printer, Trash2, ChevronDown, UserPlus, Users, CheckCircle2, PackageCheck, AlertCircle, RotateCcw, Sparkles } from "lucide-react";
 import { eventBus } from "../lib/events/eventBus";
 import { PackingWorkOrderPrint } from "./print/workorders/PackingWorkOrderPrint";
 
@@ -135,8 +135,8 @@ export const PackingForm: React.FC<Props> = ({ orderId, onSaved, onNavigateToAcc
   const remainingInventory = calculateRemainingInventory();
 
   // Get unique colors and sizes based on order sizes
-  const uniqueSizes = order?.sizes.map(s => s.size) || [];
-  const uniqueColors = Array.from(new Set(order?.sizes.flatMap(s => s.variants.map(v => v.color)) || []));
+  const uniqueSizes: string[] = order?.sizes.map(s => s.size) || [];
+  const uniqueColors: string[] = Array.from(new Set<string>(order?.sizes.flatMap(s => s.variants.map(v => v.color)) || []));
 
   const handleAddInvoice = () => {
     const newInvoice: PackingInvoice = {
@@ -171,6 +171,123 @@ export const PackingForm: React.FC<Props> = ({ orderId, onSaved, onNavigateToAcc
     }));
   };
 
+  const isApproved = !!order?.packingApprovedAt || order?.status === 'التغليف معتمد' || order?.packingStatus === 'مكتمل';
+
+  const handleApprove = async () => {
+    if (!order) return;
+
+    // Check if any variant quantity is entered in invoices
+    const hasAnyQuantity = invoices.some(inv => inv.variants?.some(v => (Number(v.quantity) || 0) > 0));
+    let currentInvoices = [...invoices];
+
+    if (!hasAnyQuantity) {
+      // Auto-fill all available inventory into an invoice for convenience
+      const autoVariants: PackingInvoiceVariant[] = [];
+      uniqueColors.forEach(color => {
+        uniqueSizes.forEach(size => {
+          const key = `${size}_${color}`;
+          const qty = availableInventory[key] || 0;
+          if (qty > 0) {
+            autoVariants.push({ size, color, quantity: qty });
+          }
+        });
+      });
+
+      const newInv: PackingInvoice = {
+        id: `inv-${Date.now()}`,
+        date: new Date().toISOString().split('T')[0],
+        customerName: order.customerName || "المصنع",
+        variants: autoVariants
+      };
+      currentInvoices = [newInv];
+      setInvoices(currentInvoices);
+    }
+
+    try {
+      const result = await Cmd.approvePacking(order, currentInvoices, 'المستخدم الحالي');
+      if (result.success && result.data) {
+        setOrder(result.data);
+        eventBus.publish({
+          id: crypto.randomUUID(),
+          type: 'ORDER_UPDATED' as any,
+          aggregateType: 'ProductionOrder',
+          aggregateId: result.data.id,
+          occurredAt: new Date().toISOString(),
+          payload: { order: result.data }
+        });
+        setToastConfig({
+          message: "تم اعتماد التغليف بنجاح والمنتج متوفر الآن في مخزن المنتجات التامة",
+          type: "success"
+        });
+        onSaved();
+      } else {
+        setToastConfig({
+          message: result.error || "حدث خطأ أثناء اعتماد التغليف",
+          type: "error"
+        });
+      }
+    } catch (err) {
+      setToastConfig({ message: "حدث خطأ أثناء الاعتماد", type: "error" });
+    }
+  };
+
+  const handleUnapprove = async () => {
+    if (!order) return;
+    try {
+      const result = await Cmd.unapprovePacking(order);
+      if (result.success && result.data) {
+        setOrder(result.data);
+        eventBus.publish({
+          id: crypto.randomUUID(),
+          type: 'ORDER_UPDATED' as any,
+          aggregateType: 'ProductionOrder',
+          aggregateId: result.data.id,
+          occurredAt: new Date().toISOString(),
+          payload: { order: result.data }
+        });
+        setToastConfig({
+          message: "تم إلغاء اعتماد التغليف وإعادة فتح التعديل",
+          type: "success"
+        });
+        onSaved();
+      } else {
+        setToastConfig({
+          message: result.error || "تعذر إلغاء الاعتماد",
+          type: "error"
+        });
+      }
+    } catch (err) {
+      setToastConfig({ message: "حدث خطأ أثناء إلغاء الاعتماد", type: "error" });
+    }
+  };
+
+  const handleAutoFillRemaining = () => {
+    const autoVariants: PackingInvoiceVariant[] = [];
+    uniqueColors.forEach(color => {
+      uniqueSizes.forEach(size => {
+        const key = `${size}_${color}`;
+        const rem = remainingInventory[key] || 0;
+        if (rem > 0) {
+          autoVariants.push({ size, color, quantity: rem });
+        }
+      });
+    });
+
+    if (autoVariants.length === 0) {
+      setToastConfig({ message: "لا توجد كميات متبقية للتعبئة في الفاتورة", type: "error" });
+      return;
+    }
+
+    const newInv: PackingInvoice = {
+      id: `inv-${Date.now()}`,
+      date: new Date().toISOString().split('T')[0],
+      customerName: order?.customerName || "المصنع",
+      variants: autoVariants
+    };
+    setInvoices([...invoices, newInv]);
+    setToastConfig({ message: "تم إنشاء فاتورة تغليف بكافة الكميات المتبقية بنجاح", type: "success" });
+  };
+
   const handleSave = async () => {
     if (!order) return;
     try {
@@ -195,27 +312,93 @@ export const PackingForm: React.FC<Props> = ({ orderId, onSaved, onNavigateToAcc
 
   return (
     <div className="space-y-6">
+      {/* Approval Status Banner */}
+      {isApproved ? (
+        <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
+          <div className="flex items-center gap-3.5">
+            <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-emerald-600 shrink-0">
+              <PackageCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="font-bold text-emerald-950 text-base flex items-center gap-2">
+                <span>تم اعتماد التغليف بنجاح</span>
+                <span className="bg-emerald-600 text-white text-xs px-2 py-0.5 rounded-full font-medium">
+                  المنتج مدرج بمخزن المنتجات التامة
+                </span>
+              </div>
+              <div className="text-xs text-emerald-700 mt-0.5 flex items-center gap-2 flex-wrap">
+                <span>معتمد بواسطة: <strong>{order.packingApprovedBy || 'المستخدم'}</strong></span>
+                <span>•</span>
+                <span>تاريخ الاعتماد: <span dir="ltr">{new Date(order.packingApprovedAt || '').toLocaleString('ar-EG')}</span></span>
+              </div>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleUnapprove}
+            className="flex items-center gap-1.5 text-xs text-emerald-800 hover:text-emerald-950 font-bold bg-white border border-emerald-200 hover:border-emerald-300 px-3 py-2 rounded-lg transition-colors shadow-2xs"
+          >
+            <RotateCcw className="w-3.5 h-3.5" />
+            <span>إلغاء الاعتماد للتعديل</span>
+          </button>
+        </div>
+      ) : (
+        <div className="bg-amber-50/80 border border-amber-200 rounded-2xl p-4 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0" />
+            <div className="text-xs text-amber-900 font-medium">
+              عند الانتهاء من التغليف، اضغط على <strong>"اعتماد التغليف وإرسال لمخزن المنتجات التامة"</strong> ليصبح المنتج متاحاً في مخزن المنتجات التامة وجاهزاً للتسليم.
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Action Bar */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-4 rounded-xl shadow-sm border border-slate-200">
         <div>
           <h2 className="text-xl font-bold text-slate-800">تجهيز التغليف والفواتير</h2>
           <p className="text-sm text-slate-500">أمر رقم: {order.orderNumber}</p>
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          {!isApproved && (
+            <button
+              onClick={handleAutoFillRemaining}
+              className="flex-1 md:flex-none flex items-center justify-center gap-1.5 bg-slate-100 text-slate-700 hover:bg-slate-200 px-3 py-2 rounded-lg text-xs font-bold transition-colors border border-slate-200"
+              title="تعبئة كل الكميات المتبقية تلقائياً في فاتورة"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+              <span>تعبئة المتبقي آلياً</span>
+            </button>
+          )}
+
           <button
             onClick={handlePrintAll}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-50 text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors"
+            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-indigo-50 text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-100 transition-colors text-sm font-medium"
           >
             <Printer className="w-4 h-4" />
             <span>طباعة أمر التغليف</span>
           </button>
-          <button
-            onClick={handleSave}
-            className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors"
-          >
-            <Save className="w-4 h-4" />
-            <span>حفظ</span>
-          </button>
+
+          {!isApproved && (
+            <button
+              onClick={handleSave}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-slate-800 transition-colors text-sm font-medium"
+            >
+              <Save className="w-4 h-4" />
+              <span>حفظ كمسودة</span>
+            </button>
+          )}
+
+          {!isApproved && (
+            <button
+              onClick={handleApprove}
+              className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-5 py-2 rounded-lg transition-colors font-bold text-sm shadow-sm"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>اعتماد التغليف وإرسال للمخزن</span>
+            </button>
+          )}
         </div>
       </div>
 

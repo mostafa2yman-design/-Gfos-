@@ -1,6 +1,6 @@
 {
   "name": "نظام أمر الإنتاج الأولي",
-  "description": "الإصدار 0.1 المستقر لنظام إدارة أوامر الإنتاج الأولي لمصانع الملابس",
+  "description": "نظام متكامل لإدارة أوامر الإنتاج ومراحل التشغيل الميداني ومخزن المنتجات التامة للمصانع",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

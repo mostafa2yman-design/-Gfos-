@@ -8,6 +8,7 @@ import { SewingForm } from "./SewingForm";
 import { FinishingForm } from "./FinishingForm";
 import { IroningForm } from "./IroningForm";
 import { PackingForm } from "./PackingForm";
+import { CostAnalysisSummary } from "./CostAnalysisSummary";
 import { Package } from "lucide-react";
 import { ProductionOrder, OrderStatus } from "../types";
 import { getOrderById } from "../lib/storage";
@@ -91,6 +92,7 @@ const getTabStatus = (tab: TabType, order: ProductionOrder): 'approved' | 'saved
       }
       return 'pending';
     case 'packing':
+      if (order.packingApprovedAt || order.status === 'التغليف معتمد' || order.packingStatus === 'مكتمل') return 'approved';
       if (order.packingInvoices && order.packingInvoices.length > 0) return 'saved';
       return 'pending';
     default:
@@ -267,6 +269,9 @@ export function OrderManager({
           {order.status}
         </span>
       </div>
+
+      {/* تحليل تكلفة أمر الإنتاج في أول الصفحة بشكل كامل */}
+      <CostAnalysisSummary order={order} defaultExpanded={true} />
 
       <div className="flex bg-white rounded-xl shadow-sm border border-slate-200 p-2 overflow-x-auto">
         <button

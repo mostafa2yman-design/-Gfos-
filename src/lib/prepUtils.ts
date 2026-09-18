@@ -43,6 +43,7 @@ export function calculateBatchAccessories(order: ProductionOrder, batch: BatchIt
     return {
       accessoryId: acc.id,
       accessoryName: acc.name,
+      actualAccessoryName: prepItem?.actualAccessoryName,
       unit: acc.unit || "قطعة",
       standardPerPiece: standardPerPieceStr,
       requiredForBatch,

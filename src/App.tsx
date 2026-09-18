@@ -5,9 +5,10 @@ import { ProductionOrdersList } from "./components/ProductionOrdersList";
 import { OrderManager } from "./components/OrderManager";
 import { Settings } from "./components/Settings";
 import { ConfigurationDashboard, AccountingTab } from "./components/accounting/ConfigurationDashboard";
+import { FinishedGoodsWarehouse } from "./components/FinishedGoodsWarehouse";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
-type ViewState = "dashboard" | "list" | "form" | "settings" | "accounting_config";
+type ViewState = "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse";
 
 interface ReturnDestination {
   orderId: string;
@@ -85,6 +86,11 @@ function AppContent() {
         />
       )}
       {currentView === "settings" && <Settings onBack={handleBackToList} />}
+      {currentView === "finished_goods_warehouse" && (
+        <FinishedGoodsWarehouse
+          onNavigateToOrder={(orderId, tab) => handleNavigateToOrder(orderId, tab || "packing")}
+        />
+      )}
       {currentView === "accounting_config" && (
         <ConfigurationDashboard
           initialTab={accountingTab}

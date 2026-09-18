@@ -23,6 +23,7 @@ export type OrderStatus =
   | 'التشطيب مكتمل'
   | 'المكواة جاري'
   | 'المكواة مكتملة'
+  | 'التغليف معتمد'
   | 'مغلق'
   | 'معتمد'; // keeping معتمد for backwards compatibility if needed, though replaced by 'أمر إنتاج معتمد'
 
@@ -272,6 +273,9 @@ export interface ProductionOrder {
   ironingInstructions?: string;
   packingInstructions?: string;
   packingInvoices?: PackingInvoice[];
+  packingStatus?: 'لم يبدأ' | 'جاري' | 'مكتمل';
+  packingApprovedBy?: string;
+  packingApprovedAt?: string;
 
   
   cutData?: CutOrderData;

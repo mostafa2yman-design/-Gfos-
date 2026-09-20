@@ -25,10 +25,101 @@ function saveItems<T>(key: string, items: T[]): void {
 export const getAccounts = () => getItems<AccountNode>(ACCOUNTS_KEY);
 export const saveAccounts = (items: AccountNode[]) => saveItems(ACCOUNTS_KEY, items);
 
-export const getCustomersSuppliers = () => getItems<CustomerSupplier>(CUSTOMERS_KEY);
+export const getCustomersSuppliers = () => {
+  const items = getItems<CustomerSupplier>(CUSTOMERS_KEY);
+  if (items.length === 0) {
+    const defaults: CustomerSupplier[] = [
+      {
+        id: 'supp_1',
+        name: 'شركة النيل للغزل والمنسوجات',
+        type: 'supplier',
+        phone: '01012345678',
+        contactPerson: 'م. أحمد الشناوي',
+        address: 'المحلة الكبرى - المنطقة الصناعية',
+        taxId: '100-234-567',
+        isActive: true,
+      },
+      {
+        id: 'supp_2',
+        name: 'مؤسسة الأهرام لمستلزمات الخياطة والتطريز',
+        type: 'supplier',
+        phone: '01123456789',
+        contactPerson: 'أ. طارق عبد الرحمن',
+        address: 'القاهرة - العتبة',
+        taxId: '200-345-678',
+        isActive: true,
+      },
+      {
+        id: 'supp_3',
+        name: 'مصنع الإسكندرية للغزول والميلتون',
+        type: 'supplier',
+        phone: '01234567890',
+        contactPerson: 'حاج مصطفى عثمان',
+        address: 'برج العرب - الإسكندرية',
+        taxId: '300-456-789',
+        isActive: true,
+      },
+      {
+        id: 'supp_4',
+        name: 'شركة الشرق الأوسط للكرتون والتغليف',
+        type: 'supplier',
+        phone: '01098765432',
+        contactPerson: 'م. خالد فاروق',
+        address: 'مدينة العاشر من رمضان',
+        taxId: '400-567-890',
+        isActive: true,
+      },
+      {
+        id: 'cust_1',
+        name: 'سلسلة متاجر النخبة للأزياء',
+        type: 'customer',
+        phone: '01055544433',
+        contactPerson: 'أ. محمود فوزي',
+        address: 'القاهرة - مدينة نصر',
+        taxId: '500-678-901',
+        isActive: true,
+      },
+      {
+        id: 'both_1',
+        name: 'مجموعة الفجر للأقمشة والملابس الجاهزة',
+        type: 'both',
+        phone: '01288877766',
+        contactPerson: 'م. سامح الجيار',
+        address: 'شبرا الخيمة',
+        taxId: '600-789-012',
+        isActive: true,
+      }
+    ];
+    saveItems(CUSTOMERS_KEY, defaults);
+    return defaults;
+  }
+  return items;
+};
 export const saveCustomersSuppliers = (items: CustomerSupplier[]) => saveItems(CUSTOMERS_KEY, items);
 
-export const getMaterials = () => getItems<MaterialItem>(MATERIALS_KEY);
+export const getMaterials = () => {
+  const items = getItems<MaterialItem>(MATERIALS_KEY);
+  if (items.length === 0) {
+    const defaults: MaterialItem[] = [
+      { id: 'mat_1', name: 'قماش قطن سنجل جيرسي 100%', type: 'fabric', unit: 'كجم', defaultCost: 220, isActive: true, code: 'FAB-COT-01' },
+      { id: 'mat_2', name: 'قماش ميلتون مبطن شتوي ثقيل', type: 'fabric', unit: 'كجم', defaultCost: 280, isActive: true, code: 'FAB-MEL-02' },
+      { id: 'mat_3', name: 'قماش بوليستر رياضي معالج ضد العرق', type: 'fabric', unit: 'كجم', defaultCost: 190, isActive: true, code: 'FAB-POL-03' },
+      { id: 'mat_4', name: 'قماش جينز قطن 12 أوقية', type: 'fabric', unit: 'متر', defaultCost: 165, isActive: true, code: 'FAB-DEN-04' },
+      { id: 'mat_5', name: 'قماش ريب ليكرا للأساور والياقات', type: 'fabric', unit: 'كجم', defaultCost: 240, isActive: true, code: 'FAB-RIB-05' },
+      { id: 'mat_6', name: 'خيط خياطة سبان 40/2 بكرة 5000 ياردة', type: 'accessory', unit: 'بكرة', defaultCost: 45, isActive: true, code: 'ACC-THR-01' },
+      { id: 'mat_7', name: 'سوستة نحاس معدنية 20 سم بنطلون', type: 'accessory', unit: 'دزينة', defaultCost: 120, isActive: true, code: 'ACC-ZIP-01' },
+      { id: 'mat_8', name: 'سوستة عظم بلاستيك 65 سم جاكيت', type: 'accessory', unit: 'قطعة', defaultCost: 18, isActive: true, code: 'ACC-ZIP-02' },
+      { id: 'mat_9', name: 'أزرار بوليستر قميص 18 ليني (1000 زر)', type: 'accessory', unit: 'باكو', defaultCost: 85, isActive: true, code: 'ACC-BUT-01' },
+      { id: 'mat_10', name: 'تكت رقبة منسوج ساتان براند', type: 'accessory', unit: '1000 قطعة', defaultCost: 350, isActive: true, code: 'ACC-LBL-01' },
+      { id: 'mat_11', name: 'أكياس تغليف بولي بروبلين لاصق ذاتي', type: 'accessory', unit: 'باكو (100 كيس)', defaultCost: 60, isActive: true, code: 'ACC-BAG-01' },
+      { id: 'mat_12', name: 'كرتون شحن وتصدير 5 طبقات مقوى', type: 'accessory', unit: 'كرتونة', defaultCost: 35, isActive: true, code: 'ACC-BOX-01' },
+      { id: 'mat_13', name: 'شريط مطاط كمر 4 سم عالي المرونة', type: 'accessory', unit: 'لفة (50 متر)', defaultCost: 110, isActive: true, code: 'ACC-ELAS-01' },
+    ];
+    saveItems(MATERIALS_KEY, defaults);
+    return defaults;
+  }
+  return items;
+};
 export const saveMaterials = (items: MaterialItem[]) => saveItems(MATERIALS_KEY, items);
 
 export const getLabor = () => getItems<LaborProfile>(LABOR_KEY);

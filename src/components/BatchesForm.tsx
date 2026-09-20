@@ -4,7 +4,7 @@ import { getOrderById } from '../lib/storage';
 import * as Cmd from '../lib/productionOrderCommands';
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Toast } from "./ui/Toast";
-import { Check, Plus, Trash2 } from 'lucide-react';
+import { Check, Plus, Trash2, Users, Building2 } from 'lucide-react';
 
 interface BatchesFormProps {
   key?: React.Key;
@@ -241,6 +241,7 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
                     <th className="px-4 py-3 font-bold border-b text-center">حالة القص</th>
                     <th className="px-4 py-3 font-bold border-b text-center">حالة الطباعة</th>
                     <th className="px-4 py-3 font-bold border-b text-center">حالة الخياطة</th>
+                    <th className="px-4 py-3 font-bold border-b text-center">مسؤول الخياطة</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -249,6 +250,18 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
                     const sewStatus = batch.sewingData?.status || 'لم يبدأ';
                     const prepStatus = batch.prepStatus || 'لم يبدأ';
                     
+                    const isExternal =
+                      batch.sewingData?.manufacturingType === 'تصنيع خارجي' ||
+                      Boolean(batch.sewingData?.externalManufacturer?.trim());
+                    const isInternal =
+                      batch.sewingData?.manufacturingType === 'تصنيع داخلي' ||
+                      Boolean(batch.sewingData?.sewingGroup?.trim());
+                    const sewingResponsibleName = isExternal
+                      ? (batch.sewingData?.externalManufacturer?.trim() || 'جهة خارجية')
+                      : isInternal
+                      ? (batch.sewingData?.sewingGroup?.trim() || 'مجموعة داخلية')
+                      : null;
+
                     return batch.sizes.map((size) => (
                       <React.Fragment key={`${batch.id}-${size.size}`}>
                         {size.variants.map((variant, vIdx) => (
@@ -274,6 +287,31 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
                                 sewStatus === 'جاري' ? 'bg-amber-50 text-amber-700' :
                                 'bg-slate-100 text-slate-500'
                               }`}>{sewStatus}</span>
+                            </td>
+                            <td className="px-4 py-2 text-center">
+                              {sewingResponsibleName ? (
+                                <span
+                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold ${
+                                    isInternal
+                                      ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                                      : 'bg-amber-50 text-amber-900 border border-amber-200'
+                                  }`}
+                                >
+                                  {isInternal ? (
+                                    <>
+                                      <Users className="w-3 h-3 text-blue-600" />
+                                      <span>مجموعة: {sewingResponsibleName}</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Building2 className="w-3 h-3 text-amber-600" />
+                                      <span>جهة: {sewingResponsibleName}</span>
+                                    </>
+                                  )}
+                                </span>
+                              ) : (
+                                <span className="text-slate-400 text-xs italic">غير محدد</span>
+                              )}
                             </td>
                           </tr>
                         ))}

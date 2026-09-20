@@ -373,3 +373,45 @@ export interface Department {
   description?: string;
   createdAt: string;
 }
+
+// --- Purchases & Procurement Types ---
+
+export interface PurchaseInvoiceItem {
+  id: string;
+  materialId: string;
+  materialName: string;
+  materialType: 'fabric' | 'accessory' | 'packaging' | 'other' | string;
+  unit: string;
+  quantity: number;
+  unitPrice: number;
+  discount: number;
+  total: number;
+  notes?: string;
+}
+
+export type PurchasePaymentMethod = 'cash' | 'credit' | 'bank' | 'cheque';
+export type PurchasePaymentStatus = 'paid' | 'partial' | 'unpaid';
+
+export interface PurchaseInvoice {
+  id: string;
+  invoiceNumber: string;
+  date: string; // YYYY-MM-DD
+  supplierId: string;
+  supplierName: string;
+  supplierPhone?: string;
+  paymentMethod: PurchasePaymentMethod;
+  paymentStatus: PurchasePaymentStatus;
+  referenceNumber?: string;
+  notes?: string;
+  items: PurchaseInvoiceItem[];
+  subtotal: number;
+  discountTotal: number;
+  taxPercent: number;
+  taxAmount: number;
+  grandTotal: number;
+  paidAmount: number;
+  remainingAmount: number;
+  receiptStatus?: 'received' | 'pending';
+  createdAt: string;
+  updatedAt?: string;
+}

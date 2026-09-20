@@ -16,15 +16,16 @@ import {
   Grid,
   Menu,
   X,
-  PackageCheck
+  PackageCheck,
+  ShoppingCart
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { getPrimaryBg, getPrimaryText, getRadiusClass } from "../lib/theme";
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentView: "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse";
-  onNavigate: (view: "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse") => void;
+  currentView: "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse" | "purchases";
+  onNavigate: (view: "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse" | "purchases") => void;
 }
 
 export function Layout({ children, currentView, onNavigate }: LayoutProps) {
@@ -33,7 +34,7 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
   const [expandedSection, setExpandedSection] = useState<string>("admin");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const handleNavClick = (view: "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse") => {
+  const handleNavClick = (view: "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse" | "purchases") => {
     onNavigate(view);
     setIsMobileMenuOpen(false);
   };
@@ -205,6 +206,17 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
             </button>
             {expandedSection === 'sales' && (
               <div className="mt-1 space-y-1 mb-3">
+                <button
+                  onClick={() => handleNavClick("purchases")}
+                  className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${
+                    currentView === "purchases"
+                      ? `${primaryBg} ${color === 'orange' ? 'text-slate-900' : 'text-white'}`
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <span>إدارة المشتريات وفواتير الشراء</span>
+                  <ShoppingCart className="w-4 h-4" />
+                </button>
                 <button
                   onClick={() => handleNavClick("finished_goods_warehouse")}
                   className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${

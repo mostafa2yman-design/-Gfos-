@@ -3,7 +3,11 @@ import { MaterialItem } from '../../types';
 import { getMaterials, saveMaterials } from '../../lib/accountingStorage';
 import { Plus, Edit, Trash2, Search, PackageSearch } from 'lucide-react';
 
-export function MaterialsList() {
+interface MaterialsListProps {
+  autoOpenAddModal?: boolean;
+}
+
+export function MaterialsList({ autoOpenAddModal = false }: MaterialsListProps = {}) {
   const [items, setItems] = useState<MaterialItem[]>([]);
   const [search, setSearch] = useState('');
   const [showModal, setShowModal] = useState(false);
@@ -16,6 +20,14 @@ export function MaterialsList() {
   useEffect(() => {
     setItems(getMaterials());
   }, []);
+
+  useEffect(() => {
+    if (autoOpenAddModal) {
+      setEditingId(null);
+      setFormData({ name: '', type: 'fabric', unit: 'كجم', defaultCost: 0, isActive: true });
+      setShowModal(true);
+    }
+  }, [autoOpenAddModal]);
 
   const handleSave = () => {
     if (!formData.name) return;

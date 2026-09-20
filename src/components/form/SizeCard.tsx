@@ -56,39 +56,46 @@ export function SizeCard({
   const availableColors = allAvailable.filter(c => !selectedColors.includes(c));
 
   return (
-    <div className="bg-slate-50 rounded-xl border border-slate-200 overflow-visible shadow-sm">
-      <div className="bg-white px-5 py-4 border-b border-slate-200 flex items-center justify-between">
+    <div className="bg-white rounded-2xl border border-slate-200/90 overflow-hidden shadow-xs hover:border-slate-300 transition-all">
+      {/* Card Header */}
+      <div className="px-5 py-3.5 bg-slate-50/80 border-b border-slate-200/80 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-indigo-100 text-indigo-700 rounded-lg flex items-center justify-center font-bold text-lg">
+          <div className="w-10 h-10 bg-indigo-600 text-white rounded-xl flex items-center justify-center font-black text-base shadow-xs font-mono">
             {sizeData.size}
           </div>
           <div>
-            <h4 className="font-bold text-slate-800">المقاس {sizeData.size}</h4>
-            <p className="text-xs text-slate-500">
-              إجمالي المقاس: <span className="font-bold text-indigo-600">{sizeTotal}</span> قطعة
+            <div className="flex items-center gap-2">
+              <h4 className="font-bold text-slate-800 text-sm">المقاس {sizeData.size}</h4>
+              <span className="text-[11px] font-bold px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 border border-indigo-200/70 font-mono">
+                {sizeTotal} قطعة
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-400">
+              {sizeData.variants.length} {sizeData.variants.length === 1 ? 'لون محدد' : 'ألوان محددة'}
             </p>
           </div>
         </div>
         
         {!readOnly && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
             {sizeData.variants.length > 0 && availableSizesToCopy.length > 0 && (
               <div className="relative" ref={copyModalRef}>
                 <button
                   type="button"
                   onClick={() => setShowCopyModal(prev => !prev)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 rounded-md transition-colors font-medium shadow-xs"
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-white border border-slate-300/80 text-slate-700 hover:bg-slate-50 hover:text-indigo-600 rounded-lg transition-colors font-medium shadow-2xs"
+                  title="نسخ ألوان وكميات هذا المقاس إلى مقاس آخر"
                 >
-                  <Copy className="w-4 h-4" />
+                  <Copy className="w-3.5 h-3.5 text-slate-500" />
                   نسخ المقاس
                 </button>
                 
                 {showCopyModal && (
-                  <div className="absolute top-full right-0 mt-1 w-48 bg-white border border-slate-200 rounded-lg shadow-lg z-20 py-1">
-                    <div className="px-3 py-2 text-xs font-semibold text-slate-500 bg-slate-50 border-b border-slate-100">
-                      نسخ إلى مقاس:
+                  <div className="absolute top-full right-0 mt-1 w-48 bg-white border border-slate-200 rounded-xl shadow-xl z-20 py-1 overflow-hidden">
+                    <div className="px-3 py-2 text-xs font-bold text-slate-500 bg-slate-50 border-b border-slate-100">
+                      نسخ الألوان والكميات إلى:
                     </div>
-                    <div className="max-h-48 overflow-y-auto">
+                    <div className="max-h-48 overflow-y-auto divide-y divide-slate-100">
                       {availableSizesToCopy.map(sz => (
                         <button
                           key={sz}
@@ -97,7 +104,7 @@ export function SizeCard({
                             onCopySize(sz);
                             setShowCopyModal(false);
                           }}
-                          className="w-full text-right px-4 py-2 text-sm hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
+                          className="w-full text-right px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-indigo-50 hover:text-indigo-700 transition-colors"
                         >
                           المقاس {sz}
                         </button>
@@ -111,35 +118,52 @@ export function SizeCard({
             <button
               type="button"
               onClick={onRemoveSize}
-              className="p-1.5 text-red-500 hover:bg-red-50 rounded-md transition-colors"
-              title="حذف المقاس"
+              className="p-1.5 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+              title="حذف هذا المقاس"
             >
-              <Trash2 className="w-5 h-5" />
+              <Trash2 className="w-4 h-4" />
             </button>
           </div>
         )}
       </div>
       
-      <div className="p-5 space-y-3">
-        {sizeData.variants.map((variant, idx) => (
-          <VariantRow
-            key={idx}
-            variant={variant}
-            availableColors={availableColors}
-            onChange={(field, value) => onUpdateVariant(idx, field, value)}
-            onRemove={() => onRemoveVariant(idx)}
-            readOnly={readOnly}
-          />
-        ))}
+      {/* Variants List */}
+      <div className="p-4 space-y-2.5 bg-slate-50/30">
+        {sizeData.variants.length > 0 ? (
+          sizeData.variants.map((variant, idx) => (
+            <VariantRow
+              key={idx}
+              variant={variant}
+              availableColors={availableColors}
+              onChange={(field, value) => onUpdateVariant(idx, field, value)}
+              onRemove={() => onRemoveVariant(idx)}
+              readOnly={readOnly}
+            />
+          ))
+        ) : (
+          <div className="py-6 text-center bg-white rounded-xl border border-dashed border-slate-200">
+            <p className="text-xs text-slate-400 mb-2">لم يتم تحديد ألوان أو كميات لهذا المقاس</p>
+            {!readOnly && (
+              <button
+                type="button"
+                onClick={onAddVariant}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold rounded-lg transition-colors"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                إضافة أول لون
+              </button>
+            )}
+          </div>
+        )}
 
-        {!readOnly && (
+        {!readOnly && sizeData.variants.length > 0 && (
           <button
             type="button"
             onClick={onAddVariant}
-            className="flex items-center justify-center gap-2 w-full py-3 mt-4 border-2 border-dashed border-slate-300 text-slate-500 hover:border-indigo-400 hover:text-indigo-600 rounded-lg transition-colors font-medium"
+            className="flex items-center justify-center gap-1.5 w-full py-2 border border-dashed border-slate-300/80 bg-white text-slate-600 hover:border-indigo-400 hover:text-indigo-700 hover:bg-indigo-50/40 rounded-xl transition-all font-semibold text-xs shadow-2xs"
           >
-            <Plus className="w-4 h-4" />
-            إضافة لون
+            <Plus className="w-3.5 h-3.5" />
+            إضافة لون آخر لهذا المقاس
           </button>
         )}
       </div>

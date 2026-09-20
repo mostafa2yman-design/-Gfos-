@@ -8,8 +8,9 @@ import { SewingForm } from "./SewingForm";
 import { FinishingForm } from "./FinishingForm";
 import { IroningForm } from "./IroningForm";
 import { PackingForm } from "./PackingForm";
+import { OrderFinishedGoodsTab } from "./OrderFinishedGoodsTab";
 import { CostAnalysisSummary } from "./CostAnalysisSummary";
-import { Package } from "lucide-react";
+import { Package, PackageCheck } from "lucide-react";
 import { ProductionOrder, OrderStatus } from "../types";
 import { getOrderById } from "../lib/storage";
 import { eventBus } from "../lib/events";
@@ -40,6 +41,7 @@ interface OrderManagerProps {
   orderId: string | null;
   onBack: () => void;
   initialTab?: string;
+  onNavigateToWarehouse?: () => void;
   onNavigateToAccounting?: (
     tab?: any,
     returnInfo?: { orderId: string; tab: string; orderNumber?: string },
@@ -95,6 +97,10 @@ const getTabStatus = (tab: TabType, order: ProductionOrder): 'approved' | 'saved
       if (order.packingApprovedAt || order.status === 'التغليف معتمد' || order.packingStatus === 'مكتمل') return 'approved';
       if (order.packingInvoices && order.packingInvoices.length > 0) return 'saved';
       return 'pending';
+    case 'warehouse':
+      if (order.packingApprovedAt || order.status === 'التغليف معتمد' || order.packingStatus === 'مكتمل') return 'approved';
+      if (order.packingInvoices && order.packingInvoices.length > 0) return 'saved';
+      return 'pending';
     default:
       return 'pending';
   }
@@ -116,6 +122,7 @@ export function OrderManager({
   orderId: initialOrderId,
   onBack,
   initialTab = "production",
+  onNavigateToWarehouse,
   onNavigateToAccounting,
 }: OrderManagerProps) {
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(
@@ -344,6 +351,13 @@ export function OrderManager({
           <Package className="w-5 h-5" />
           التغليف
         </button>
+        <button
+          onClick={() => setActiveTab("warehouse")}
+          className={`flex items-center gap-2 px-6 py-3 rounded-lg font-medium whitespace-nowrap transition-all border ${getTabColorClasses(activeTab === "warehouse", getTabStatus("warehouse", order))}`}
+        >
+          <PackageCheck className="w-5 h-5" />
+          المخزن التام
+        </button>
       </div>
 
       <div className="bg-white rounded-xl shadow-sm border border-slate-200">
@@ -415,6 +429,16 @@ export function OrderManager({
             orderId={currentOrderId}
             onSaved={() => {}}
             onNavigateToAccounting={onNavigateToAccounting}
+          />
+        )}
+
+        {activeTab === "warehouse" && (
+          <OrderFinishedGoodsTab
+            key={order.updatedAt}
+            order={order}
+            onSaved={() => loadOrder(currentOrderId, false)}
+            onNavigateToWarehouse={onNavigateToWarehouse}
+            onNavigateToPacking={() => setActiveTab("packing")}
           />
         )}
       </div>

@@ -270,17 +270,25 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
     <div className="space-y-6">
 
       {/* Materials Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-          <h3 className="text-lg font-bold text-slate-800">الخامات (BOM)</h3>
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+        <div className="bg-slate-50/80 px-6 py-4 border-b border-slate-200 flex flex-wrap justify-between items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-indigo-100 text-indigo-700 flex items-center justify-center font-bold text-sm">
+              🧵
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-800">خامات الأقمشة (BOM)</h3>
+              <p className="text-xs text-slate-400">تحديد نوع القماش، وحدة القياس، ومعيار استهلاك القطعة</p>
+            </div>
+          </div>
           {!readOnly && (
             <button
               type="button"
               onClick={handleAddMaterial}
-              className="flex items-center gap-1.5 bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-xs"
+              className="flex items-center gap-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200/70 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-2xs"
             >
               <Plus className="w-4 h-4" />
-              إضافة خامة
+              إضافة قماش / خامة
             </button>
           )}
         </div>
@@ -394,14 +402,22 @@ export function BomSection({ order, onChange, readOnly = false }: BomSectionProp
       </div>
 
       {/* Accessories Section */}
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-        <div className="bg-slate-50 px-6 py-4 border-b border-slate-200 flex justify-between items-center">
-          <h3 className="text-lg font-bold text-slate-800">الإكسسوارات (BOM)</h3>
+      <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+        <div className="bg-slate-50/80 px-6 py-4 border-b border-slate-200 flex flex-wrap justify-between items-center gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-purple-100 text-purple-700 flex items-center justify-center font-bold text-sm">
+              🔘
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-800">مستلزمات وإكسسوارات الإنتاج (BOM)</h3>
+              <p className="text-xs text-slate-400">أزرار، سست، خيوط، بطانات، وتيكت الموديل</p>
+            </div>
+          </div>
           {!readOnly && (
             <button
               type="button"
               onClick={handleAddAccessory}
-              className="flex items-center gap-1.5 bg-white border border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-slate-50 transition-colors shadow-xs"
+              className="flex items-center gap-1.5 bg-purple-50 hover:bg-purple-100 text-purple-700 border border-purple-200/70 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-colors shadow-2xs"
             >
               <Plus className="w-4 h-4" />
               إضافة إكسسوار

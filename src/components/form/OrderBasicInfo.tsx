@@ -23,6 +23,47 @@ interface OrderBasicInfoProps {
   readOnly?: boolean;
 }
 
+import React, { useState, useEffect } from 'react';
+import { getCustomersSuppliers } from '../../lib/accountingStorage';
+import { CustomerSupplier, CATEGORIES } from '../../types';
+import {
+  Calendar,
+  Tag,
+  User,
+  Hash,
+  ChevronDown,
+  DollarSign,
+  Scissors,
+  Printer,
+  Shirt,
+  Sparkles,
+  Flame,
+  Package,
+  Layers,
+  FileText,
+  Calculator,
+  Info
+} from 'lucide-react';
+
+interface OrderBasicInfoProps {
+  orderNumber: string;
+  orderDate: string;
+  styleName: string;
+  category: string;
+  customerName: string;
+  standardCutCostPerPiece?: number;
+  printEmbroideryStandardCost?: number;
+  standardSewingCostPerPiece?: number;
+  standardFinishingCostPerPiece?: number;
+  standardIroningCostPerPiece?: number;
+  sellingPrice?: number;
+  finishingInstructions?: string;
+  ironingInstructions?: string;
+  packingInstructions?: string;
+  onChange: (field: string, value: string) => void;
+  readOnly?: boolean;
+}
+
 export function OrderBasicInfo({
   orderNumber,
   orderDate,
@@ -42,279 +83,416 @@ export function OrderBasicInfo({
   readOnly = false
 }: OrderBasicInfoProps) {
   const [customers, setCustomers] = useState<CustomerSupplier[]>([]);
+
   useEffect(() => {
     const list = getCustomersSuppliers();
-    setCustomers(list.filter(c => c.type === 'customer' || c.type === 'both' && c.isActive));
+    setCustomers(list.filter(c => (c.type === 'customer' || c.type === 'both') && c.isActive));
   }, []);
+
+  const totalStageCost = 
+    (Number(standardCutCostPerPiece) || 0) +
+    (Number(printEmbroideryStandardCost) || 0) +
+    (Number(standardSewingCostPerPiece) || 0) +
+    (Number(standardFinishingCostPerPiece) || 0) +
+    (Number(standardIroningCostPerPiece) || 0);
+
   return (
-    <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
-      <div className="bg-slate-50 px-6 py-4 border-b border-slate-200">
-        <h3 className="text-lg font-bold text-slate-800">بيانات الأمر الأساسية</h3>
-      </div>
-      
-      <div className="p-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {/* Order Number */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              رقم الأمر
-            </label>
-            <div className="relative">
-              <Hash className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <input
-                type="text"
-                value={orderNumber}
-                disabled
-                className="w-full pl-3 pr-10 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-600 font-medium cursor-not-allowed focus:outline-none"
-              />
+    <div className="space-y-6">
+      {/* 1. بيانات الموديل والطلب */}
+      <div className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-50 to-indigo-50/40 px-6 py-4 border-b border-slate-200 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center font-bold shadow-2xs">
+              <Layers className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-800">بيانات الموديل والطلب</h3>
+              <p className="text-xs text-slate-500">المعلومات الأساسية للتعريف بأمر الإنتاج والموديل والعميل</p>
             </div>
           </div>
+          <span className="text-xs bg-indigo-50 text-indigo-700 font-semibold px-2.5 py-1 rounded-md border border-indigo-100">
+            الخطوة الأولى
+          </span>
+        </div>
 
-          {/* Date */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              التاريخ
-            </label>
-            <div className="relative">
-              <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <input
-                type="date"
-                value={orderDate}
-                disabled
-                className="w-full pl-3 pr-10 py-2 bg-slate-100 border border-slate-200 rounded-lg text-slate-600 font-medium cursor-not-allowed focus:outline-none"
-              />
+        <div className="p-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+            {/* رقم الأمر */}
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                رقم الأمر (تلقائي)
+              </label>
+              <div className="relative">
+                <Hash className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <input
+                  type="text"
+                  value={orderNumber}
+                  disabled
+                  className="w-full pr-10 pl-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-bold cursor-not-allowed text-sm"
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Style Name */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              اسم القصة {!readOnly && <span className="text-red-500">*</span>}
-            </label>
-            <div className="relative">
-              <Tag className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-              <input
-                type="text"
-                value={styleName}
-                disabled={readOnly}
-                onChange={(e) => onChange('styleName', e.target.value)}
-                placeholder="أدخل اسم القصة..."
-                className={`w-full pl-3 pr-10 py-2 border border-slate-300 rounded-lg transition-shadow ${
-                  readOnly 
-                    ? 'bg-slate-100 text-slate-600 cursor-not-allowed' 
-                    : 'focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
-                }`}
-              />
+            {/* تاريخ الأمر */}
+            <div>
+              <label className="block text-xs font-bold text-slate-600 mb-1.5">
+                تاريخ الإنشاء
+              </label>
+              <div className="relative">
+                <Calendar className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <input
+                  type="date"
+                  value={orderDate}
+                  disabled
+                  className="w-full pr-10 pl-3 py-2.5 bg-slate-50 border border-slate-200 rounded-lg text-slate-700 font-semibold cursor-not-allowed text-sm"
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Category */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              نوع القصة {!readOnly && <span className="text-red-500">*</span>}
-            </label>
-                        <div className="relative">
-              <select
-                value={category}
-                disabled={readOnly}
-                onChange={(e) => onChange('category', e.target.value)}
-                className={`w-full px-3 py-2 border border-slate-300 rounded-lg appearance-none pr-3 pl-8 transition-shadow ${
-                  readOnly 
-                    ? 'bg-slate-100 text-slate-600 cursor-not-allowed' 
-                    : 'bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
-                }`}
-              >
-                <option value="" disabled>اختر النوع...</option>
-                {CATEGORIES.map(cat => (
-                  <option key={cat} value={cat}>{cat}</option>
-                ))}
-              </select>
-              <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            {/* اسم القصة / الموديل */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>اسم القصة / الموديل {!readOnly && <span className="text-rose-500 font-bold">*</span>}</span>
+                <span className="text-[11px] font-normal text-slate-400">مثال: سويت شيرت كابيشو</span>
+              </label>
+              <div className="relative">
+                <Tag className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
+                <input
+                  type="text"
+                  value={styleName}
+                  disabled={readOnly}
+                  onChange={(e) => onChange('styleName', e.target.value)}
+                  placeholder="أدخل اسم القصة أو الموديل..."
+                  className={`w-full pr-10 pl-3 py-2.5 border rounded-lg text-sm transition-all font-medium ${
+                    readOnly
+                      ? 'bg-slate-50 text-slate-700 border-slate-200 cursor-not-allowed'
+                      : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs'
+                  }`}
+                />
+              </div>
             </div>
-          </div>
 
-          {/* Customer Name */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              اسم العميل {!readOnly && <span className="text-red-500">*</span>}
-            </label>
-            <div className="relative">
-              <User className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
-              
-              <div className="relative w-full">
+            {/* نوع القصة */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                نوع القصة (الفئة) {!readOnly && <span className="text-rose-500 font-bold">*</span>}
+              </label>
+              <div className="relative">
+                <select
+                  value={category}
+                  disabled={readOnly}
+                  onChange={(e) => onChange('category', e.target.value)}
+                  className={`w-full pr-3 pl-9 py-2.5 border rounded-lg appearance-none text-sm transition-all font-medium ${
+                    readOnly
+                      ? 'bg-slate-50 text-slate-700 border-slate-200 cursor-not-allowed'
+                      : 'bg-white border-slate-300 text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs'
+                  }`}
+                >
+                  <option value="" disabled>اختر فئة القصة...</option>
+                  {CATEGORIES.map((cat) => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
+
+            {/* اسم العميل */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5">
+                العميل / وجهة التشغيل {!readOnly && <span className="text-rose-500 font-bold">*</span>}
+              </label>
+              <div className="relative">
+                <User className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
                 <select
                   value={customerName}
                   disabled={readOnly}
                   onChange={(e) => onChange('customerName', e.target.value)}
-                  className={`w-full pl-3 pr-10 py-2 border border-slate-300 rounded-lg transition-shadow appearance-none ${
-                    readOnly 
-                      ? 'bg-slate-100 text-slate-600 cursor-not-allowed' 
-                      : 'bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
+                  className={`w-full pr-10 pl-9 py-2.5 border rounded-lg appearance-none text-sm transition-all font-medium ${
+                    readOnly
+                      ? 'bg-slate-50 text-slate-700 border-slate-200 cursor-not-allowed'
+                      : 'bg-white border-slate-300 text-slate-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs'
                   }`}
                 >
-                  <option value="">أدخل اسم العميل / بدون</option>
-                  <option value="المصنع">المصنع</option>
-                  {customers.map(c => (
+                  <option value="">اختر العميل أو المصنع...</option>
+                  <option value="المصنع">تشغيل داخلي (المصنع)</option>
+                  {customers.map((c) => (
                     <option key={c.id} value={c.name}>{c.name}</option>
                   ))}
                 </select>
                 <ChevronDown className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
               </div>
+            </div>
 
-            </div>
-          </div>
-
-          
-          {/* Cut Standard Cost */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              التكلفة المعيارية للقص للقطعة
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={standardCutCostPerPiece ?? ''}
-                disabled={readOnly}
-                onChange={(e) => onChange('standardCutCostPerPiece', e.target.value)}
-                placeholder="0.00"
-                className={`w-full pl-12 pr-4 py-2 border rounded-lg transition-shadow text-lg font-bold ${
-                  readOnly 
-                    ? 'bg-slate-100 text-slate-700 border-slate-300 cursor-not-allowed' 
-                    : 'bg-indigo-50 text-indigo-900 border-indigo-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-inner'
-                }`}
-              />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-                جنيه
-              </span>
-            </div>
-          </div>
-
-          {/* Print/Embroidery Standard Cost */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              تكلفة الطباعة/التطريز المعيارية للقطعة
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={printEmbroideryStandardCost ?? ''}
-                disabled={readOnly}
-                onChange={(e) => onChange('printEmbroideryStandardCost', e.target.value)}
-                placeholder="0.00"
-                className={`w-full pl-12 pr-4 py-2 border rounded-lg transition-shadow text-lg font-bold ${
-                  readOnly 
-                    ? 'bg-slate-100 text-slate-700 border-slate-300 cursor-not-allowed' 
-                    : 'bg-indigo-50 text-indigo-900 border-indigo-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-inner'
-                }`}
-              />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-                جنيه
-              </span>
-            </div>
-          </div>
-          {/* Sewing Standard Cost */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              تكلفة الخياطة المعيارية للقطعة
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={standardSewingCostPerPiece ?? ''}
-                disabled={readOnly}
-                onChange={(e) => onChange('standardSewingCostPerPiece', e.target.value)}
-                placeholder="0.00"
-                className={`w-full pl-12 pr-4 py-2 border rounded-lg transition-shadow text-lg font-bold ${
-                  readOnly 
-                    ? 'bg-slate-100 text-slate-700 border-slate-300 cursor-not-allowed' 
-                    : 'bg-indigo-50 text-indigo-900 border-indigo-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-inner'
-                }`}
-              />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-                جنيه
-              </span>
-            </div>
-          </div>
-          
-          {/* Standard Finishing Cost */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              التكلفة المعيارية للتشطيب للقطعة
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={standardFinishingCostPerPiece ?? ''}
-                disabled={readOnly}
-                onChange={(e) => onChange('standardFinishingCostPerPiece', e.target.value)}
-                placeholder="0.00"
-                className={`w-full pl-12 pr-4 py-2 border rounded-lg transition-shadow text-lg font-bold ${
-                  readOnly 
-                    ? 'bg-slate-100 text-slate-700 border-slate-300 cursor-not-allowed' 
-                    : 'bg-indigo-50 text-indigo-900 border-indigo-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-inner'
-                }`}
-              />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-                جنيه
-              </span>
+            {/* سعر البيع المستهدف للقطعة */}
+            <div>
+              <label className="block text-xs font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                <span>سعر البيع المستهدف للقطعة</span>
+                <span className="text-[11px] font-normal text-emerald-600">اختياري لحساب الربحية</span>
+              </label>
+              <div className="relative">
+                <DollarSign className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600 w-4 h-4" />
+                <input
+                  type="number"
+                  min="0"
+                  step="0.5"
+                  value={sellingPrice ?? ''}
+                  disabled={readOnly}
+                  onChange={(e) => onChange('sellingPrice', e.target.value)}
+                  placeholder="0.00"
+                  className={`w-full pr-10 pl-12 py-2.5 border rounded-lg text-sm font-bold transition-all ${
+                    readOnly
+                      ? 'bg-slate-50 text-slate-700 border-slate-200 cursor-not-allowed'
+                      : 'bg-emerald-50/40 text-emerald-900 border-emerald-300 placeholder-slate-400 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 shadow-2xs'
+                  }`}
+                />
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-emerald-700">
+                  ج.م
+                </span>
+              </div>
             </div>
           </div>
         </div>
-        
-        
-          {/* Standard Ironing Cost */}
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
-              التكلفة المعيارية للمكواة للقطعة
-            </label>
-            <div className="relative">
-              <input
-                type="number"
-                min="0"
-                step="0.01"
-                value={standardIroningCostPerPiece ?? ''}
-                disabled={readOnly}
-                onChange={(e) => onChange('standardIroningCostPerPiece', e.target.value)}
-                placeholder="0.00"
-                className={`w-full pl-12 pr-4 py-2 border rounded-lg transition-shadow text-lg font-bold ${
-                  readOnly 
-                    ? 'bg-slate-100 text-slate-700 border-slate-300 cursor-not-allowed' 
-                    : 'bg-indigo-50 text-indigo-900 border-indigo-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-inner'
-                }`}
-              />
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">
-                جنيه
-              </span>
+      </div>
+
+      {/* 2. التكاليف المعيارية لمراحل التشغيل (لكل قطعة) */}
+      <div className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-50 to-indigo-50/40 px-6 py-4 border-b border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-lg bg-indigo-500 text-white flex items-center justify-center font-bold shadow-2xs">
+              <Calculator className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-slate-800">التكاليف المعيارية لمراحل التشغيل</h3>
+              <p className="text-xs text-slate-500">تحديد التكلفة المعيارية التقديرية لكل مرحلة من مراحل التصنيع (للقطعة الواحدة)</p>
             </div>
           </div>
 
-          {/* Finishing Instructions */}
-        <div className="mt-6">
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            تعليمات التشطيب
-          </label>
-          <textarea
-            value={finishingInstructions ?? ''}
-            disabled={readOnly}
-            onChange={(e) => onChange('finishingInstructions', e.target.value)}
-            placeholder="مثال: تركيب زرار إضافي، كي بالبخار..."
-            rows={3}
-            className={`w-full px-4 py-2 border rounded-lg transition-shadow ${
-              readOnly 
-                ? 'bg-slate-50 text-slate-700 border-slate-300 cursor-not-allowed' 
-                : 'border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-sm'
-            }`}
-          />
+          <div className="bg-indigo-50 border border-indigo-200 px-3.5 py-1.5 rounded-lg flex items-center gap-2">
+            <span className="text-xs text-indigo-700 font-medium">إجمالي تكلفة التشغيل المعيارية:</span>
+            <span className="text-sm font-black text-indigo-900 font-mono">
+              {totalStageCost.toFixed(2)} ج.م / قطعة
+            </span>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* القص */}
+            <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200 hover:border-indigo-300 transition-colors">
+              <div className="flex items-center gap-2 mb-2 text-slate-700">
+                <Scissors className="w-4 h-4 text-indigo-600" />
+                <label className="text-xs font-bold">تكلفة القص</label>
+              </div>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={standardCutCostPerPiece ?? ''}
+                  disabled={readOnly}
+                  onChange={(e) => onChange('standardCutCostPerPiece', e.target.value)}
+                  placeholder="0.00"
+                  className={`w-full pr-3 pl-9 py-2 border rounded-lg text-sm font-bold text-slate-800 ${
+                    readOnly
+                      ? 'bg-slate-100 text-slate-600 cursor-not-allowed border-slate-200'
+                      : 'bg-white border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
+                  }`}
+                />
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-slate-400">
+                  ج.م
+                </span>
+              </div>
+            </div>
+
+            {/* الطباعة / التطريز */}
+            <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200 hover:border-indigo-300 transition-colors">
+              <div className="flex items-center gap-2 mb-2 text-slate-700">
+                <Printer className="w-4 h-4 text-purple-600" />
+                <label className="text-xs font-bold">طباعة وتطريز</label>
+              </div>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={printEmbroideryStandardCost ?? ''}
+                  disabled={readOnly}
+                  onChange={(e) => onChange('printEmbroideryStandardCost', e.target.value)}
+                  placeholder="0.00"
+                  className={`w-full pr-3 pl-9 py-2 border rounded-lg text-sm font-bold text-slate-800 ${
+                    readOnly
+                      ? 'bg-slate-100 text-slate-600 cursor-not-allowed border-slate-200'
+                      : 'bg-white border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
+                  }`}
+                />
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-slate-400">
+                  ج.م
+                </span>
+              </div>
+            </div>
+
+            {/* الخياطة */}
+            <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200 hover:border-indigo-300 transition-colors">
+              <div className="flex items-center gap-2 mb-2 text-slate-700">
+                <Shirt className="w-4 h-4 text-blue-600" />
+                <label className="text-xs font-bold">تكلفة الخياطة</label>
+              </div>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={standardSewingCostPerPiece ?? ''}
+                  disabled={readOnly}
+                  onChange={(e) => onChange('standardSewingCostPerPiece', e.target.value)}
+                  placeholder="0.00"
+                  className={`w-full pr-3 pl-9 py-2 border rounded-lg text-sm font-bold text-slate-800 ${
+                    readOnly
+                      ? 'bg-slate-100 text-slate-600 cursor-not-allowed border-slate-200'
+                      : 'bg-white border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
+                  }`}
+                />
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-slate-400">
+                  ج.م
+                </span>
+              </div>
+            </div>
+
+            {/* التشطيب */}
+            <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200 hover:border-indigo-300 transition-colors">
+              <div className="flex items-center gap-2 mb-2 text-slate-700">
+                <Sparkles className="w-4 h-4 text-amber-600" />
+                <label className="text-xs font-bold">تكلفة التشطيب</label>
+              </div>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={standardFinishingCostPerPiece ?? ''}
+                  disabled={readOnly}
+                  onChange={(e) => onChange('standardFinishingCostPerPiece', e.target.value)}
+                  placeholder="0.00"
+                  className={`w-full pr-3 pl-9 py-2 border rounded-lg text-sm font-bold text-slate-800 ${
+                    readOnly
+                      ? 'bg-slate-100 text-slate-600 cursor-not-allowed border-slate-200'
+                      : 'bg-white border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
+                  }`}
+                />
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-slate-400">
+                  ج.م
+                </span>
+              </div>
+            </div>
+
+            {/* المكواة */}
+            <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-200 hover:border-indigo-300 transition-colors">
+              <div className="flex items-center gap-2 mb-2 text-slate-700">
+                <Flame className="w-4 h-4 text-rose-600" />
+                <label className="text-xs font-bold">تكلفة المكواة</label>
+              </div>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  value={standardIroningCostPerPiece ?? ''}
+                  disabled={readOnly}
+                  onChange={(e) => onChange('standardIroningCostPerPiece', e.target.value)}
+                  placeholder="0.00"
+                  className={`w-full pr-3 pl-9 py-2 border rounded-lg text-sm font-bold text-slate-800 ${
+                    readOnly
+                      ? 'bg-slate-100 text-slate-600 cursor-not-allowed border-slate-200'
+                      : 'bg-white border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500'
+                  }`}
+                />
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] font-semibold text-slate-400">
+                  ج.م
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. تعليمات وملاحظات التشغيل للأقسام */}
+      <div className="bg-white rounded-xl shadow-xs border border-slate-200 overflow-hidden">
+        <div className="bg-gradient-to-r from-slate-50 to-indigo-50/40 px-6 py-4 border-b border-slate-200 flex items-center gap-2.5">
+          <div className="w-9 h-9 rounded-lg bg-slate-700 text-white flex items-center justify-center font-bold shadow-2xs">
+            <FileText className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-base font-bold text-slate-800">تعليمات التشغيل وملاحظات الأقسام</h3>
+            <p className="text-xs text-slate-500">ملاحظات ومواصفات تسليم الأقسام (تظهر في بطاقات المراحل وأوامر التشغيل)</p>
+          </div>
+        </div>
+
+        <div className="p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+            {/* تعليمات التشطيب */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-600" />
+                تعليمات التشطيب
+              </label>
+              <textarea
+                value={finishingInstructions ?? ''}
+                disabled={readOnly}
+                onChange={(e) => onChange('finishingInstructions', e.target.value)}
+                placeholder="مثال: تركيب أزرار إضافية، قص الخيوط بعناية، فحص الغرز..."
+                rows={3}
+                className={`w-full px-3.5 py-2.5 border rounded-lg text-sm transition-all ${
+                  readOnly
+                    ? 'bg-slate-50 text-slate-700 border-slate-200 cursor-not-allowed'
+                    : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs'
+                }`}
+              />
+            </div>
+
+            {/* تعليمات المكواة */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Flame className="w-3.5 h-3.5 text-rose-600" />
+                تعليمات المكواة
+              </label>
+              <textarea
+                value={ironingInstructions ?? ''}
+                disabled={readOnly}
+                onChange={(e) => onChange('ironingInstructions', e.target.value)}
+                placeholder="مثال: كي بالبخار بدرجة حرارة متوسطة، فرد الياقة..."
+                rows={3}
+                className={`w-full px-3.5 py-2.5 border rounded-lg text-sm transition-all ${
+                  readOnly
+                    ? 'bg-slate-50 text-slate-700 border-slate-200 cursor-not-allowed'
+                    : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs'
+                }`}
+              />
+            </div>
+
+            {/* تعليمات التعبئة والتغليف */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Package className="w-3.5 h-3.5 text-indigo-600" />
+                تعليمات التعبئة والتغليف
+              </label>
+              <textarea
+                value={packingInstructions ?? ''}
+                disabled={readOnly}
+                onChange={(e) => onChange('packingInstructions', e.target.value)}
+                placeholder="مثال: وضع كيس فردي لكل قطعة، كرتونة تحتوي 24 قطعة..."
+                rows={3}
+                className={`w-full px-3.5 py-2.5 border rounded-lg text-sm transition-all ${
+                  readOnly
+                    ? 'bg-slate-50 text-slate-700 border-slate-200 cursor-not-allowed'
+                    : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs'
+                }`}
+              />
+            </div>
+          </div>
         </div>
       </div>
     </div>
   );
 }
+

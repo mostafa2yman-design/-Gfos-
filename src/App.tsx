@@ -6,14 +6,16 @@ import { OrderManager } from "./components/OrderManager";
 import { Settings } from "./components/Settings";
 import { ConfigurationDashboard, AccountingTab } from "./components/accounting/ConfigurationDashboard";
 import { FinishedGoodsWarehouse } from "./components/FinishedGoodsWarehouse";
+import { PurchasesDashboard } from "./components/purchases/PurchasesDashboard";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
-type ViewState = "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse";
+type ViewState = "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse" | "purchases";
 
 interface ReturnDestination {
-  orderId: string;
-  tab: string;
+  orderId?: string;
+  tab?: string;
   orderNumber?: string;
+  sourceView?: "form" | "purchases" | "list" | string;
 }
 
 function AppContent() {
@@ -22,6 +24,7 @@ function AppContent() {
   const [selectedTab, setSelectedTab] = useState<string>("production");
   const [accountingTab, setAccountingTab] = useState<AccountingTab>("accounts");
   const [accountingAutoOpenAdd, setAccountingAutoOpenAdd] = useState<boolean>(false);
+  const [accountingAutoOpenAddMaterial, setAccountingAutoOpenAddMaterial] = useState<boolean>(false);
   const [returnDestination, setReturnDestination] = useState<ReturnDestination | null>(null);
 
   const handleNavigate = (view: ViewState) => {
@@ -31,6 +34,7 @@ function AppContent() {
     }
     if (view !== "accounting_config") {
       setAccountingAutoOpenAdd(false);
+      setAccountingAutoOpenAddMaterial(false);
     }
   };
 
@@ -46,7 +50,13 @@ function AppContent() {
     autoOpenAdd: boolean = false
   ) => {
     setAccountingTab(tab);
-    setAccountingAutoOpenAdd(autoOpenAdd);
+    if (tab === "materials") {
+      setAccountingAutoOpenAddMaterial(autoOpenAdd);
+      setAccountingAutoOpenAdd(false);
+    } else {
+      setAccountingAutoOpenAdd(autoOpenAdd);
+      setAccountingAutoOpenAddMaterial(false);
+    }
     if (returnInfo) {
       setReturnDestination(returnInfo);
     }
@@ -82,10 +92,22 @@ function AppContent() {
           orderId={selectedOrderId}
           onBack={handleBackToList}
           initialTab={selectedTab}
+          onNavigateToWarehouse={() => handleNavigate("finished_goods_warehouse")}
           onNavigateToAccounting={handleNavigateToAccounting}
         />
       )}
       {currentView === "settings" && <Settings onBack={handleBackToList} />}
+      {currentView === "purchases" && (
+        <PurchasesDashboard
+          onNavigateToAccounting={(tab, autoOpenAdd = true) =>
+            handleNavigateToAccounting(
+              tab,
+              { sourceView: "purchases", tab: "purchases" },
+              autoOpenAdd
+            )
+          }
+        />
+      )}
       {currentView === "finished_goods_warehouse" && (
         <FinishedGoodsWarehouse
           onNavigateToOrder={(orderId, tab) => handleNavigateToOrder(orderId, tab || "packing")}
@@ -95,11 +117,20 @@ function AppContent() {
         <ConfigurationDashboard
           initialTab={accountingTab}
           autoOpenAddCustomer={accountingAutoOpenAdd}
+          autoOpenAddMaterial={accountingAutoOpenAddMaterial}
           returnDestination={returnDestination}
           onReturn={() => {
             if (returnDestination) {
-              handleNavigateToOrder(returnDestination.orderId, returnDestination.tab);
-              setReturnDestination(null);
+              if (returnDestination.sourceView === "purchases" || returnDestination.tab === "purchases") {
+                setCurrentView("purchases");
+                setReturnDestination(null);
+              } else if (returnDestination.orderId) {
+                handleNavigateToOrder(returnDestination.orderId, returnDestination.tab || "packing");
+                setReturnDestination(null);
+              } else {
+                handleNavigate("purchases");
+                setReturnDestination(null);
+              }
             } else {
               handleNavigate("list");
             }

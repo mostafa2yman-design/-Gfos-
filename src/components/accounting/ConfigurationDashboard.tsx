@@ -22,13 +22,21 @@ export type AccountingTab = 'accounts' | 'departments' | 'customers' | 'material
 interface ConfigurationDashboardProps {
   initialTab?: AccountingTab;
   autoOpenAddCustomer?: boolean;
-  returnDestination?: { orderId: string; tab: string; orderNumber?: string } | null;
+  autoOpenAddMaterial?: boolean;
+  returnDestination?: {
+    orderId?: string;
+    tab?: string;
+    orderNumber?: string;
+    sourceView?: 'form' | 'purchases' | 'list' | string;
+    title?: string;
+  } | null;
   onReturn?: () => void;
 }
 
 export function ConfigurationDashboard({
   initialTab = 'accounts',
   autoOpenAddCustomer = false,
+  autoOpenAddMaterial = false,
   returnDestination,
   onReturn,
 }: ConfigurationDashboardProps = {}) {
@@ -49,9 +57,11 @@ export function ConfigurationDashboard({
     { id: 'groups', label: 'مجموعات التشغيل', icon: Building2 },
   ];
 
+  const isPurchasesReturn = returnDestination?.sourceView === 'purchases' || returnDestination?.tab === 'purchases';
+
   return (
     <div className="space-y-6">
-      {/* Return to Packing Order banner if user was directed here */}
+      {/* Return to Packing Order or Purchases banner if user was directed here */}
       {returnDestination && onReturn && (
         <div className="bg-indigo-50 border-2 border-indigo-200 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm animate-fadeIn">
           <div className="flex items-center gap-3">
@@ -61,7 +71,7 @@ export function ConfigurationDashboard({
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-indigo-950 text-sm">
-                  تم الانتقال من شاشة التغليف
+                  {isPurchasesReturn ? 'تم الانتقال من شاشة المشتريات' : 'تم الانتقال من شاشة التغليف'}
                 </span>
                 {returnDestination.orderNumber && (
                   <span className="bg-indigo-100 text-indigo-800 text-xs px-2 py-0.5 rounded font-bold border border-indigo-200">
@@ -70,7 +80,9 @@ export function ConfigurationDashboard({
                 )}
               </div>
               <p className="text-xs text-indigo-800 mt-0.5">
-                يمكنك الآن إضافة أو إدارة بيانات العملاء، وعند الانتهاء اضغط على زر العودة لمتابعة تجهيز الفاتورة
+                {isPurchasesReturn
+                  ? 'يمكنك الآن إضافة أو تعديل بيانات الموردين وخامات التكوين الهيكلي، وعند الانتهاء اضغط على زر العودة للرجوع لفواتير المشتريات'
+                  : 'يمكنك الآن إضافة أو إدارة بيانات العملاء، وعند الانتهاء اضغط على زر العودة لمتابعة تجهيز الفاتورة'}
               </p>
             </div>
           </div>
@@ -78,7 +90,7 @@ export function ConfigurationDashboard({
             onClick={onReturn}
             className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-4 py-2.5 rounded-lg shadow-sm transition-all hover:shadow-md whitespace-nowrap self-stretch sm:self-auto justify-center cursor-pointer"
           >
-            <span>العودة إلى شاشة التغليف</span>
+            <span>{isPurchasesReturn ? 'العودة إلى شاشة المشتريات' : 'العودة إلى شاشة التغليف'}</span>
             <ArrowLeft className="w-4 h-4" />
           </button>
         </div>
@@ -119,7 +131,7 @@ export function ConfigurationDashboard({
         <div className="p-6">
           {activeTab === 'accounts' && <ChartOfAccounts />}
           {activeTab === 'customers' && <CustomersSuppliersList autoOpenAddModal={autoOpenAddCustomer} />}
-          {activeTab === 'materials' && <MaterialsList />}
+          {activeTab === 'materials' && <MaterialsList autoOpenAddModal={autoOpenAddMaterial} />}
           {activeTab === 'labor' && <LaborList />}
           {activeTab === 'departments' && <DepartmentsList />}
           {activeTab === 'groups' && <OperationalGroupsList />}

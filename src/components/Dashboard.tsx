@@ -26,12 +26,24 @@ import {
   Shirt,
   Flame,
   PackageCheck,
+  Users,
+  Building2,
+  Boxes,
 } from "lucide-react";
 import { calculateGlobalCostMetrics, calculateOrderCostAnalysis } from "../lib/costUtils";
+import { processOrderItem } from "../lib/finishedGoodsUtils";
+import { WarehouseProductDetailsModal } from "./WarehouseProductDetailsModal";
 
 interface BatchSizeItem {
   size: string;
   quantity: number;
+}
+
+export interface SewingResponsibleInfo {
+  type: "داخلي" | "خارجي";
+  name: string;
+  manufacturingType: "تصنيع داخلي" | "تصنيع خارجي";
+  status?: "لم يبدأ" | "جاري" | "مكتمل";
 }
 
 interface StageItem {
@@ -50,17 +62,27 @@ interface StageItem {
   details?: string;
   isOrderOnly?: boolean;
   tab?: string;
+  sewingResponsible?: SewingResponsibleInfo;
+  isWarehouse?: boolean;
+  order?: ProductionOrder;
 }
 
 interface KanbanCardProps {
   key?: string;
   item: StageItem;
   onNavigateToOrder?: (orderId: string, tab?: string) => void;
+  onOpenWarehouseDetails?: (order: ProductionOrder) => void;
+  onNavigateToWarehouse?: () => void;
 }
 
-function KanbanCard({ item, onNavigateToOrder }: KanbanCardProps) {
+function KanbanCard({
+  item,
+  onNavigateToOrder,
+  onOpenWarehouseDetails,
+  onNavigateToWarehouse,
+}: KanbanCardProps) {
   return (
-    <div className="bg-white rounded-xl p-3.5 shadow-2xs hover:shadow-md transition-all border border-slate-200/90 hover:border-indigo-400 space-y-2.5 text-sm group">
+    <div className={`bg-white rounded-xl p-3.5 shadow-2xs hover:shadow-md transition-all border ${item.isWarehouse ? "border-emerald-300 ring-1 ring-emerald-400/30 hover:border-emerald-500" : "border-slate-200/90 hover:border-indigo-400"} space-y-2.5 text-sm group`}>
       {/* Header: Order Number & Batch Number */}
       <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-2">
         <div className="flex flex-col min-w-0">
@@ -79,7 +101,22 @@ function KanbanCard({ item, onNavigateToOrder }: KanbanCardProps) {
           )}
         </div>
 
-        {item.batchNumber ? (
+        {item.isWarehouse ? (
+          <button
+            onClick={() => {
+              if (item.order) {
+                onOpenWarehouseDetails?.(item.order);
+              } else {
+                onNavigateToOrder?.(item.orderId, "warehouse");
+              }
+            }}
+            className="px-2.5 py-1 bg-emerald-100 hover:bg-emerald-200 text-emerald-950 font-black rounded-lg text-xs border border-emerald-300 transition-colors shadow-2xs shrink-0 cursor-pointer flex items-center gap-1"
+            title="عرض تفاصيل المخزن التام (أعداد وألوان ومقاسات)"
+          >
+            <Boxes className="w-3.5 h-3.5 text-emerald-700" />
+            المخزن التام
+          </button>
+        ) : item.batchNumber ? (
           <button
             onClick={() => onNavigateToOrder?.(item.orderId, item.tab || "prep")}
             className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-800 font-black rounded-lg text-xs border border-indigo-200 transition-colors shadow-2xs shrink-0 cursor-pointer"
@@ -165,6 +202,92 @@ function KanbanCard({ item, onNavigateToOrder }: KanbanCardProps) {
         </div>
       )}
 
+      {/* المسؤول عن الخياطة (مجموعة داخلية أو جهة خارجية) */}
+      {!item.isOrderOnly && (
+        <div
+          className={`rounded-lg p-2.5 border transition-all text-xs space-y-1.5 ${
+            item.sewingResponsible?.type === "داخلي"
+              ? "bg-blue-50/75 border-blue-200/90 text-blue-950"
+              : item.sewingResponsible?.type === "خارجي"
+              ? "bg-amber-50/85 border-amber-200/90 text-amber-950"
+              : "bg-slate-50/80 border-dashed border-slate-200 text-slate-600"
+          }`}
+        >
+          <div className="flex items-center justify-between gap-1">
+            <span className="flex items-center gap-1.5 font-bold text-[10px] text-slate-600">
+              <Shirt className="w-3 h-3 text-indigo-600 stroke-[2.2]" />
+              <span>المسؤول عن الخياطة:</span>
+            </span>
+
+            {item.sewingResponsible ? (
+              <span
+                className={`px-2 py-0.5 rounded text-[10px] font-black inline-flex items-center gap-1 shadow-2xs ${
+                  item.sewingResponsible.type === "داخلي"
+                    ? "bg-blue-100 text-blue-900 border border-blue-200"
+                    : "bg-amber-100 text-amber-950 border border-amber-200"
+                }`}
+              >
+                {item.sewingResponsible.type === "داخلي" ? (
+                  <>
+                    <Users className="w-2.5 h-2.5 text-blue-700" />
+                    <span>تشغيل داخلي</span>
+                  </>
+                ) : (
+                  <>
+                    <Building2 className="w-2.5 h-2.5 text-amber-700" />
+                    <span>جهة خارجية</span>
+                  </>
+                )}
+              </span>
+            ) : (
+              <span className="text-[10px] text-slate-500 bg-white border border-slate-200 px-1.5 py-0.5 rounded font-bold">
+                غير محدد
+              </span>
+            )}
+          </div>
+
+          <div className="flex items-center justify-between gap-2">
+            {item.sewingResponsible ? (
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    item.sewingResponsible.type === "داخلي"
+                      ? "bg-blue-600"
+                      : "bg-amber-600"
+                  }`}
+                />
+                <span
+                  className="font-black text-xs text-slate-900 truncate"
+                  title={`${
+                    item.sewingResponsible.type === "داخلي" ? "مجموعة: " : "جهة خارجية: "
+                  }${item.sewingResponsible.name}`}
+                >
+                  {item.sewingResponsible.type === "داخلي" ? "مجموعة: " : "جهة: "}
+                  {item.sewingResponsible.name}
+                </span>
+              </div>
+            ) : (
+              <span className="text-[11px] text-slate-400 italic">
+                لم تُحدد مجموعة أو جهة خياطة
+              </span>
+            )}
+
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigateToOrder?.(item.orderId, "sew");
+              }}
+              className="text-[10px] font-extrabold text-indigo-600 hover:text-indigo-800 hover:underline shrink-0 flex items-center gap-0.5 cursor-pointer"
+              title="الانتقال لمرحلة الخياطة"
+            >
+              <span>تفاصيل</span>
+              <ArrowUpRight className="w-2.5 h-2.5" />
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Colors (if present) */}
       {item.colors && item.colors.length > 0 && (
         <div className="flex items-center gap-1.5 text-xs text-slate-600 px-0.5">
@@ -179,6 +302,51 @@ function KanbanCard({ item, onNavigateToOrder }: KanbanCardProps) {
         </div>
       )}
 
+      {/* Warehouse specific shortcut bar */}
+      {item.isWarehouse && (
+        <div className="bg-emerald-50/90 border border-emerald-200 rounded-lg p-2 space-y-1.5">
+          <div className="flex items-center justify-between text-[11px] font-bold text-emerald-950">
+            <span className="flex items-center gap-1">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+              جاهز ومعتمد بالمخزن
+            </span>
+            <span className="text-[10px] text-emerald-800 bg-white px-1.5 py-0.5 rounded border border-emerald-200 font-bold">
+              {item.colors?.length || 0} ألوان
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5 pt-0.5">
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (item.order) {
+                  onOpenWarehouseDetails?.(item.order);
+                } else {
+                  onNavigateToOrder?.(item.orderId, "warehouse");
+                }
+              }}
+              className="flex-1 flex items-center justify-center gap-1 py-1 px-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-md text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+              title="عرض أعداد وألوان ومقاسات المنتج"
+            >
+              <Sparkles className="w-3 h-3" />
+              <span>أعداد وألوان ومقاسات</span>
+            </button>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onNavigateToWarehouse?.();
+              }}
+              className="flex items-center gap-1 py-1 px-2.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-md text-xs font-bold transition-colors shadow-2xs cursor-pointer"
+              title="الانتقال المباشر لمخزن المنتج التام"
+            >
+              <Boxes className="w-3 h-3 text-emerald-700" />
+              <span>المخزن</span>
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Footer: Quantity & Stage Status */}
       <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs">
         <div className="flex items-center gap-1.5 font-black text-slate-800">
@@ -186,7 +354,7 @@ function KanbanCard({ item, onNavigateToOrder }: KanbanCardProps) {
           <span className="text-sm font-black">{item.quantity}</span>
           <span className="text-[10px] text-slate-500 font-normal">قطعة</span>
         </div>
-        <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-slate-100 text-slate-700 border border-slate-200">
+        <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${item.isWarehouse ? "bg-emerald-100 text-emerald-800 border-emerald-300 font-black" : "bg-slate-100 text-slate-700 border-slate-200"}`}>
           {item.details}
         </span>
       </div>
@@ -195,7 +363,7 @@ function KanbanCard({ item, onNavigateToOrder }: KanbanCardProps) {
 }
 
 interface DashboardProps {
-  onNavigate: (view: "dashboard" | "list" | "form" | "settings") => void;
+  onNavigate: (view: "dashboard" | "list" | "form" | "settings" | "finished_goods_warehouse") => void;
   onNavigateToOrder?: (orderId: string, tab?: string) => void;
 }
 
@@ -206,7 +374,9 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
   const [showOrdersTable, setShowOrdersTable] = useState(false);
   const [mapSearch, setMapSearch] = useState("");
   const [selectedSizeFilter, setSelectedSizeFilter] = useState<string>("الكل");
+  const [sewingResponsibleFilter, setSewingResponsibleFilter] = useState<"الكل" | "داخلي" | "خارجي" | "غير_محدد">("الكل");
   const [mapLayoutMode, setMapLayoutMode] = useState<"rows" | "columns">("rows");
+  const [selectedWarehouseOrder, setSelectedWarehouseOrder] = useState<ProductionOrder | null>(null);
 
   useEffect(() => {
     getOrders().then(data => setOrders(data));
@@ -266,8 +436,10 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
     const finishing: StageItem[] = [];
     const ironing: StageItem[] = [];
     const packing: StageItem[] = [];
+    const warehouse: StageItem[] = [];
 
     inProgressOrders.forEach((order) => {
+      const isPackingApproved = Boolean(order.packingApprovedAt) || order.status === "التغليف معتمد" || order.packingStatus === "مكتمل";
       const hasLockedBatches =
         order.batches &&
         order.batches.length > 0 &&
@@ -298,6 +470,28 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
           ? sizeEntries.map(s => s.size).join('، ')
           : (order.sizes || []).map(s => s.size).join('، ') || "جميع المقاسات";
 
+        if (isPackingApproved) {
+          warehouse.push({
+            id: `order-${order.id}`,
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            customerName: order.customerName,
+            cutOrderNumber: order.cutOrder?.cutOrderNumber,
+            styleName: order.styleName || "غير محدد",
+            category: order.category,
+            batchSizes: sizeEntries,
+            sizeSummary,
+            colors: Array.from(orderColorsSet),
+            quantity: totalQty,
+            details: "معتمد بالمخزن التام",
+            isOrderOnly: true,
+            tab: "warehouse",
+            isWarehouse: true,
+            order,
+          });
+          return;
+        }
+
         cutting.push({
           id: `order-${order.id}`,
           orderId: order.id,
@@ -313,6 +507,7 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
           details: order.status,
           isOrderOnly: true,
           tab: "cut",
+          order,
         });
         return;
       }
@@ -345,9 +540,37 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
         const sewingQty = batch.sewingData?.actualQuantities ? batch.sewingData.actualQuantities.reduce((sum, q) => sum + (Number((q as any).actualQuantity) || 0), 0) : 0;
         const finishingQty = batch.finishingData?.actualQuantities ? batch.finishingData.actualQuantities.reduce((sum, q) => sum + (Number((q as any).actualQuantity) || 0), 0) : 0;
         const ironingQty = batch.ironingData?.actualQuantities ? batch.ironingData.actualQuantities.reduce((sum, q) => sum + (Number((q as any).actualQuantity) || 0), 0) : 0;
+        const packingInvoicesQty = order.packingInvoices?.reduce((sum, inv) => sum + (inv.variants?.reduce((vsum, v) => vsum + (Number(v.quantity) || 0), 0) || 0), 0) || 0;
+        const effectiveFinalQty = packingInvoicesQty || ironingQty || finishingQty || sewingQty || initialQty;
         const needsPrintEmb = batch.executionType && batch.executionType !== "بدون طباعة / تطريز";
 
-        const baseItem = {
+        let sewingResponsible: SewingResponsibleInfo | undefined = undefined;
+        if (batch.sewingData) {
+          const hasExternal =
+            batch.sewingData.manufacturingType === "تصنيع خارجي" ||
+            Boolean(batch.sewingData.externalManufacturer?.trim());
+          const hasInternal =
+            batch.sewingData.manufacturingType === "تصنيع داخلي" ||
+            Boolean(batch.sewingData.sewingGroup?.trim());
+
+          if (hasExternal) {
+            sewingResponsible = {
+              type: "خارجي",
+              name: batch.sewingData.externalManufacturer?.trim() || "جهة خارجية",
+              manufacturingType: "تصنيع خارجي",
+              status: batch.sewingData.status,
+            };
+          } else if (hasInternal) {
+            sewingResponsible = {
+              type: "داخلي",
+              name: batch.sewingData.sewingGroup?.trim() || "مجموعة داخلية",
+              manufacturingType: "تصنيع داخلي",
+              status: batch.sewingData.status,
+            };
+          }
+        }
+
+        const baseItem: StageItem = {
           id: `batch-${batch.id}`,
           orderId: order.id,
           orderNumber: order.orderNumber,
@@ -359,10 +582,22 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
           batchSizes: sizeEntries,
           sizeSummary,
           colors: Array.from(batchColorsSet),
+          quantity: initialQty,
+          sewingResponsible,
+          order,
+          isWarehouse: isPackingApproved,
         };
 
-        if (batch.ironingData?.status === 'مكتمل') {
-           packing.push({ ...baseItem, quantity: ironingQty || finishingQty || sewingQty || initialQty, details: "متاح للتغليف", tab: 'packing' });
+        if (isPackingApproved) {
+          warehouse.push({
+            ...baseItem,
+            quantity: effectiveFinalQty,
+            details: "معتمد بالمخزن التام",
+            tab: 'warehouse',
+            isWarehouse: true,
+          });
+        } else if (batch.ironingData?.status === 'مكتمل') {
+          packing.push({ ...baseItem, quantity: effectiveFinalQty, details: "متاح للتغليف", tab: 'packing' });
         } else if (batch.ironingData?.status === 'جاري') {
           ironing.push({ ...baseItem, quantity: finishingQty || sewingQty || initialQty, details: "جاري المكواة", tab: 'ironing' });
         } else if (batch.finishingData?.status === 'مكتمل') {
@@ -389,7 +624,7 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
       });
     });
 
-    return { cutting, preparation, printEmb, sewing, finishing, ironing, packing };
+    return { cutting, preparation, printEmb, sewing, finishing, ironing, packing, warehouse };
   };
 
   const kanbanData = getKanbanData();
@@ -558,6 +793,17 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
               (item.sizeSummary && item.sizeSummary.includes(selectedSizeFilter));
             if (!hasSize) return false;
           }
+
+          if (sewingResponsibleFilter !== "الكل") {
+            if (sewingResponsibleFilter === "داخلي") {
+              if (item.sewingResponsible?.type !== "داخلي") return false;
+            } else if (sewingResponsibleFilter === "خارجي") {
+              if (item.sewingResponsible?.type !== "خارجي") return false;
+            } else if (sewingResponsibleFilter === "غير_محدد") {
+              if (item.isOrderOnly || item.sewingResponsible) return false;
+            }
+          }
+
           if (!mapSearch.trim()) return true;
           const q = mapSearch.toLowerCase().trim();
           return (
@@ -569,7 +815,13 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
             (item.batchNumber && item.batchNumber.toLowerCase().includes(q)) ||
             (item.sizeSummary && item.sizeSummary.toLowerCase().includes(q)) ||
             (item.colors && item.colors.some((c) => c.toLowerCase().includes(q))) ||
-            (item.details && item.details.toLowerCase().includes(q))
+            (item.details && item.details.toLowerCase().includes(q)) ||
+            Boolean(
+              item.sewingResponsible &&
+                (item.sewingResponsible.name.toLowerCase().includes(q) ||
+                  item.sewingResponsible.type.toLowerCase().includes(q) ||
+                  item.sewingResponsible.manufacturingType.toLowerCase().includes(q))
+            )
           );
         };
 
@@ -581,6 +833,7 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
           ...kanbanData.finishing,
           ...kanbanData.ironing,
           ...kanbanData.packing,
+          ...kanbanData.warehouse,
         ];
 
         const sizeSet = new Set<string>();
@@ -679,6 +932,18 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
             textColor: "text-fuchsia-900",
             badgeColor: "bg-fuchsia-200 text-fuchsia-900",
           },
+          {
+            id: "warehouse",
+            title: "المخزن التام",
+            subTitle: "معتمد وجاهز للتسليم",
+            icon: Boxes,
+            items: kanbanData.warehouse.filter(filterItem),
+            headerBg: "bg-emerald-100/80",
+            columnBg: "bg-emerald-50/40",
+            borderColor: "border-emerald-200",
+            textColor: "text-emerald-950",
+            badgeColor: "bg-emerald-200 text-emerald-950",
+          },
         ];
 
         return (
@@ -691,13 +956,13 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
                 </div>
                 <div>
                   <h3 className="font-bold text-indigo-950 text-base flex items-center gap-2">
-                    خريطة التشغيل وتتبع الباتشات
+                    خريطة الموديل وتتبع الباتشات
                     <span className="text-xs font-semibold text-indigo-700 bg-indigo-100 px-2.5 py-0.5 rounded-full border border-indigo-200">
-                      مراحل الإنتاج
+                      مراحل الإنتاج والتشغيل
                     </span>
                   </h3>
                   <p className="text-xs text-slate-500 mt-0.5">
-                    تتبع تفصيلي لكل مرحلة وباتش يشمل اسم القصة، مقاس الباتش، والكميات
+                    تتبع تفصيلي لكل مرحلة وباتش يشمل اسم القصة / الموديل، مقاس الباتش، ومسؤول الخياطة (مجموعة داخلية أو جهة خارجية)
                   </p>
                 </div>
               </div>
@@ -712,90 +977,146 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
               </div>
             </div>
 
-            {/* Filter Bar: Quick Search & Size Filter Chips & Layout Toggle */}
-            <div className="p-3 bg-slate-50 border-b border-slate-200 flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 min-w-0">
-                <div className="relative w-full sm:w-72">
-                  <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    value={mapSearch}
-                    onChange={(e) => setMapSearch(e.target.value)}
-                    placeholder="بحث باسم القصة، رقم الأوردر، الباتش، المقاس..."
-                    className="w-full pr-9 pl-8 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder:text-slate-400 font-medium"
-                  />
-                  {mapSearch && (
-                    <button
-                      onClick={() => setMapSearch("")}
-                      className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
-                      title="مسح البحث"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
+            {/* Filter Bar: Quick Search & Filters & Layout Toggle */}
+            <div className="p-3 bg-slate-50 border-b border-slate-200 flex flex-col gap-3">
+              <div className="flex flex-col lg:flex-row items-stretch lg:items-center justify-between gap-3">
+                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 flex-1 min-w-0">
+                  <div className="relative w-full sm:w-80">
+                    <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      value={mapSearch}
+                      onChange={(e) => setMapSearch(e.target.value)}
+                      placeholder="بحث بالموديل، رقم الأوردر، الباتش، المقاس، مسؤول الخياطة..."
+                      className="w-full pr-9 pl-8 py-1.5 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 placeholder:text-slate-400 font-medium"
+                    />
+                    {mapSearch && (
+                      <button
+                        onClick={() => setMapSearch("")}
+                        className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                        title="مسح البحث"
+                      >
+                        <X className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Size Filter Pills */}
+                  {allActiveSizes.length > 0 && (
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-thin">
+                      <span className="text-[11px] text-slate-500 font-bold whitespace-nowrap flex items-center gap-1">
+                        <Filter className="w-3 h-3 text-indigo-600" />
+                        المقاس:
+                      </span>
+                      <button
+                        onClick={() => setSelectedSizeFilter("الكل")}
+                        className={`px-2 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap cursor-pointer ${
+                          selectedSizeFilter === "الكل"
+                            ? "bg-indigo-600 text-white shadow-2xs"
+                            : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                        }`}
+                      >
+                        الكل
+                      </button>
+                      {allActiveSizes.map((size) => (
+                        <button
+                          key={size}
+                          onClick={() => setSelectedSizeFilter(size)}
+                          className={`px-2 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap cursor-pointer ${
+                            selectedSizeFilter === size
+                              ? "bg-amber-500 text-white shadow-2xs font-extrabold"
+                              : "bg-white text-slate-700 border border-slate-200 hover:border-amber-300 hover:bg-amber-50"
+                          }`}
+                        >
+                          {size}
+                        </button>
+                      ))}
+                    </div>
                   )}
                 </div>
 
-                {/* Size Filter Pills */}
-                {allActiveSizes.length > 0 && (
-                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0 scrollbar-thin">
-                    <span className="text-[11px] text-slate-500 font-bold whitespace-nowrap flex items-center gap-1">
-                      <Filter className="w-3 h-3 text-indigo-600" />
-                      تصفية بالمقاس:
-                    </span>
-                    <button
-                      onClick={() => setSelectedSizeFilter("الكل")}
-                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap cursor-pointer ${
-                        selectedSizeFilter === "الكل"
-                          ? "bg-indigo-600 text-white shadow-2xs"
-                          : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
-                      }`}
-                    >
-                      الكل
-                    </button>
-                    {allActiveSizes.map((size) => (
-                      <button
-                        key={size}
-                        onClick={() => setSelectedSizeFilter(size)}
-                        className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap cursor-pointer ${
-                          selectedSizeFilter === size
-                            ? "bg-amber-500 text-white shadow-2xs font-extrabold"
-                            : "bg-white text-slate-700 border border-slate-200 hover:border-amber-300 hover:bg-amber-50"
-                        }`}
-                      >
-                        {size}
-                      </button>
-                    ))}
-                  </div>
-                )}
+                {/* View Layout Mode Switcher */}
+                <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 shadow-2xs shrink-0 self-end lg:self-center">
+                  <button
+                    type="button"
+                    onClick={() => setMapLayoutMode("rows")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                      mapLayoutMode === "rows"
+                        ? "bg-indigo-600 text-white shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    }`}
+                    title="عرض الأقسام تحت بعض وتفاصيل الباتشات بجوار كل قسم"
+                  >
+                    <LayoutList className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>أقسام تحت بعض (صفوف)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMapLayoutMode("columns")}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                      mapLayoutMode === "columns"
+                        ? "bg-indigo-600 text-white shadow-2xs"
+                        : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                    }`}
+                    title="عرض أعمدة كانبان عمودية"
+                  >
+                    <Columns className="w-3.5 h-3.5 stroke-[2.5]" />
+                    <span>أعمدة كانبان</span>
+                  </button>
+                </div>
               </div>
 
-              {/* View Layout Mode Switcher */}
-              <div className="flex items-center gap-1 bg-white p-1 rounded-lg border border-slate-200 shadow-2xs shrink-0 self-end lg:self-center">
+              {/* Sewing Responsibility Filter Pills Row */}
+              <div className="flex flex-wrap items-center gap-1.5 pt-2 border-t border-slate-200/80">
+                <span className="text-[11px] text-slate-600 font-black whitespace-nowrap flex items-center gap-1.5 pl-1">
+                  <Shirt className="w-3.5 h-3.5 text-indigo-600 stroke-[2.3]" />
+                  <span>تصفية حسب مسؤول الخياطة:</span>
+                </span>
                 <button
                   type="button"
-                  onClick={() => setMapLayoutMode("rows")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                    mapLayoutMode === "rows"
+                  onClick={() => setSewingResponsibleFilter("الكل")}
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap cursor-pointer ${
+                    sewingResponsibleFilter === "الكل"
                       ? "bg-indigo-600 text-white shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
                   }`}
-                  title="عرض الأقسام تحت بعض وتفاصيل الباتشات بجوار كل قسم"
                 >
-                  <LayoutList className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>أقسام تحت بعض (صفوف)</span>
+                  جميع الباتشات
                 </button>
                 <button
                   type="button"
-                  onClick={() => setMapLayoutMode("columns")}
-                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold transition-all cursor-pointer ${
-                    mapLayoutMode === "columns"
-                      ? "bg-indigo-600 text-white shadow-2xs"
-                      : "text-slate-600 hover:text-slate-900 hover:bg-slate-100"
+                  onClick={() => setSewingResponsibleFilter("داخلي")}
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                    sewingResponsibleFilter === "داخلي"
+                      ? "bg-blue-600 text-white shadow-2xs"
+                      : "bg-white text-blue-900 border border-blue-200 hover:bg-blue-50"
                   }`}
-                  title="عرض أعمدة كانبان عمودية"
                 >
-                  <Columns className="w-3.5 h-3.5 stroke-[2.5]" />
-                  <span>أعمدة كانبان</span>
+                  <Users className="w-3 h-3 text-current" />
+                  <span>مجموعات داخلية</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSewingResponsibleFilter("خارجي")}
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+                    sewingResponsibleFilter === "خارجي"
+                      ? "bg-amber-600 text-white shadow-2xs"
+                      : "bg-white text-amber-900 border border-amber-200 hover:bg-amber-50"
+                  }`}
+                >
+                  <Building2 className="w-3 h-3 text-current" />
+                  <span>جهات ومصانع خارجية</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSewingResponsibleFilter("غير_محدد")}
+                  className={`px-2.5 py-1 rounded-md text-xs font-bold transition-colors whitespace-nowrap cursor-pointer ${
+                    sewingResponsibleFilter === "غير_محدد"
+                      ? "bg-slate-700 text-white shadow-2xs"
+                      : "bg-white text-slate-600 border border-slate-200 hover:bg-slate-100"
+                  }`}
+                >
+                  بانتظار تحديد مسؤول الخياطة
                 </button>
               </div>
             </div>
@@ -854,7 +1175,12 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
                           <div className="flex gap-3.5 overflow-x-auto w-full pb-2 pt-1 px-1 scrollbar-thin items-stretch">
                             {col.items.map((item) => (
                               <div key={item.id} className="min-w-[285px] sm:min-w-[310px] max-w-[330px] shrink-0">
-                                <KanbanCard item={item} onNavigateToOrder={onNavigateToOrder} />
+                                <KanbanCard
+                                  item={item}
+                                  onNavigateToOrder={onNavigateToOrder}
+                                  onOpenWarehouseDetails={setSelectedWarehouseOrder}
+                                  onNavigateToWarehouse={() => onNavigate("finished_goods_warehouse")}
+                                />
                               </div>
                             ))}
                           </div>
@@ -904,7 +1230,13 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
                             </div>
                           ) : (
                             col.items.map((item) => (
-                              <KanbanCard key={item.id} item={item} onNavigateToOrder={onNavigateToOrder} />
+                              <KanbanCard
+                                key={item.id}
+                                item={item}
+                                onNavigateToOrder={onNavigateToOrder}
+                                onOpenWarehouseDetails={setSelectedWarehouseOrder}
+                                onNavigateToWarehouse={() => onNavigate("finished_goods_warehouse")}
+                              />
                             ))
                           )}
                         </div>
@@ -917,6 +1249,15 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
           </div>
         );
       })()}
+
+      {selectedWarehouseOrder && (
+        <WarehouseProductDetailsModal
+          order={selectedWarehouseOrder}
+          onClose={() => setSelectedWarehouseOrder(null)}
+          onNavigateToWarehouse={() => onNavigate("finished_goods_warehouse")}
+          onNavigateToOrder={onNavigateToOrder}
+        />
+      )}
 
       <div className="mt-8">
         <h3 className="text-lg font-bold text-slate-800 mb-4">
@@ -977,6 +1318,21 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
           </div>
         </div>
       </div>
+
+      {selectedWarehouseOrder && (
+        <WarehouseProductDetailsModal
+          order={selectedWarehouseOrder}
+          onClose={() => setSelectedWarehouseOrder(null)}
+          onNavigateToWarehouse={() => {
+            setSelectedWarehouseOrder(null);
+            onNavigate("finished_goods_warehouse");
+          }}
+          onNavigateToOrder={(orderId, tab) => {
+            setSelectedWarehouseOrder(null);
+            onNavigateToOrder?.(orderId, tab);
+          }}
+        />
+      )}
     </div>
   );
 }

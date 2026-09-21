@@ -1,72 +1,125 @@
-import React from 'react';
-import { ProductionOrder, BatchItem } from "../../../types";
-import { PrintHeader } from "../layout/PrintHeader";
-import { PrintFooter } from "../layout/PrintFooter";
+import React, { forwardRef } from 'react';
+import { ProductionOrder } from '../../../types';
+import { PrintDocument, PrintHeader, PrintSection, PrintInstructions, PrintSignatures } from '../layout';
 
 interface Props {
   order: ProductionOrder;
 }
 
-export const IroningWorkOrderPrint: React.FC<Props> = ({ order }) => {
+export const IroningWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order }, ref) => {
+  // Calculate total finishing received
+  let totalFinishingReceived = 0;
+  order.batches?.forEach(b => {
+    const quantities = b.finishingData?.actualQuantities || b.sewingData?.actualQuantities || [];
+    quantities.forEach(q => {
+      totalFinishingReceived += (q.actualQuantity || q.quantity || 0);
+    });
+  });
+
   return (
-    <div className="print-only print-page print-container" dir="rtl">
+    <PrintDocument ref={ref}>
       <PrintHeader
-        documentTitle="أمر تشغيل المرحلة - المكواة"
+        documentTitle="أمر تشغيل مرحلة المكواة والبخار"
         orderNumber={order.orderNumber}
         modelName={order.styleName}
         clientName={order.customerName}
-        companyName="الشركة"
+        category={order.category}
+        status={order.status}
+        additionalInfo={[
+          { label: 'عدد الباتشات', value: `${order.batches?.length || 0} باتش` },
+          { label: 'إجمالي المستلم من التشطيب', value: `${totalFinishingReceived} قطعة` }
+        ]}
       />
 
-      <div className="mb-4">
-        <h4 className="font-bold text-slate-800 border-b-2 border-slate-800 pb-1 mb-2">تعليمات المكواة</h4>
-        <p className="text-sm text-slate-700 whitespace-pre-wrap">
-          {order.finishingInstructions || "لا توجد تعليمات خاصة"}
-        </p>
-      </div>
+      {/* Operational Instructions for Ironing */}
+      <PrintInstructions
+        title="تعليمات المكواة والبخار واشتراطات الجودة"
+        instructions={order.ironingInstructions || [
+          'ضبط درجات حرارة أجهزة الكي وضغط البخار بما يناسب نوع نسيج القماش لتجنب اللمعان أو الحرق.',
+          'كي الياقات والأساور والكمر والجيوب مع مراعاة فرد الكسرات والدرزات بالشكل المطلوب.',
+          'ترك القطع لتجف تماماً وتفقد حرارتها قبل الطي والتعليق لمنع حدوث تجاعيد ورطوبة.',
+          'الفحص البصري أثناء الكي واستبعاد أي قطعة بها بقع زيتية أو أوساخ لتنظيفها فوراً.'
+        ]}
+      />
 
-      <div className="mb-4">
-        <h4 className="font-bold text-slate-800 border-b-2 border-slate-800 pb-1 mb-2">تفاصيل أعداد التشطيب الفعلية الموردة</h4>
-        <table className="w-full text-sm border-collapse border border-slate-300">
+      {/* Ironing Execution Table */}
+      <PrintSection title="جدول متابعة أعداد المكواة حسب الباتشات" badge={`المستلم: ${totalFinishingReceived} قطعة`}>
+        <table>
           <thead>
-            <tr className="bg-slate-100">
-              <th className="border border-slate-300 p-2">الباتش</th>
-              <th className="border border-slate-300 p-2">اللون / المقاس</th>
-              <th className="border border-slate-300 p-2">كمية الخياطة (مستلم)</th>
-              <th className="border border-slate-300 p-2">الكمية المقبولة</th>
-              <th className="border border-slate-300 p-2">فرز 2</th>
-              <th className="border border-slate-300 p-2">هالك</th>
+            <tr>
+              <th className="w-20 text-center">الباتش</th>
+              <th className="w-24 text-center">المقاس</th>
+              <th>اللون</th>
+              <th className="w-28 text-center">المستلم من التشطيب</th>
+              <th className="w-24 text-center">المكوي التام (سليم)</th>
+              <th className="w-20 text-center">إعادة كي</th>
+              <th className="w-20 text-center">هالك / تالف</th>
+              <th className="text-center">ملاحظات</th>
             </tr>
           </thead>
           <tbody>
-            {order.batches?.map(batch => {
-              if (!batch.finishingData || !batch.finishingData.actualQuantities) return null;
-              return (batch.finishingData.actualQuantities || []).map((sq, idx) => (
-                <tr key={`${batch.id}-${idx}`}>
-                  {idx === 0 && (
-                    <td className="border border-slate-300 p-2 font-bold text-center" rowSpan={batch.finishingData!.actualQuantities?.length || 1}>
-                      {batch.batchNumber}
-                    </td>
-                  )}
-                  <td className="border border-slate-300 p-2">{sq.color} - {sq.size}</td>
-                  <td className="border border-slate-300 p-2 text-center font-bold">{sq.quantity}</td>
-                  <td className="border border-slate-300 p-2"></td>
-                  <td className="border border-slate-300 p-2"></td>
-                  <td className="border border-slate-300 p-2"></td>
-                </tr>
-              ));
-            })}
+            {order.batches && order.batches.length > 0 ? (
+              order.batches.map(batch => {
+                const quantities = batch.ironingData?.actualQuantities?.length
+                  ? batch.ironingData.actualQuantities
+                  : (batch.finishingData?.actualQuantities || batch.sewingData?.actualQuantities || []);
+                
+                if (quantities.length === 0) return null;
+
+                return quantities.map((sq, idx) => {
+                  const receivedQty = sq.actualQuantity || sq.quantity || 0;
+                  return (
+                    <tr key={`${batch.id}-${idx}`}>
+                      {idx === 0 && (
+                        <td 
+                          className="font-bold text-center align-middle bg-slate-50" 
+                          rowSpan={quantities.length}
+                        >
+                          {batch.batchNumber}
+                        </td>
+                      )}
+                      <td className="text-center font-bold">{sq.size}</td>
+                      <td>{sq.color}</td>
+                      <td className="text-center font-bold text-slate-900 bg-slate-50/50">{receivedQty}</td>
+                      <td className="text-center font-bold text-emerald-800">
+                        {batch.ironingData?.status === 'مكتمل' ? receivedQty : ''}
+                      </td>
+                      <td className="text-center text-amber-800"></td>
+                      <td className="text-center text-red-800"></td>
+                      <td className="text-center text-slate-400 text-[8.5px]"></td>
+                    </tr>
+                  );
+                });
+              })
+            ) : (
+              <tr>
+                <td colSpan={8} className="text-center text-slate-500 py-2">لا توجد بيانات مكواة مسجلة</td>
+              </tr>
+            )}
+            <tr className="bg-slate-100 font-bold border-t-2 border-slate-700 text-slate-900">
+              <td colSpan={3}>الإجمالي العام:</td>
+              <td className="text-center text-indigo-950 font-black">{totalFinishingReceived}</td>
+              <td className="text-center text-emerald-950 font-black">
+                {order.batches?.every(b => b.ironingData?.status === 'مكتمل') ? totalFinishingReceived : ''}
+              </td>
+              <td colSpan={3}></td>
+            </tr>
           </tbody>
         </table>
-      </div>
+      </PrintSection>
 
-      <PrintFooter 
+      {/* Signatures */}
+      <PrintSignatures 
+        title="توقيعات واعتمادات صالة المكواة والبخار"
         signatures={[
-          { role: 'مستلم الخياطة / أمين المخزن' },
-          { role: 'مسؤول المكواة' },
-          { role: 'مراقب الجودة' }
-        ]}
+          { role: "مستلم التشطيب" },
+          { role: "مسئول صالة المكواة" },
+          { role: "مراقب الجودة" },
+          { role: "المستلم (صالة التغليف والتجهيز)" }
+        ]} 
       />
-    </div>
+    </PrintDocument>
   );
-};
+});
+
+IroningWorkOrderPrint.displayName = 'IroningWorkOrderPrint';

@@ -1,30 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { getCustomersSuppliers } from '../../lib/accountingStorage';
-import { CustomerSupplier } from '../../types';
-import { CATEGORIES } from '../../types';
-import { Calendar, Tag, User, Hash, ChevronDown } from 'lucide-react';
-
-interface OrderBasicInfoProps {
-  orderNumber: string;
-  orderDate: string;
-  styleName: string;
-  category: string;
-  customerName: string;
-  standardCutCostPerPiece?: number;
-  printEmbroideryStandardCost?: number;
-  standardSewingCostPerPiece?: number;
-  standardFinishingCostPerPiece?: number;
-  standardIroningCostPerPiece?: number;
-  sellingPrice?: number;
-  finishingInstructions?: string;
-  ironingInstructions?: string;
-  packingInstructions?: string;
-  onChange: (field: string, value: string) => void;
-  readOnly?: boolean;
-}
-
-import React, { useState, useEffect } from 'react';
-import { getCustomersSuppliers } from '../../lib/accountingStorage';
 import { CustomerSupplier, CATEGORIES } from '../../types';
 import {
   Calendar,

@@ -2,7 +2,7 @@ import React from 'react';
 import { ProductionOrder, BatchItem } from '../../types';
 import { calculateBatchAccessories } from '../../lib/prepUtils';
 import { CheckSquare, Square } from 'lucide-react';
-import { PrintDocument, PrintHeader, PrintSection, PrintSignatures } from '../print/layout';
+import { PrintDocument, PrintHeader, PrintSection, PrintInstructions, PrintSignatures } from '../print/layout';
 
 interface Props {
   order: ProductionOrder;
@@ -22,23 +22,39 @@ export const BatchPreparationWorkOrder: React.FC<Props> = ({ order, batch }) => 
   return (
     <PrintDocument>
       <PrintHeader
-        documentTitle="أمر تجهيز باتش"
+        documentTitle="أمر تشغيل وتجهيز باتش"
         orderNumber={order.orderNumber}
         modelName={order.styleName}
         clientName={order.customerName}
+        category={order.category}
         additionalInfo={[
           { label: 'رقم الباتش', value: batch.batchNumber },
-          { label: 'إجمالي الكمية', value: `${totalBatchQty} قطعة` }
+          { label: 'حالة التجهيز', value: batch.prepStatus || 'جاري' },
+          { label: 'إجمالي كمية الباتش', value: `${totalBatchQty} قطعة` }
         ]}
       />
 
-      <PrintSection title="تفاصيل كمية الباتش">
+      {/* Operational Instructions for Prep */}
+      <PrintInstructions
+        title="تعليمات تجهيز المستلزمات والصرف لخط الإنتاج"
+        instructions={[
+          'مراجعة كود ولون الإكسسوارات والمطابقة مع عينة البروفا المعتمدة من العميل.',
+          'حساب المنصرف بدقة وفقاً لحجم الباتش وإضافة نسبة هالك التشغيل المسموح بها.',
+          'تعبئة مستلزمات الباتش في كيس/صندوق مخصص ومميز برقم الباتش والموديل.',
+          'عدم تسليم الباتش لصالة الخياطة إلا بعد استيفاء توقيع استلام مسئول الخط.'
+        ]}
+      />
+
+      {/* 1. Batch Sizes and Quantities */}
+      <PrintSection title="1. بيان كميات المقاسات والألوان للباتش" badge={`إجمالي الباتش: ${totalBatchQty} قطعة`}>
         <table>
           <thead>
             <tr>
-              <th>المقاس</th>
+              <th className="w-28 text-center">المقاس</th>
               <th>اللون</th>
-              <th className="text-center">الكمية</th>
+              <th className="text-center w-36">الكمية المقررة للباتش</th>
+              <th className="text-center w-36">الكمية المسلمة فعلياً</th>
+              <th className="text-center">ملاحظات الفحص</th>
             </tr>
           </thead>
           <tbody>
@@ -47,32 +63,40 @@ export const BatchPreparationWorkOrder: React.FC<Props> = ({ order, batch }) => 
                 {s.variants.map((v, i) => (
                   <tr key={`${s.size}-${v.color}`}>
                     {i === 0 && (
-                      <td className="font-bold text-center align-middle" rowSpan={s.variants.length}>{s.size}</td>
+                      <td className="font-bold text-center align-middle bg-slate-50" rowSpan={s.variants.length}>
+                        {s.size}
+                      </td>
                     )}
-                    <td className="text-center">{v.color}</td>
-                    <td className="font-bold text-center">{v.quantity}</td>
+                    <td className="font-medium">{v.color}</td>
+                    <td className="font-bold text-center text-slate-900">{v.quantity}</td>
+                    <td className="font-bold text-center text-indigo-900">{v.quantity}</td>
+                    <td className="text-center text-slate-400 text-[8.5px]"></td>
                   </tr>
                 ))}
               </React.Fragment>
             ))}
-            <tr className="bg-slate-50 font-bold">
+            <tr className="bg-slate-100 font-bold border-t-2 border-slate-700 text-slate-900">
               <td colSpan={2}>إجمالي الباتش:</td>
-              <td className="text-center text-indigo-700">{totalBatchQty}</td>
+              <td className="text-center text-indigo-950 font-black">{totalBatchQty}</td>
+              <td className="text-center text-indigo-950 font-black">{totalBatchQty}</td>
+              <td></td>
             </tr>
           </tbody>
         </table>
       </PrintSection>
 
-      <PrintSection title="الإكسسوارات المطلوبة">
+      {/* 2. Accessories & Trims */}
+      <PrintSection title="2. جدول مستلزمات وإكسسوارات الباتش المطلوبة والصرف الفعلي" avoidBreak>
         {accessories.length > 0 ? (
           <table>
             <thead>
               <tr>
-                <th>الإكسسوار</th>
-                <th className="text-center">الوحدة</th>
-                <th className="text-center">المطلوب للقطعة</th>
-                <th className="text-center">المطلوب للباتش</th>
-                <th className="text-center">حالة التجهيز</th>
+                <th>اسم الإكسسوار / الصنف</th>
+                <th className="text-center w-16">الوحدة</th>
+                <th className="text-center w-28">المعدل للقطعة</th>
+                <th className="text-center w-32">المطلوب للباتش</th>
+                <th className="text-center w-32">المنصرف الفعلي</th>
+                <th className="text-center w-28">حالة التجهيز</th>
               </tr>
             </thead>
             <tbody>
@@ -83,15 +107,15 @@ export const BatchPreparationWorkOrder: React.FC<Props> = ({ order, batch }) => 
                 
                 return (
                   <tr key={acc.accessoryId || acc.accessoryName}>
-                    <td className="font-medium">{acc.accessoryName}</td>
+                    <td className="font-semibold">{acc.accessoryName}</td>
                     <td className="text-center text-slate-600">{acc.unit}</td>
-                    <td className="text-center text-slate-600">{acc.standardPerPiece}</td>
-                    <td className="text-center font-bold text-indigo-700">{roundedRequired}</td>
+                    <td className="text-center text-slate-700">{acc.standardPerPiece}</td>
+                    <td className="text-center font-bold text-indigo-950 bg-slate-50/50">{roundedRequired}</td>
+                    <td className="text-center font-bold text-slate-900">{roundedRequired}</td>
                     <td className="text-center">
-                      <div className="flex justify-center items-center gap-1">
-                        {acc.isPrepared ? <CheckSquare className="w-3 h-3 text-slate-800" /> : <Square className="w-3 h-3 text-slate-400" />}
-                        <span className="text-[9px]">{acc.isPrepared ? 'تم التجهيز' : 'غير مجهز'}</span>
-                      </div>
+                      <span className={`inline-block text-[9px] px-2 py-0.5 rounded font-bold ${acc.isPrepared ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
+                        {acc.isPrepared ? '✓ تم التجهيز' : 'قيد الصرف'}
+                      </span>
                     </td>
                   </tr>
                 );
@@ -99,15 +123,27 @@ export const BatchPreparationWorkOrder: React.FC<Props> = ({ order, batch }) => 
             </tbody>
           </table>
         ) : (
-          <p className="text-slate-500 italic text-[10px]">لا توجد إكسسوارات مطلوبة لهذا الأمر.</p>
+          <p className="text-slate-500 italic text-[9.5px] p-2 bg-slate-50 border border-slate-200 rounded">
+            لا توجد إكسسوارات مسجلة لهذا الأمر.
+          </p>
         )}
       </PrintSection>
 
-      <PrintSection title="ملاحظات التجهيز" avoidBreak>
-        <div className="border border-slate-300 rounded-lg h-24 p-2 bg-slate-50"></div>
-      </PrintSection>
-
-      <PrintSignatures signatures={[{ role: "إعداد" }, { role: "تجهيز" }, { role: "مراجعة" }, { role: "اعتماد" }]} />
+      {/* Signatures */}
+      <PrintSignatures 
+        title="توقيعات واعتمادات مرحلة التجهيز"
+        signatures={[
+          { role: "مسئول تجهيز الإكسسوارات" },
+          { role: "أمين مخزن المستلزمات" },
+          { role: "استلام مسئول الخط / الخياطة" },
+          { 
+            role: "اعتماد إدارة التجهيز والإنتاج",
+            name: batch.prepApprovedBy || order.prepApprovedBy,
+            date: batch.prepApprovedAt || order.prepApprovedAt,
+            isApproved: !!(batch.prepApprovedBy || order.prepApprovedBy)
+          }
+        ]} 
+      />
     </PrintDocument>
   );
 };

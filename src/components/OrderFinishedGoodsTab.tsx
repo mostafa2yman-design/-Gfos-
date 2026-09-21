@@ -16,6 +16,7 @@ import {
   Sparkles,
   PackageOpen,
 } from "lucide-react";
+import { PrintDocument, PrintHeader, PrintSection, PrintSignatures } from "./print/layout";
 
 interface OrderFinishedGoodsTabProps {
   order: ProductionOrder;
@@ -37,7 +38,8 @@ export const OrderFinishedGoodsTab: React.FC<OrderFinishedGoodsTabProps> = ({
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <>
+      <div className="p-6 space-y-6 print:hidden">
       {/* Top Banner / Actions */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div className="flex items-center gap-3">
@@ -362,5 +364,121 @@ export const OrderFinishedGoodsTab: React.FC<OrderFinishedGoodsTabProps> = ({
         </div>
       )}
     </div>
+
+    {/* A4 Print Layout */}
+    <div className="hidden print:block print:w-full" dir="rtl">
+      <PrintDocument>
+        <PrintHeader
+          orderNumber={order.orderNumber}
+          title="بيان تسليم واستلام المنتجات التامة"
+          subtitle={`الموديل: ${order.styleName || '—'}`}
+          documentType="إذن مخزن منتج تام"
+          classification="مخزن المنتجات التامة"
+          metaItems={[
+            { label: 'العميل', value: order.customerName || 'غير محدد' },
+            { label: 'حالة الاستلام', value: isApproved ? 'معتمد بالمخزن' : 'قيد التغليف' },
+            { label: 'إجمالي القطع التامة', value: `${item.totalPieces.toLocaleString('ar-EG')} قطعة`, highlight: true },
+            { label: 'تاريخ الاعتماد', value: order.packingApprovedAt ? new Date(order.packingApprovedAt).toLocaleDateString('ar-EG') : new Date().toLocaleDateString('ar-EG') },
+          ]}
+        />
+
+        <PrintSection title="جدول تفاصيل المنتجات التامة بالمقاسات والألوان">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-100 text-slate-800">
+                <th className="border border-slate-300 p-2 text-right">اللون</th>
+                {item.sizes.map((s) => (
+                  <th key={s} className="border border-slate-300 p-2 text-center">
+                    {s}
+                  </th>
+                ))}
+                <th className="border border-slate-300 p-2 text-center font-black">إجمالي اللون</th>
+              </tr>
+            </thead>
+            <tbody>
+              {item.colors.length === 0 ? (
+                <tr>
+                  <td colSpan={item.sizes.length + 2} className="border border-slate-300 p-3 text-center text-slate-500">
+                    لا توجد بيانات تفصيلية
+                  </td>
+                </tr>
+              ) : (
+                item.colors.map((color) => {
+                  const colorTotal = item.colorBreakdown.find((c) => c.color === color)?.totalQuantity || 0;
+                  return (
+                    <tr key={color} className="hover:bg-slate-50">
+                      <td className="border border-slate-300 p-2 font-bold text-slate-800">{color}</td>
+                      {item.sizes.map((s) => (
+                        <td key={s} className="border border-slate-300 p-2 text-center">
+                          {item.matrix[color]?.[s] || 0}
+                        </td>
+                      ))}
+                      <td className="border border-slate-300 p-2 text-center font-bold text-slate-900 bg-slate-50">
+                        {colorTotal}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+            <tfoot>
+              <tr className="bg-slate-100 font-bold">
+                <td className="border border-slate-300 p-2 text-right font-black">إجمالي المقاس:</td>
+                {item.sizes.map((s) => (
+                  <td key={s} className="border border-slate-300 p-2 text-center font-black">
+                    {item.sizeTotals[s] || 0}
+                  </td>
+                ))}
+                <td className="border border-slate-300 p-2 text-center font-black text-slate-900 bg-slate-200">
+                  {item.totalPieces} قطعة
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </PrintSection>
+
+        {item.invoices && item.invoices.length > 0 && (
+          <PrintSection title="بيانات أذون التسليم وفواتير التغليف المعتمدة">
+            <table className="w-full text-xs border-collapse">
+              <thead>
+                <tr className="bg-slate-100 text-slate-800">
+                  <th className="border border-slate-300 p-2 text-center w-12">#</th>
+                  <th className="border border-slate-300 p-2 text-right">رقم إذن التسليم</th>
+                  <th className="border border-slate-300 p-2 text-right">الجهة المستلمة</th>
+                  <th className="border border-slate-300 p-2 text-center">تاريخ الإذن</th>
+                  <th className="border border-slate-300 p-2 text-center">الكمية المسلمة</th>
+                </tr>
+              </thead>
+              <tbody>
+                {item.invoices.map((inv, idx) => {
+                  const invTotal = (inv.variants || []).reduce(
+                    (sum, v) => sum + (Number(v.quantity) || 0),
+                    0
+                  );
+                  return (
+                    <tr key={inv.id || idx}>
+                      <td className="border border-slate-300 p-2 text-center font-bold">{idx + 1}</td>
+                      <td className="border border-slate-300 p-2 font-mono font-bold">{inv.id}</td>
+                      <td className="border border-slate-300 p-2">{inv.customerName || order.customerName}</td>
+                      <td className="border border-slate-300 p-2 text-center">{inv.date}</td>
+                      <td className="border border-slate-300 p-2 text-center font-black">{invTotal} قطعة</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </PrintSection>
+        )}
+
+        <PrintSignatures
+          signatures={[
+            { role: 'مسئول التغليف والفرز', name: 'التسليم' },
+            { role: 'أمين مخزن المنتجات التامة', name: 'الاستلام المخزني' },
+            { role: 'العميل / مندوب الاستلام', name: 'التوقيع بالاستلام' },
+          ]}
+        />
+      </PrintDocument>
+    </div>
+  </>
   );
 };

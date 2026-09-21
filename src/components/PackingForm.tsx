@@ -311,8 +311,9 @@ export const PackingForm: React.FC<Props> = ({ orderId, onSaved, onNavigateToAcc
   if (!order) return <div>جاري التحميل...</div>;
 
   return (
-    <div className="space-y-6">
-      {/* Approval Status Banner */}
+    <>
+      <div className="space-y-6 print:hidden">
+        {/* Approval Status Banner */}
       {isApproved ? (
         <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 sm:p-5 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shadow-sm">
           <div className="flex items-center gap-3.5">
@@ -619,6 +620,7 @@ export const PackingForm: React.FC<Props> = ({ orderId, onSaved, onNavigateToAcc
           ))
         )}
       </div>
+      </div>
 
       {toastConfig && (
         <Toast
@@ -628,13 +630,11 @@ export const PackingForm: React.FC<Props> = ({ orderId, onSaved, onNavigateToAcc
         />
       )}
 
-      {printing && (
-        <div className="fixed inset-0 bg-white z-50 overflow-y-auto print:block">
-          <div >
-            <PackingWorkOrderPrint order={order} invoices={invoices} />
-          </div>
+      {printing && order && (
+        <div className="hidden print:block print:w-full">
+          <PackingWorkOrderPrint order={order} invoices={invoices} />
         </div>
       )}
-    </div>
+    </>
   );
 };

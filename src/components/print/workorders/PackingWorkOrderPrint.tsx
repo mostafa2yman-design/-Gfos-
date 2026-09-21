@@ -1,84 +1,96 @@
-import React from 'react';
+import React, { forwardRef } from 'react';
 import { ProductionOrder, PackingInvoice } from '../../../types';
-import { PrintHeader } from '../layout/PrintHeader';
-import { PrintSignatures } from '../layout/PrintSignatures';
+import { PrintDocument, PrintHeader, PrintSection, PrintInstructions, PrintSignatures } from '../layout';
 
 interface Props {
   order: ProductionOrder;
   invoices: PackingInvoice[];
 }
 
-export const PackingWorkOrderPrint: React.FC<Props> = ({ order, invoices }) => {
+export const PackingWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order, invoices }, ref) => {
   const uniqueSizes = order.sizes.map(s => s.size) || [];
   const uniqueColors = Array.from(new Set(order.sizes.flatMap(s => s.variants.map(v => v.color)) || []));
 
+  // Calculate total packed across all invoices
+  let grandTotalPacked = 0;
+  invoices.forEach(inv => {
+    inv.variants.forEach(v => {
+      grandTotalPacked += (v.quantity || 0);
+    });
+  });
+
   return (
-    <div className="print-page">
-      <div className="p-8 bg-white min-h-screen font-sans" dir="rtl">
-        <PrintHeader title="أمر تغليف وتجهيز" />
+    <PrintDocument ref={ref}>
+      <PrintHeader
+        documentTitle="أمر تشغيل التغليف وتجهيز الشحنات"
+        orderNumber={order.orderNumber}
+        modelName={order.styleName}
+        clientName={order.customerName}
+        category={order.category}
+        status={order.status}
+        additionalInfo={[
+          { label: 'عدد الفواتير/الإذون', value: `${invoices.length} إذن` },
+          { label: 'إجمالي المجهز للتسليم', value: `${grandTotalPacked} قطعة` }
+        ]}
+      />
 
-        <div className="grid grid-cols-2 gap-6 mb-8 mt-6">
-          <div className="border border-slate-800 p-4 rounded-lg">
-            <h3 className="font-bold text-lg mb-4 border-b border-slate-800 pb-2">بيانات الأمر الأساسية</h3>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-slate-600">رقم الأمر</p>
-                <p className="font-bold text-lg">{order.orderNumber}</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-600">تاريخ الأمر</p>
-                <p className="font-bold">{order.orderDate}</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-600">اسم الموديل</p>
-                <p className="font-bold">{order.styleName}</p>
-              </div>
-              <div>
-                <p className="text-sm text-slate-600">العميل</p>
-                <p className="font-bold">{order.customerName}</p>
-              </div>
-            </div>
-          </div>
-          <div className="border border-slate-800 p-4 rounded-lg">
-            <h3 className="font-bold text-lg mb-2 border-b border-slate-800 pb-2">تعليمات التغليف</h3>
-            <p className="whitespace-pre-wrap">{order.packingInstructions || 'لا توجد تعليمات خاصة بالتغليف.'}</p>
-          </div>
-        </div>
+      {/* Operational Instructions for Packing */}
+      <PrintInstructions
+        title="تعليمات التغليف والتعبئة والمواصفات الفنية"
+        instructions={order.packingInstructions || [
+          'تطبيق كود التغليف المعتمد (فردي بكيس سيلوفان شفاف / تعليق بشماعة / دستة مجمعة).',
+          'وضع الليبل التعريفي وكود الصنف والباركود الملصق على الكيس الخارجي بدقة.',
+          'رص القطع داخل كراتين التصدير/الشحن مع وضع بطاقة بيان بمحتويات الكرتونة (Packing List).',
+          'غلق الكراتين بشريط لاصق مميز والتأكد من جفاف الكراتين وسلامتها قبل توريدها لمخزن التام.'
+        ]}
+      />
 
-        <h3 className="font-bold text-xl mb-4 border-b-2 border-slate-800 pb-2">تفاصيل الفواتير المطلوب تجهيزها</h3>
-        
+      {/* Details of Packing Invoices */}
+      <PrintSection title="تفاصيل أذون وفواتير التجهيز والتغليف" badge={`إجمالي: ${grandTotalPacked} قطعة`}>
         {invoices.length === 0 ? (
-          <p className="text-center py-8 text-slate-500">لا توجد فواتير تجهيز مسجلة.</p>
+          <p className="text-center py-4 text-slate-500 bg-slate-50 border border-slate-200 rounded">
+            لا توجد فواتير تجهيز مسجلة لهذا الأمر حتى الآن.
+          </p>
         ) : (
           invoices.map((inv, idx) => {
-            // Check if this invoice has any quantities > 0
             const hasQuantities = inv.variants.some(v => v.quantity > 0);
             if (!hasQuantities) return null;
 
+            const invoiceTotal = inv.variants.reduce((sum, v) => sum + (v.quantity || 0), 0);
+
             return (
-              <div key={inv.id} className="mb-8 border-2 border-slate-800 rounded-xl overflow-hidden break-inside-avoid">
-                <div className="bg-slate-100 p-4 border-b-2 border-slate-800 flex justify-between items-center">
-                  <h4 className="font-bold text-lg">فاتورة تجهيز #{idx + 1}</h4>
-                  <div className="flex gap-6">
+              <div key={inv.id} className="mb-4 border border-slate-300 rounded overflow-hidden break-inside-avoid">
+                {/* Invoice Sub-Header */}
+                <div className="bg-slate-100 p-2 border-b border-slate-300 flex justify-between items-center text-[10.5px]">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-slate-900">فاتورة / إذن تجهيز رقم ({idx + 1}):</span>
+                    <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-300 font-bold">{inv.id}</span>
+                  </div>
+                  <div className="flex gap-4">
                     <div>
-                      <span className="text-sm text-slate-600 ml-2">تاريخ الفاتورة:</span>
-                      <span className="font-bold">{inv.date}</span>
+                      <span className="text-slate-600 ml-1">تاريخ الإذن:</span>
+                      <span className="font-semibold text-slate-900">{inv.date}</span>
                     </div>
                     <div>
-                      <span className="text-sm text-slate-600 ml-2">العميل:</span>
-                      <span className="font-bold">{inv.customerName}</span>
+                      <span className="text-slate-600 ml-1">العميل المستلم:</span>
+                      <span className="font-semibold text-slate-900">{inv.customerName || order.customerName}</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-600 ml-1">الكمية:</span>
+                      <span className="font-bold text-indigo-900">{invoiceTotal} قطعة</span>
                     </div>
                   </div>
                 </div>
                 
-                <table className="w-full text-center border-collapse">
+                {/* Distribution Matrix Table for Invoice */}
+                <table className="mb-0">
                   <thead>
-                    <tr className="bg-slate-50">
-                      <th className="border border-slate-800 p-2 font-bold w-32">اللون / المقاس</th>
+                    <tr>
+                      <th className="w-28 text-center bg-slate-200">اللون / المقاس</th>
                       {uniqueSizes.map(size => (
-                        <th key={size} className="border border-slate-800 p-2 font-bold">{size}</th>
+                        <th key={size} className="text-center">{size}</th>
                       ))}
-                      <th className="border border-slate-800 p-2 font-bold bg-slate-100 w-24">الإجمالي</th>
+                      <th className="w-24 text-center bg-slate-200">الإجمالي</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -93,8 +105,8 @@ export const PackingWorkOrderPrint: React.FC<Props> = ({ order, invoices }) => {
                         if (qty > 0) hasColorQuantities = true;
                         
                         return (
-                          <td key={size} className="border border-slate-800 p-2 font-semibold">
-                            {qty > 0 ? qty : '-'}
+                          <td key={size} className="text-center font-semibold">
+                            {qty > 0 ? qty : '—'}
                           </td>
                         );
                       });
@@ -103,27 +115,27 @@ export const PackingWorkOrderPrint: React.FC<Props> = ({ order, invoices }) => {
 
                       return (
                         <tr key={color}>
-                          <td className="border border-slate-800 p-2 font-bold bg-slate-50">{color}</td>
+                          <td className="font-bold bg-slate-50">{color}</td>
                           {cells}
-                          <td className="border border-slate-800 p-2 font-bold bg-slate-100">{colorTotal}</td>
+                          <td className="text-center font-bold bg-slate-100 text-indigo-900">{colorTotal}</td>
                         </tr>
                       );
                     })}
-                    {/* Add totals row */}
-                    <tr className="bg-slate-100">
-                      <td className="border border-slate-800 p-2 font-bold">إجمالي المقاس</td>
+                    {/* Invoice Totals Row */}
+                    <tr className="bg-slate-100 font-bold border-t border-slate-400">
+                      <td className="bg-slate-200">إجمالي المقاس:</td>
                       {uniqueSizes.map(size => {
                         const sizeTotal = inv.variants
                           .filter(v => v.size === size)
                           .reduce((sum, v) => sum + (v.quantity || 0), 0);
                         return (
-                          <td key={size} className="border border-slate-800 p-2 font-bold">
-                            {sizeTotal > 0 ? sizeTotal : '-'}
+                          <td key={size} className="text-center text-indigo-900">
+                            {sizeTotal > 0 ? sizeTotal : '—'}
                           </td>
                         );
                       })}
-                      <td className="border border-slate-800 p-2 font-bold text-lg">
-                        {inv.variants.reduce((sum, v) => sum + (v.quantity || 0), 0)}
+                      <td className="text-center bg-slate-300 font-black text-indigo-950">
+                        {invoiceTotal}
                       </td>
                     </tr>
                   </tbody>
@@ -132,11 +144,25 @@ export const PackingWorkOrderPrint: React.FC<Props> = ({ order, invoices }) => {
             );
           })
         )}
+      </PrintSection>
 
-        <div className="mt-12">
-          <PrintSignatures signatures={[{ role: "مسئول التغليف" }, { role: "المستلم" }]} />
-        </div>
-      </div>
-    </div>
+      {/* Signatures */}
+      <PrintSignatures 
+        title="توقيعات واعتمادات صالة التغليف ومخزن تام الصنع"
+        signatures={[
+          { role: "مسئول صالة التغليف" },
+          { role: "مراقب الجودة والتعبئة" },
+          { role: "أمين مخزن المنتجات التامة" },
+          { 
+            role: "اعتماد مدير الإنتاج والتسليم",
+            name: order.packingApprovedBy,
+            date: order.packingApprovedAt,
+            isApproved: !!order.packingApprovedBy
+          }
+        ]} 
+      />
+    </PrintDocument>
   );
-};
+});
+
+PackingWorkOrderPrint.displayName = 'PackingWorkOrderPrint';

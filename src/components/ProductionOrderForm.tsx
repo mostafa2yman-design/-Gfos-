@@ -32,7 +32,9 @@ import {
   LayoutGrid,
   FileSpreadsheet,
   CheckSquare,
+  Printer,
 } from "lucide-react";
+import { ProductionOrderPrint } from "./print/ProductionOrderPrint";
 
 import * as Cmd from "../lib/productionOrderCommands";
 interface ProductionOrderFormProps {
@@ -81,6 +83,15 @@ export function ProductionOrderForm({
   const [isDistributeModalOpen, setIsDistributeModalOpen] = useState(false);
   const [distributeColor, setDistributeColor] = useState('');
   const [distributeQty, setDistributeQty] = useState<number | ''>('');
+  const [isPrinting, setIsPrinting] = useState(false);
+
+  const handlePrintOrder = () => {
+    setIsPrinting(true);
+    setTimeout(() => {
+      window.print();
+      setIsPrinting(false);
+    }, 150);
+  };
 
   useEffect(() => {
     const load = async () => {
@@ -480,8 +491,9 @@ export function ProductionOrderForm({
 
   const fabricSummary = calculateFabricAnalysis(order, order.cutData);
   return (
-    <div className="space-y-6">
-      <ConfirmDialog
+    <>
+      <div className="space-y-6 print:hidden">
+        <ConfirmDialog
         isOpen={confirmConfig?.isOpen || false}
         message={confirmConfig?.message || ""}
         onConfirm={() => confirmConfig?.onConfirm()}
@@ -671,6 +683,16 @@ export function ProductionOrderForm({
               حذف
             </button>
           )}
+
+          <button
+            type="button"
+            onClick={handlePrintOrder}
+            className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-900 text-white px-3.5 py-2 rounded-xl transition-colors shadow-2xs font-bold text-xs cursor-pointer"
+            title="طباعة أمر التشغيل والإنتاج بتنسيق A4"
+          >
+            <Printer className="w-4 h-4" />
+            <span>طباعة الأمر (A4)</span>
+          </button>
 
           {isReadOnly ? (
             <button
@@ -1257,5 +1279,12 @@ export function ProductionOrderForm({
         </div>
       </div>
     </div>
+
+    {isPrinting && (
+      <div className="hidden print:block print:w-full">
+        <ProductionOrderPrint order={order} />
+      </div>
+    )}
+  </>
   );
 }

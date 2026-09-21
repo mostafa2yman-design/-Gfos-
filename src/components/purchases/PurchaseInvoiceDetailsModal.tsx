@@ -101,7 +101,7 @@ export function PurchaseInvoiceDetailsModal({ invoice, onClose, onEdit }: Purcha
         </div>
 
         {/* Printable / Viewable Content */}
-        <div className="p-6 md:p-8 space-y-6 overflow-y-auto print:p-0 print:overflow-visible text-right">
+        <div className="gfos-print-document p-6 md:p-8 space-y-6 overflow-y-auto print:p-0 print:overflow-visible text-right">
           {/* Print Header */}
           <div className="border-b border-slate-200 pb-6">
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
@@ -260,6 +260,25 @@ export function PurchaseInvoiceDetailsModal({ invoice, onClose, onEdit }: Purcha
                   </span>
                 </div>
               </div>
+            </div>
+          </div>
+
+          {/* Print Signatures */}
+          <div className="hidden print:grid grid-cols-3 gap-4 pt-4 border-t-2 border-slate-800 text-center text-xs break-inside-avoid">
+            <div className="border border-slate-300 rounded p-2 bg-slate-50">
+              <p className="font-bold text-slate-800 mb-6">مسئول المشتريات والتوريدات</p>
+              <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto mb-1"></div>
+              <p className="text-[9px] text-slate-500">التوقيع والاعتماد</p>
+            </div>
+            <div className="border border-slate-300 rounded p-2 bg-slate-50">
+              <p className="font-bold text-slate-800 mb-6">أمين مخزن الخامات (الاستلام)</p>
+              <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto mb-1"></div>
+              <p className="text-[9px] text-slate-500">التوقيع ورقم إذن الإضافة</p>
+            </div>
+            <div className="border border-slate-300 rounded p-2 bg-slate-50">
+              <p className="font-bold text-slate-800 mb-6">المراجعة المالية والحسابات</p>
+              <div className="border-b border-dashed border-slate-400 w-3/4 mx-auto mb-1"></div>
+              <p className="text-[9px] text-slate-500">التوقيع وتاريخ الصرف</p>
             </div>
           </div>
         </div>

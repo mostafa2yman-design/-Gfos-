@@ -1,19 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Variant } from '../../types';
-import { Trash2, X, Check } from 'lucide-react';
-import { addCustomColor } from '../../lib/colors';
-
-interface VariantRowProps {
-  key?: React.Key;
-  variant: Variant;
-  availableColors: string[];
-  onChange: (field: keyof Variant, value: string | number) => void;
-  onRemove: () => void;
-  readOnly?: boolean;
-}
-
-import React, { useState, useEffect } from 'react';
-import { Variant } from '../../types';
 import { Trash2, X, Check, Palette } from 'lucide-react';
 import { addCustomColor } from '../../lib/colors';
 

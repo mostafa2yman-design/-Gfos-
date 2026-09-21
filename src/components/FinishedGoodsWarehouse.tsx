@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { eventBus } from "../lib/events/eventBus";
 import { FinishedProductItem, ProductColorSummary, processOrderItem } from "../lib/finishedGoodsUtils";
+import { PrintDocument, PrintHeader, PrintSection, PrintSignatures } from "./print/layout";
 
 interface Props {
   onNavigateToOrder?: (orderId: string, tab?: string) => void;
@@ -136,7 +137,8 @@ export const FinishedGoodsWarehouse: React.FC<Props> = ({ onNavigateToOrder }) =
   };
 
   return (
-    <div className="space-y-6 pb-12" dir="rtl">
+    <>
+      <div className="space-y-6 pb-12 print:hidden" dir="rtl">
       {/* Header */}
       <div className="bg-gradient-to-l from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-6 shadow-md border border-slate-800">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -582,5 +584,80 @@ export const FinishedGoodsWarehouse: React.FC<Props> = ({ onNavigateToOrder }) =
         </div>
       )}
     </div>
+
+    {/* A4 Print Document for Finished Goods Inventory */}
+    <div className="hidden print:block print:w-full" dir="rtl">
+      <PrintDocument>
+        <PrintHeader
+          orderNumber="WH-FG-INV"
+          title="تقرير جرد مخزن المنتجات التامة"
+          subtitle="بيان الأرصدة والموديلات الجاهزة للتسليم"
+          documentType="تقرير جرد مخزني"
+          classification="مخازن المنتجات التامة"
+          metaItems={[
+            { label: 'تاريخ الجرد', value: new Date().toLocaleDateString('ar-EG', { year: 'numeric', month: 'long', day: 'numeric' }) },
+            { label: 'إجمالي الموديلات', value: `${totalApprovedPieces > 0 ? totalApprovedModels : 0} موديل` },
+            { label: 'إجمالي القطع الجاهزة', value: `${totalApprovedPieces.toLocaleString('ar-EG')} قطعة`, highlight: true },
+            { label: 'عدد العملاء', value: `${uniqueCustomersCount} عميل` },
+          ]}
+        />
+
+        <PrintSection title="جدول أرصدة الموديلات التامة المعتمدة">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-100 text-slate-800">
+                <th className="border border-slate-300 p-2 text-center w-10">#</th>
+                <th className="border border-slate-300 p-2 text-right">رقم أمر الإنتاج</th>
+                <th className="border border-slate-300 p-2 text-right">اسم الموديل</th>
+                <th className="border border-slate-300 p-2 text-right">العميل</th>
+                <th className="border border-slate-300 p-2 text-center">تاريخ الاعتماد</th>
+                <th className="border border-slate-300 p-2 text-center">عدد الألوان</th>
+                <th className="border border-slate-300 p-2 text-center">الكمية التامة</th>
+              </tr>
+            </thead>
+            <tbody>
+              {approvedItems.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="border border-slate-300 p-4 text-center text-slate-500">لا توجد منتجات تامة معتمدة حالياً بالمخزن</td>
+                </tr>
+              ) : (
+                approvedItems.map((item, idx) => (
+                  <tr key={item.order.id || idx} className="hover:bg-slate-50">
+                    <td className="border border-slate-300 p-2 text-center font-bold">{idx + 1}</td>
+                    <td className="border border-slate-300 p-2 font-mono font-bold text-slate-900">{item.order.orderNumber}</td>
+                    <td className="border border-slate-300 p-2 font-bold text-slate-800">{item.order.styleName}</td>
+                    <td className="border border-slate-300 p-2 text-slate-700">{item.order.customerName || 'عام'}</td>
+                    <td className="border border-slate-300 p-2 text-center text-[10px] text-slate-600">
+                      {item.order.packingApprovedAt ? new Date(item.order.packingApprovedAt).toLocaleDateString('ar-EG') : '—'}
+                    </td>
+                    <td className="border border-slate-300 p-2 text-center">{item.colors.length}</td>
+                    <td className="border border-slate-300 p-2 text-center font-black text-slate-900">{item.totalPieces.toLocaleString('ar-EG')}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+            <tfoot>
+              <tr className="bg-slate-100 font-bold">
+                <td colSpan={6} className="border border-slate-300 p-2 text-right font-black text-slate-900">
+                  الإجمالي العام للمنتجات التامة بالمخزن:
+                </td>
+                <td className="border border-slate-300 p-2 text-center font-black text-slate-900 text-sm">
+                  {totalApprovedPieces.toLocaleString('ar-EG')} قطعة
+                </td>
+              </tr>
+            </tfoot>
+          </table>
+        </PrintSection>
+
+        <PrintSignatures
+          signatures={[
+            { role: 'أمين مخزن المنتجات التامة', name: 'المسئول الفعلي' },
+            { role: 'مراقب الجودة والتغليف', name: 'الاعتماد' },
+            { role: 'إدارة العمليات والإنتاج', name: 'الاعتماد العام' },
+          ]}
+        />
+      </PrintDocument>
+    </div>
+  </>
   );
 };

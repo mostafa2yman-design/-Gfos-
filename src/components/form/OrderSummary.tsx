@@ -1,13 +1,5 @@
 import React from 'react';
 import { SizeData } from '../../types';
-
-interface OrderSummaryProps {
-  sizes: SizeData[];
-  actualSizes?: SizeData[];
-}
-
-import React from 'react';
-import { SizeData } from '../../types';
 import { Layers, Palette, Package, CheckCircle2, TrendingUp } from 'lucide-react';
 
 interface OrderSummaryProps {

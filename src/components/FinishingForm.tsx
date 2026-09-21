@@ -220,16 +220,17 @@ export const FinishingForm: React.FC<Props> = ({ orderId, onSaved }) => {
   const isOrderReadOnly = isFullyApproved;
 
   return (
-    <div className="space-y-6 relative">
-      <ConfirmDialog
-        isOpen={confirmConfig?.isOpen || false}
-        message={confirmConfig?.message || ""}
-        onConfirm={() => confirmConfig?.onConfirm()}
-        onCancel={() => setConfirmConfig(null)}
-      />
-      {toastConfig && <Toast message={toastConfig.message} type={toastConfig.type} onClose={() => setToastConfig(null)} />}
+    <>
+      <div className="space-y-6 relative print:hidden">
+        <ConfirmDialog
+          isOpen={confirmConfig?.isOpen || false}
+          message={confirmConfig?.message || ""}
+          onConfirm={() => confirmConfig?.onConfirm()}
+          onCancel={() => setConfirmConfig(null)}
+        />
+        {toastConfig && <Toast message={toastConfig.message} type={toastConfig.type} onClose={() => setToastConfig(null)} />}
 
-      <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+        <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
         <div className="p-6 border-b border-slate-200 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
           <div>
             <h3 className="text-lg font-bold text-slate-800 flex items-center gap-2">
@@ -545,12 +546,14 @@ export const FinishingForm: React.FC<Props> = ({ orderId, onSaved }) => {
         )}
       </div>
       
-      {/* Hidden Print Container */}
-      <div className="hidden">
-        {printing && (
-          <FinishingWorkOrderPrint order={order} />
-        )}
       </div>
-    </div>
+      
+      {/* Hidden Print Container */}
+      {printing && order && (
+        <div className="hidden print:block print:w-full">
+          <FinishingWorkOrderPrint order={order} />
+        </div>
+      )}
+    </>
   );
 };

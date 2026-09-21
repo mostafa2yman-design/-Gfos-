@@ -220,8 +220,9 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
   const isOrderReadOnly = isFullyApproved;
 
   return (
-    <div className="space-y-6 relative">
-      <ConfirmDialog
+    <>
+      <div className="space-y-6 relative print:hidden">
+        <ConfirmDialog
         isOpen={confirmConfig?.isOpen || false}
         message={confirmConfig?.message || ""}
         onConfirm={() => confirmConfig?.onConfirm()}
@@ -546,12 +547,14 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
         )}
       </div>
       
-      {/* Hidden Print Container */}
-      <div className="hidden">
-        {printing && (
-          <IroningWorkOrderPrint order={order} />
-        )}
       </div>
-    </div>
+      
+      {/* Hidden Print Container */}
+      {printing && order && (
+        <div className="hidden print:block print:w-full">
+          <IroningWorkOrderPrint order={order} />
+        </div>
+      )}
+    </>
   );
 };

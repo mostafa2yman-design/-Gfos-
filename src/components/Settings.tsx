@@ -25,10 +25,23 @@ import {
   Lock,
   Layers,
   FileSpreadsheet,
-  Trash2
+  Trash2,
+  RotateCcw,
+  Receipt,
+  ShoppingCart,
+  Wallet,
+  FileText,
+  Boxes
 } from "lucide-react";
-import { getOrders, deleteAllOrders, exportData, importData, getFactorySettings, saveFactorySettings } from '../lib/storage';
+import { getOrders, exportData, importData, getFactorySettings, saveFactorySettings } from '../lib/storage';
 import { getAllBackups, BackupRecord, setBackupDirectoryHandle, getBackupDirectoryHandle, verifyDirectoryPermission } from '../lib/backupManager';
+import { 
+  getSystemDataCounts, 
+  resetEntireSystem, 
+  SystemDataCounts, 
+  SystemResetOptions, 
+  DEFAULT_RESET_OPTIONS 
+} from '../lib/systemReset';
 import { BarcodeSettingsSection } from './barcode/BarcodeSettingsSection';
 
 interface SettingsProps {
@@ -65,8 +78,27 @@ export function Settings({ onBack, onNavigateToUsers }: SettingsProps) {
   // Notifications
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
-  // System stats
+  // System stats & comprehensive counts
   const [ordersCount, setOrdersCount] = useState(0);
+  const [systemCounts, setSystemCounts] = useState<SystemDataCounts>({
+    ordersCount: 0,
+    salesCount: 0,
+    purchasesCount: 0,
+    treasuryCount: 0,
+    journalCount: 0,
+    adjustmentsCount: 0,
+    auditCount: 0,
+    customersCount: 0,
+    materialsCount: 0,
+    laborCount: 0,
+    groupsCount: 0,
+    departmentsCount: 0,
+    backupsCount: 0,
+    totalOperationalRecords: 0
+  });
+
+  // Reset options (Customizable in modal)
+  const [resetOptions, setResetOptions] = useState<SystemResetOptions>(DEFAULT_RESET_OPTIONS);
   const [backups, setBackups] = useState<BackupRecord[]>([]);
   const [hasExternalFolder, setHasExternalFolder] = useState(false);
 
@@ -80,8 +112,18 @@ export function Settings({ onBack, onNavigateToUsers }: SettingsProps) {
   const [factoryPhones, setFactoryPhones] = useState('');
   const [factoryLogo, setFactoryLogo] = useState<string | null>(null);
 
+  const loadSystemStats = async () => {
+    try {
+      const counts = await getSystemDataCounts();
+      setSystemCounts(counts);
+      setOrdersCount(counts.ordersCount);
+    } catch (e) {
+      console.error('Failed to load system stats:', e);
+    }
+  };
+
   useEffect(() => {
-    getOrders().then(data => setOrdersCount(data.length));
+    loadSystemStats();
     loadBackups();
     checkExternalFolder();
 
@@ -92,6 +134,33 @@ export function Settings({ onBack, onNavigateToUsers }: SettingsProps) {
       setFactoryPhones(settings.phones || '');
       setFactoryLogo(settings.logoUrl || null);
     }
+
+    const handleSync = () => {
+      loadSystemStats();
+      loadBackups();
+    };
+
+    window.addEventListener('gfos_storage_update', handleSync);
+    window.addEventListener('purchases_updated', handleSync);
+    window.addEventListener('purchase_returns_updated', handleSync);
+    window.addEventListener('sales_invoices_updated', handleSync);
+    window.addEventListener('sales_returns_updated', handleSync);
+    window.addEventListener('treasury_transactions_updated', handleSync);
+    window.addEventListener('journal_entries_updated', handleSync);
+    window.addEventListener('raw_materials_updated', handleSync);
+    window.addEventListener('approval_logged', handleSync);
+
+    return () => {
+      window.removeEventListener('gfos_storage_update', handleSync);
+      window.removeEventListener('purchases_updated', handleSync);
+      window.removeEventListener('purchase_returns_updated', handleSync);
+      window.removeEventListener('sales_invoices_updated', handleSync);
+      window.removeEventListener('sales_returns_updated', handleSync);
+      window.removeEventListener('treasury_transactions_updated', handleSync);
+      window.removeEventListener('journal_entries_updated', handleSync);
+      window.removeEventListener('raw_materials_updated', handleSync);
+      window.removeEventListener('approval_logged', handleSync);
+    };
   }, []);
 
   // When search changes, expand matching sections
@@ -282,30 +351,48 @@ export function Settings({ onBack, onNavigateToUsers }: SettingsProps) {
     URL.revokeObjectURL(url);
   };
 
-  const handleDeleteAll = () => {
+  const handleOpenResetModal = async () => {
+    await loadSystemStats();
     setShowConfirm(true);
     setConfirmText('');
     setMessage(null);
   };
 
-  const confirmDelete = () => {
+  const confirmReset = async () => {
+    if (confirmText !== 'RESET' || isDeleting) return;
     setIsDeleting(true);
     setMessage(null);
-    setTimeout(async () => {
-      const success = await deleteAllOrders();
+
+    try {
+      const result = await resetEntireSystem(resetOptions);
       setIsDeleting(false);
 
-      if (success) {
-        setMessage({ text: `✓ تم حذف وتصفير ${ordersCount} أمر إنتاج بنجاح.`, type: 'success' });
+      if (result.success) {
         setShowConfirm(false);
-        setOrdersCount(0);
+        setConfirmText('');
+        await loadSystemStats();
+        await loadBackups();
+
+        setMessage({
+          text: `✓ تم تصفير وإعادة ضبط النظام بالكامل بنجاح بواسطة أمر RESET! تم تصفير (${result.clearedCounts.totalOperationalRecords}) حركة وسجل تشغيلي ومحاسبي وتصفير كافة الأرصدة إلى صفر. النظام جاهز الآن للبدء على بياض.`,
+          type: 'success'
+        });
       } else {
-        setMessage({ text: 'تعذر حذف أوامر الإنتاج.', type: 'error' });
+        setMessage({
+          text: result.error || 'تعذر استكمال عملية تصفير النظام.',
+          type: 'error'
+        });
       }
-    }, 500);
+    } catch (err: any) {
+      setIsDeleting(false);
+      setMessage({
+        text: 'حدث خطأ غير متوقع أثناء تصفير النظام.',
+        type: 'error'
+      });
+    }
   };
 
-  const cancelDelete = () => {
+  const cancelReset = () => {
     setShowConfirm(false);
     setConfirmText('');
   };
@@ -1109,7 +1196,7 @@ export function Settings({ onBack, onNavigateToUsers }: SettingsProps) {
       )}
 
       {/* ========================================================================= */}
-      {/* 6. قائمة منسدلة: منطقة الخطر وإعادة التهيئة                                */}
+      {/* 6. قائمة منسدلة: منطقة الخطر وإعادة تهيئة وتصفير النظام الشامل (RESET)    */}
       {/* ========================================================================= */}
       {(selectedCategory === 'all' || selectedCategory === 'danger') && (
       <div className="bg-white rounded-2xl shadow-sm border border-red-200 overflow-hidden transition-all duration-200">
@@ -1124,13 +1211,13 @@ export function Settings({ onBack, onNavigateToUsers }: SettingsProps) {
             </div>
             <div>
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm font-black text-red-700">إعادة ضبط وتهيئة النظام (منطقة الخطر)</h3>
+                <h3 className="text-sm font-black text-red-700">إعادة ضبط وتصفير شامل للنظام (أمر RESET)</h3>
                 <span className="text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-200">
-                  إجراء حساس
+                  تصفير البرنامج بالكامل
                 </span>
               </div>
               <p className="text-xs text-slate-500 mt-0.5">
-                مسح أوامر الإنتاج التجريبية وتصفير حركة التشغيل لبدء دورة تصنيع فعلية
+                تصفير كافة أوامر التشغيل، فواتير المبيعات، المشتريات، الخزينة، المخازن، والقيود للبدء على بياض
               </p>
             </div>
           </div>
@@ -1141,85 +1228,225 @@ export function Settings({ onBack, onNavigateToUsers }: SettingsProps) {
         </button>
 
         {openSections.danger && (
-          <div className="p-6 border-t border-red-100 bg-red-50/20 space-y-4 animate-in fade-in duration-150">
-            <div className="p-4 bg-white rounded-2xl border border-red-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="p-6 border-t border-red-100 bg-red-50/20 space-y-6 animate-in fade-in duration-150">
+            {/* Warning Callout Box */}
+            <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-start gap-3">
+              <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
               <div className="space-y-1">
-                <h4 className="text-xs font-black text-red-800">مسح كافة أوامر الإنتاج والبيانات التشغيلية</h4>
-                <p className="text-xs text-slate-600 max-w-xl">
-                  سيؤدي هذا الإجراء إلى حذف جميع أوامر الشغل ومراحلها وباتشاتها وتصفير المخزن. يُنصح بأخذ نسخة احتياطية أولاً قبل الضغط على المسح.
+                <h4 className="text-xs font-black text-red-900">
+                  تصفير حركات البرنامج كاملة وتصفير كافة الحسابات والمخازن
+                </h4>
+                <p className="text-xs text-red-800 leading-relaxed">
+                  يُمكّنك هذا الإجراء من تفريغ النظام وتصفير كافة الحركات التجريبية السابقة (أوامر تشغيل، فواتير مبيعات، فواتير مشتريات، سندات الخزينة، تسويات المخازن، وقيود اليومية) والبدء من الصفر بدورة تصنيع ومحاسبة حقيقية ونظيفة تماماً.
                 </p>
-                <div className="text-xs font-bold text-slate-700">
-                  عدد الأوامر المسجلة حالياً: <strong className="text-red-700">{ordersCount} أمر</strong>
+              </div>
+            </div>
+
+            {/* Live Data Snapshot Grid */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
+                <span>سجل البيانات والحركات المسجلة حالياً في النظام:</span>
+                <span className="text-red-700 font-mono font-black">
+                  إجمالي {systemCounts.totalOperationalRecords} حركة وسجل
+                </span>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                <div className="bg-white p-3 rounded-xl border border-slate-200 text-center">
+                  <span className="text-[11px] text-slate-500 font-bold block mb-1">أوامر الإنتاج والتشغيل</span>
+                  <span className="text-base font-black text-slate-900">{systemCounts.ordersCount}</span>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200 text-center">
+                  <span className="text-[11px] text-slate-500 font-bold block mb-1">فواتير ومردودات المبيعات</span>
+                  <span className="text-base font-black text-slate-900">{systemCounts.salesCount}</span>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200 text-center">
+                  <span className="text-[11px] text-slate-500 font-bold block mb-1">فواتير ومردودات المشتريات</span>
+                  <span className="text-base font-black text-slate-900">{systemCounts.purchasesCount}</span>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200 text-center">
+                  <span className="text-[11px] text-slate-500 font-bold block mb-1">سندات وحركات الخزينة</span>
+                  <span className="text-base font-black text-slate-900">{systemCounts.treasuryCount}</span>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200 text-center">
+                  <span className="text-[11px] text-slate-500 font-bold block mb-1">قيود اليومية المحاسبية</span>
+                  <span className="text-base font-black text-slate-900">{systemCounts.journalCount}</span>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200 text-center">
+                  <span className="text-[11px] text-slate-500 font-bold block mb-1">تسويات مخزون الخامات</span>
+                  <span className="text-base font-black text-slate-900">{systemCounts.adjustmentsCount}</span>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200 text-center">
+                  <span className="text-[11px] text-slate-500 font-bold block mb-1">سجلات الاعتماد والتدقيق</span>
+                  <span className="text-base font-black text-slate-900">{systemCounts.auditCount}</span>
+                </div>
+                <div className="bg-white p-3 rounded-xl border border-slate-200 text-center">
+                  <span className="text-[11px] text-slate-500 font-bold block mb-1">النسخ الاحتياطية</span>
+                  <span className="text-base font-black text-slate-900">{systemCounts.backupsCount}</span>
                 </div>
               </div>
+            </div>
 
-              <button
-                type="button"
-                onClick={handleDeleteAll}
-                disabled={ordersCount === 0 || isDeleting}
-                className={`px-5 py-2.5 rounded-xl font-black text-xs transition-colors flex items-center gap-2 shadow-2xs whitespace-nowrap cursor-pointer ${
-                  ordersCount === 0
-                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                    : 'bg-red-600 hover:bg-red-700 text-white'
-                }`}
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>{ordersCount === 0 ? 'لا توجد أوامر لحذفها' : 'مسح جميع أوامر الإنتاج'}</span>
-              </button>
+            {/* Action Bar */}
+            <div className="p-4 bg-white rounded-2xl border border-red-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h4 className="text-xs font-black text-red-800">
+                  بدء إجراء التصفير الكامل وإعادة الضبط
+                </h4>
+                <p className="text-xs text-slate-600 max-w-xl">
+                  اضغط على الزر التالي لفتح نافذة تأكيد التصفير وكتابة أمر <code className="bg-red-100 text-red-800 px-1.5 py-0.5 rounded font-mono font-bold">RESET</code>. يُنصح بأخذ نسخة احتياطية أولاً قبل المتابعة.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={handleManualExport}
+                  className="px-4 py-2.5 rounded-xl font-bold text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 transition-colors flex items-center justify-center gap-1.5 cursor-pointer whitespace-nowrap"
+                  title="تصدير نسخة احتياطية كاملة إلى ملف JSON"
+                >
+                  <Download className="w-4 h-4 text-slate-600" />
+                  <span>تصدير نسخة احتياطية أولاً</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleOpenResetModal}
+                  disabled={isDeleting}
+                  className="px-5 py-2.5 rounded-xl font-black text-xs bg-red-600 hover:bg-red-700 text-white transition-colors flex items-center justify-center gap-2 shadow-2xs whitespace-nowrap cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  <span>تصفير وإعادة تهيئة البرنامج (RESET)</span>
+                </button>
+              </div>
             </div>
           </div>
         )}
       </div>
       )}
 
-      {/* Confirmation Modal for Reset */}
+      {/* Confirmation Modal for Complete System Reset */}
       {showConfirm && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in" dir="rtl">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full overflow-hidden border border-slate-200 animate-in zoom-in-95">
-            <div className="p-6 text-center">
-              <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto mb-4 border border-red-200 text-red-600">
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-in fade-in" dir="rtl">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-lg w-full overflow-hidden border border-slate-200 animate-in zoom-in-95 max-h-[92vh] flex flex-col">
+            <div className="p-6 overflow-y-auto space-y-5 text-center">
+              <div className="w-16 h-16 bg-red-100 rounded-2xl flex items-center justify-center mx-auto border border-red-200 text-red-600 shadow-inner">
                 <AlertTriangle className="w-8 h-8" />
               </div>
-              <h3 className="text-xl font-black text-slate-900 mb-2">تأكيد مسح البيانات التشغيلية</h3>
-              <p className="text-slate-600 text-xs mb-4 leading-relaxed">
-                سيتم مسح جميع أوامر الإنتاج المسجلة حالياً وعددها (<strong>{ordersCount} أمر</strong>) وما يرتبط بها من مراحل تشغيل وباتشات. لا يمكن التراجع عن هذا الإجراء إلا باسترجاع نسخة احتياطية سابقة.
+
+              <div>
+                <h3 className="text-xl font-black text-slate-900 mb-1">
+                  تأكيد تصفير وإعادة ضبط البرنامج بالكامل
+                </h3>
+                <span className="text-xs font-bold text-red-600 bg-red-50 border border-red-200 px-3 py-1 rounded-full inline-block">
+                  أمر التصفير الشامل: RESET
+                </span>
+              </div>
+
+              <p className="text-slate-600 text-xs leading-relaxed text-right bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                سيؤدي هذا الإجراء إلى <strong>تصفير كافة الحركات والبيانات في النظام بالكامل</strong> وتصفير جميع الأرصدة إلى صفر (إجمالي <strong>{systemCounts.totalOperationalRecords}</strong> حركة وسجل تشغيلي ومحاسبي). لا يمكن التراجع عن هذا الإجراء إلا باسترجاع نسخة احتياطية سابقة.
               </p>
 
-              <div className="mb-6 text-right bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
-                <label className="block text-xs font-bold text-slate-700 mb-2">
-                  للتأكيد، يرجى كتابة الكلمة التالية <span className="font-mono font-black text-red-700 bg-red-100 px-2 py-0.5 rounded">RESET</span>:
+              {/* Quick Backup Export Action */}
+              <div className="flex items-center justify-between p-3 bg-indigo-50/60 border border-indigo-200 rounded-2xl text-right">
+                <div className="flex items-center gap-2">
+                  <Download className="w-4 h-4 text-indigo-600" />
+                  <span className="text-xs font-bold text-indigo-900">
+                    لحماية بياناتك، ننصح بتحميل نسخة احتياطية الآن:
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleManualExport}
+                  className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer shrink-0"
+                >
+                  تحميل نسخة JSON
+                </button>
+              </div>
+
+              {/* Reset Scope Customization Options */}
+              <div className="text-right space-y-2.5 bg-slate-50 p-4 rounded-2xl border border-slate-200 text-xs">
+                <span className="font-black text-slate-800 block mb-1">نطاق التصفير وإعادة التهيئة:</span>
+
+                <label className="flex items-center gap-2.5 cursor-pointer select-none text-slate-800 font-bold">
+                  <input
+                    type="checkbox"
+                    checked={resetOptions.resetOrders && resetOptions.resetSales && resetOptions.resetPurchases && resetOptions.resetTreasury}
+                    disabled
+                    className="w-4 h-4 rounded text-red-600 focus:ring-red-500 accent-red-600 cursor-not-allowed"
+                  />
+                  <span>تصفير كافة الحركات التشغيلية والمالية (أوامر الإنتاج، المبيعات، المشتريات، الخزينة، المخازن، والقيود)</span>
+                  <span className="text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded font-black mr-auto">إلزامي</span>
+                </label>
+
+                <label className="flex items-center gap-2.5 cursor-pointer select-none text-slate-700 font-medium hover:text-slate-900">
+                  <input
+                    type="checkbox"
+                    checked={!!resetOptions.resetChartOfAccounts}
+                    onChange={e => setResetOptions(prev => ({ ...prev, resetChartOfAccounts: e.target.checked }))}
+                    className="w-4 h-4 rounded text-red-600 focus:ring-red-500 accent-red-600 cursor-pointer"
+                  />
+                  <span>إعادة تهيئة شجرة الحسابات المحاسبية إلى الدليل الصناعي الافتراضي النظيف</span>
+                </label>
+
+                <label className="flex items-center gap-2.5 cursor-pointer select-none text-slate-700 font-medium hover:text-slate-900">
+                  <input
+                    type="checkbox"
+                    checked={!!resetOptions.resetMasterData}
+                    onChange={e => setResetOptions(prev => ({ ...prev, resetMasterData: e.target.checked }))}
+                    className="w-4 h-4 rounded text-red-600 focus:ring-red-500 accent-red-600 cursor-pointer"
+                  />
+                  <span>تصفير وحذف سجلات العملاء والموردين والخامات وقوائم العمال والمجموعات الأساسية</span>
+                </label>
+
+                <label className="flex items-center gap-2.5 cursor-pointer select-none text-slate-700 font-medium hover:text-slate-900">
+                  <input
+                    type="checkbox"
+                    checked={!!resetOptions.resetBackups}
+                    onChange={e => setResetOptions(prev => ({ ...prev, resetBackups: e.target.checked }))}
+                    className="w-4 h-4 rounded text-red-600 focus:ring-red-500 accent-red-600 cursor-pointer"
+                  />
+                  <span>حذف سجل النسخ الاحتياطية المؤقتة المحفوظة بالمتصفح ({systemCounts.backupsCount} نسخة)</span>
+                </label>
+              </div>
+
+              {/* Confirmation Input Box */}
+              <div className="text-right bg-red-50/50 p-4 rounded-2xl border border-red-200">
+                <label className="block text-xs font-bold text-slate-800 mb-2">
+                  لتأكيد تصفير البرنامج بالكامل، يرجى كتابة الكلمة التالية <span className="font-mono font-black text-red-700 bg-red-100 px-2 py-0.5 rounded">RESET</span> في المربع:
                 </label>
                 <input
                   type="text"
                   value={confirmText}
                   onChange={e => setConfirmText(e.target.value.toUpperCase())}
                   placeholder="RESET"
-                  className="w-full border border-slate-300 rounded-xl px-3 py-2 text-center text-sm tracking-widest font-mono font-black text-red-800 bg-white focus:ring-2 focus:ring-red-500 uppercase"
+                  className="w-full border border-red-300 rounded-xl px-4 py-2.5 text-center text-base tracking-widest font-mono font-black text-red-800 bg-white focus:ring-2 focus:ring-red-500 uppercase shadow-inner"
                   dir="ltr"
+                  autoFocus
                 />
               </div>
 
-              <div className="flex gap-2">
+              {/* Action Buttons */}
+              <div className="flex gap-2.5 pt-1">
                 <button
                   type="button"
-                  onClick={cancelDelete}
+                  onClick={cancelReset}
                   disabled={isDeleting}
-                  className="flex-1 px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-colors cursor-pointer"
+                  className="flex-1 px-4 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold text-xs transition-colors cursor-pointer"
                 >
                   إلغاء التراجع
                 </button>
                 <button
                   type="button"
-                  onClick={confirmDelete}
+                  onClick={confirmReset}
                   disabled={confirmText !== 'RESET' || isDeleting}
-                  className={`flex-1 px-4 py-2.5 rounded-xl font-black text-xs text-white transition-colors cursor-pointer flex items-center justify-center gap-1.5 shadow-sm ${
+                  className={`flex-1 px-4 py-3 rounded-xl font-black text-xs text-white transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm ${
                     confirmText !== 'RESET' || isDeleting
                       ? 'bg-red-300 cursor-not-allowed'
-                      : 'bg-red-600 hover:bg-red-700'
+                      : 'bg-red-600 hover:bg-red-700 shadow-md ring-2 ring-red-500/30'
                   }`}
                 >
-                  <Trash2 className="w-4 h-4" />
-                  <span>{isDeleting ? 'جاري المسح والتصفير...' : 'تأكيد مسح الأوامر'}</span>
+                  <RotateCcw className={`w-4 h-4 ${isDeleting ? 'animate-spin' : ''}`} />
+                  <span>{isDeleting ? 'جاري تصفير النظام كاملاً...' : 'تأكيد التصفير الشامل (RESET)'}</span>
                 </button>
               </div>
             </div>

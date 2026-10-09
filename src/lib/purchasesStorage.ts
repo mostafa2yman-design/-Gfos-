@@ -276,13 +276,19 @@ const getDefaultPurchases = (): PurchaseInvoice[] => {
 };
 
 export const getPurchases = (): PurchaseInvoice[] => {
-  const items = getItems<PurchaseInvoice>(PURCHASES_KEY);
-  if (items.length === 0) {
+  const raw = localStorage.getItem(PURCHASES_KEY);
+  if (raw === null) {
     const defaults = getDefaultPurchases();
     saveItems(PURCHASES_KEY, defaults);
     return defaults;
   }
-  return items;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error('Failed to parse purchases:', error);
+    return [];
+  }
 };
 
 export const savePurchases = (items: PurchaseInvoice[]): void => {
@@ -416,13 +422,19 @@ const getDefaultPurchaseReturns = (): PurchaseReturn[] => {
 };
 
 export const getPurchaseReturns = (): PurchaseReturn[] => {
-  const items = getItems<PurchaseReturn>(PURCHASE_RETURNS_KEY);
-  if (items.length === 0) {
+  const raw = localStorage.getItem(PURCHASE_RETURNS_KEY);
+  if (raw === null) {
     const defaults = getDefaultPurchaseReturns();
     savePurchaseReturns(defaults);
     return defaults;
   }
-  return items;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error('Failed to parse purchase returns:', error);
+    return [];
+  }
 };
 
 export const savePurchaseReturns = (items: PurchaseReturn[]): void => {
@@ -431,6 +443,18 @@ export const savePurchaseReturns = (items: PurchaseReturn[]): void => {
   window.dispatchEvent(new CustomEvent('raw_materials_updated'));
   window.dispatchEvent(new CustomEvent('purchases_updated'));
   window.dispatchEvent(new CustomEvent('journal_entries_updated'));
+};
+
+export const deleteAllPurchases = (): void => {
+  savePurchases([]);
+  savePurchaseReturns([]);
+};
+
+export const resetPurchasesToDefaults = (): void => {
+  const defaults = getDefaultPurchases();
+  savePurchases(defaults);
+  const returnDefaults = getDefaultPurchaseReturns();
+  savePurchaseReturns(returnDefaults);
 };
 
 export const generateNextPurchaseReturnNumber = (): string => {

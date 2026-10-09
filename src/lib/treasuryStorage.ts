@@ -204,19 +204,34 @@ const getDefaultTreasuryTransactions = (): TreasuryTransaction[] => {
 };
 
 export const getTreasuryTransactions = (): TreasuryTransaction[] => {
-  const items = getItems<TreasuryTransaction>(TREASURY_KEY);
-  if (items.length === 0) {
+  const raw = localStorage.getItem(TREASURY_KEY);
+  if (raw === null) {
     const defaults = getDefaultTreasuryTransactions();
     saveItems(TREASURY_KEY, defaults);
     return defaults;
   }
-  return items;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error('Failed to parse treasury transactions:', error);
+    return [];
+  }
 };
 
 export const saveTreasuryTransactions = (items: TreasuryTransaction[]): void => {
   saveItems(TREASURY_KEY, items);
   window.dispatchEvent(new CustomEvent('treasury_transactions_updated'));
   window.dispatchEvent(new CustomEvent('journal_entries_updated'));
+};
+
+export const deleteAllTreasuryTransactions = (): void => {
+  saveTreasuryTransactions([]);
+};
+
+export const resetTreasuryTransactionsToDefaults = (): void => {
+  const defaults = getDefaultTreasuryTransactions();
+  saveTreasuryTransactions(defaults);
 };
 
 export const generateVoucherNumber = (type: TreasuryTransactionType): string => {

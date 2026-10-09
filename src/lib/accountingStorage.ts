@@ -39,9 +39,9 @@ export const resetAccountsToManufacturingCOA = (): AccountNode[] => {
   return MANUFACTURING_CHART_OF_ACCOUNTS;
 };
 
-export const getCustomersSuppliers = () => {
-  const items = getItems<CustomerSupplier>(CUSTOMERS_KEY);
-  if (items.length === 0) {
+export const getCustomersSuppliers = (): CustomerSupplier[] => {
+  const raw = localStorage.getItem(CUSTOMERS_KEY);
+  if (raw === null) {
     const defaults: CustomerSupplier[] = [
       {
         id: 'supp_1',
@@ -107,13 +107,18 @@ export const getCustomersSuppliers = () => {
     saveItems(CUSTOMERS_KEY, defaults);
     return defaults;
   }
-  return items;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 };
 export const saveCustomersSuppliers = (items: CustomerSupplier[]) => saveItems(CUSTOMERS_KEY, items);
 
-export const getMaterials = () => {
-  const items = getItems<MaterialItem>(MATERIALS_KEY);
-  if (items.length === 0) {
+export const getMaterials = (): MaterialItem[] => {
+  const raw = localStorage.getItem(MATERIALS_KEY);
+  if (raw === null) {
     const defaults: MaterialItem[] = [
       { id: 'mat_1', name: 'قماش قطن سنجل جيرسي 100%', type: 'fabric', unit: 'كجم', defaultCost: 220, isActive: true, code: 'FAB-COT-01' },
       { id: 'mat_2', name: 'قماش ميلتون مبطن شتوي ثقيل', type: 'fabric', unit: 'كجم', defaultCost: 280, isActive: true, code: 'FAB-MEL-02' },
@@ -132,7 +137,12 @@ export const getMaterials = () => {
     saveItems(MATERIALS_KEY, defaults);
     return defaults;
   }
-  return items;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 };
 export const saveMaterials = (items: MaterialItem[]) => {
   saveItems(MATERIALS_KEY, items);
@@ -145,10 +155,9 @@ export const saveLabor = (items: LaborProfile[]) => saveItems(LABOR_KEY, items);
 export const getOperationalGroups = () => getItems<OperationalGroup>(GROUPS_KEY);
 export const saveOperationalGroups = (items: OperationalGroup[]) => saveItems(GROUPS_KEY, items);
 
-
-export const getDepartments = () => {
-  const depts = getItems<Department>(DEPARTMENTS_KEY);
-  if (depts.length === 0) {
+export const getDepartments = (): Department[] => {
+  const raw = localStorage.getItem(DEPARTMENTS_KEY);
+  if (raw === null) {
     // Default departments
     const defaults: Department[] = [
       { id: 'dept_cut', name: 'عامل قص', createdAt: new Date().toISOString() },
@@ -163,6 +172,17 @@ export const getDepartments = () => {
     saveItems(DEPARTMENTS_KEY, defaults);
     return defaults;
   }
-  return depts;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
 };
 export const saveDepartments = (items: Department[]) => saveItems(DEPARTMENTS_KEY, items);
+
+export const deleteAllCustomersSuppliers = () => saveCustomersSuppliers([]);
+export const deleteAllMaterials = () => saveMaterials([]);
+export const deleteAllLabor = () => saveLabor([]);
+export const deleteAllOperationalGroups = () => saveOperationalGroups([]);
+export const deleteAllDepartments = () => saveDepartments([]);

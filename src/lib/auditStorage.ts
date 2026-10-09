@@ -36,13 +36,15 @@ function generateVerificationCode(dateStr: string): string {
 export function getSystemApprovalLogs(): SystemApprovalLog[] {
   try {
     const raw = localStorage.getItem(AUDIT_STORAGE_KEY);
-    if (!raw) {
+    if (raw === null) {
       const initialSeed = seedInitialAuditLogs();
       localStorage.setItem(AUDIT_STORAGE_KEY, JSON.stringify(initialSeed));
       return initialSeed;
     }
     const parsed: SystemApprovalLog[] = JSON.parse(raw);
-    return parsed.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return Array.isArray(parsed) 
+      ? parsed.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+      : [];
   } catch (err) {
     console.error('Failed to parse approval audit logs:', err);
     return [];
@@ -58,6 +60,10 @@ export function saveSystemApprovalLogs(logs: SystemApprovalLog[]): void {
   } catch (err) {
     console.error('Failed to save approval audit logs:', err);
   }
+}
+
+export function deleteAllSystemApprovalLogs(): void {
+  saveSystemApprovalLogs([]);
 }
 
 export interface RecordApprovalInput {

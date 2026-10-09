@@ -147,6 +147,17 @@ export function deleteManualStockAdjustment(id: string): void {
   }));
 }
 
+export function deleteAllManualStockAdjustments(): void {
+  localStorage.setItem(ADJUSTMENTS_KEY, JSON.stringify([]));
+  window.dispatchEvent(new CustomEvent('raw_materials_updated'));
+  window.dispatchEvent(new CustomEvent('inventory_stock_updated', {
+    detail: {
+      message: 'تم تصفير كافة تسويات المخزون بنجاح',
+      title: 'تحديث المخزون'
+    }
+  }));
+}
+
 /**
  * Calculates complete warehouse inventory, inbound and outbound transactions,
  * unit costs, values, and separated statistics for fabrics and accessories.

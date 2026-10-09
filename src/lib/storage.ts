@@ -1,4 +1,21 @@
 import { ProductionOrder } from '../types';
+import { getPurchases, getPurchaseReturns, savePurchases, savePurchaseReturns } from './purchasesStorage';
+import { getSalesInvoices, getSalesReturns, saveSalesInvoices, saveSalesReturns } from './salesStorage';
+import { getTreasuryTransactions, saveTreasuryTransactions } from './treasuryStorage';
+import { getManualJournalEntries, saveManualJournalEntries } from './journalEngine';
+import { getManualStockAdjustments } from './rawMaterialsInventory';
+import { 
+  getCustomersSuppliers, 
+  saveCustomersSuppliers, 
+  getMaterials, 
+  saveMaterials, 
+  getLabor, 
+  saveLabor, 
+  getOperationalGroups, 
+  saveOperationalGroups, 
+  getDepartments, 
+  saveDepartments 
+} from './accountingStorage';
 
 const STORAGE_KEY = 'production_orders_v0.4';
 
@@ -112,12 +129,56 @@ export const deleteAllOrders = async (): Promise<boolean> => {
 };
 
 export const exportData = async (): Promise<string> => {
-  const orders = await getOrders();
+  const [
+    orders, 
+    purchases, 
+    purchaseReturns, 
+    salesInvoices, 
+    salesReturns, 
+    treasury, 
+    manualEntries, 
+    adjustments,
+    customers,
+    materials,
+    labor,
+    groups,
+    departments,
+    factorySettings
+  ] = await Promise.all([
+    getOrders(),
+    Promise.resolve(getPurchases()),
+    Promise.resolve(getPurchaseReturns()),
+    Promise.resolve(getSalesInvoices()),
+    Promise.resolve(getSalesReturns()),
+    Promise.resolve(getTreasuryTransactions()),
+    Promise.resolve(getManualJournalEntries()),
+    Promise.resolve(getManualStockAdjustments()),
+    Promise.resolve(getCustomersSuppliers()),
+    Promise.resolve(getMaterials()),
+    Promise.resolve(getLabor()),
+    Promise.resolve(getOperationalGroups()),
+    Promise.resolve(getDepartments()),
+    Promise.resolve(getFactorySettings())
+  ]);
+
   return JSON.stringify({
-    schemaVersion: '0.4',
+    schemaVersion: '1.0.0',
     applicationVersion: '1.0.0',
     exportedAt: new Date().toISOString(),
-    orders
+    orders,
+    purchases,
+    purchaseReturns,
+    salesInvoices,
+    salesReturns,
+    treasury,
+    manualEntries,
+    adjustments,
+    customers,
+    materials,
+    labor,
+    groups,
+    departments,
+    factorySettings
   });
 };
 
@@ -128,11 +189,64 @@ export const importData = async (jsonData: string): Promise<{ success: boolean; 
       return { success: false, error: "تنسيق الملف غير صحيح." };
     }
     
-    // Simple validation (can be extended)
+    // Restore orders
     const orders = data.orders as ProductionOrder[];
     await saveOrders(orders);
+
+    // Restore other ERP modules if present in backup
+    if (data.purchases && Array.isArray(data.purchases)) {
+      savePurchases(data.purchases);
+    }
+    if (data.purchaseReturns && Array.isArray(data.purchaseReturns)) {
+      savePurchaseReturns(data.purchaseReturns);
+    }
+    if (data.salesInvoices && Array.isArray(data.salesInvoices)) {
+      saveSalesInvoices(data.salesInvoices);
+    }
+    if (data.salesReturns && Array.isArray(data.salesReturns)) {
+      saveSalesReturns(data.salesReturns);
+    }
+    if (data.treasury && Array.isArray(data.treasury)) {
+      saveTreasuryTransactions(data.treasury);
+    }
+    if (data.manualEntries && Array.isArray(data.manualEntries)) {
+      saveManualJournalEntries(data.manualEntries);
+    }
+    if (data.adjustments && Array.isArray(data.adjustments)) {
+      try {
+        localStorage.setItem('raw_materials_adjustments_v1', JSON.stringify(data.adjustments));
+      } catch (e) {
+        console.error(e);
+      }
+    }
+    if (data.customers && Array.isArray(data.customers)) {
+      saveCustomersSuppliers(data.customers);
+    }
+    if (data.materials && Array.isArray(data.materials)) {
+      saveMaterials(data.materials);
+    }
+    if (data.labor && Array.isArray(data.labor)) {
+      saveLabor(data.labor);
+    }
+    if (data.groups && Array.isArray(data.groups)) {
+      saveOperationalGroups(data.groups);
+    }
+    if (data.departments && Array.isArray(data.departments)) {
+      saveDepartments(data.departments);
+    }
+    if (data.factorySettings) {
+      saveFactorySettings(data.factorySettings);
+    }
     
     window.dispatchEvent(new Event('gfos_storage_update'));
+    window.dispatchEvent(new CustomEvent('purchases_updated'));
+    window.dispatchEvent(new CustomEvent('purchase_returns_updated'));
+    window.dispatchEvent(new CustomEvent('sales_invoices_updated'));
+    window.dispatchEvent(new CustomEvent('sales_returns_updated'));
+    window.dispatchEvent(new CustomEvent('treasury_transactions_updated'));
+    window.dispatchEvent(new CustomEvent('journal_entries_updated'));
+    window.dispatchEvent(new CustomEvent('raw_materials_updated'));
+
     return { success: true, count: orders.length };
   } catch (e) {
     return { success: false, error: "فشل استيراد الملف." };

@@ -178,13 +178,19 @@ const getDefaultSalesInvoices = (): SalesInvoice[] => {
 };
 
 export const getSalesInvoices = (): SalesInvoice[] => {
-  const items = getItems<SalesInvoice>(SALES_KEY);
-  if (items.length === 0) {
+  const raw = localStorage.getItem(SALES_KEY);
+  if (raw === null) {
     const defaults = getDefaultSalesInvoices();
     saveSalesInvoices(defaults);
     return defaults;
   }
-  return items;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error('Failed to parse sales invoices:', error);
+    return [];
+  }
 };
 
 export const saveSalesInvoices = (items: SalesInvoice[]): void => {
@@ -377,18 +383,36 @@ const getDefaultSalesReturns = (): SalesReturn[] => {
 };
 
 export const getSalesReturns = (): SalesReturn[] => {
-  const items = getItems<SalesReturn>(SALES_RETURNS_KEY);
-  if (items.length === 0) {
+  const raw = localStorage.getItem(SALES_RETURNS_KEY);
+  if (raw === null) {
     const defaults = getDefaultSalesReturns();
     saveSalesReturns(defaults);
     return defaults;
   }
-  return items;
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    console.error('Failed to parse sales returns:', error);
+    return [];
+  }
 };
 
 export const saveSalesReturns = (items: SalesReturn[]): void => {
   saveItems(SALES_RETURNS_KEY, items);
   window.dispatchEvent(new CustomEvent('sales_returns_updated'));
+};
+
+export const deleteAllSales = (): void => {
+  saveSalesInvoices([]);
+  saveSalesReturns([]);
+};
+
+export const resetSalesToDefaults = (): void => {
+  const defaults = getDefaultSalesInvoices();
+  saveSalesInvoices(defaults);
+  const returnDefaults = getDefaultSalesReturns();
+  saveSalesReturns(returnDefaults);
 };
 
 export const generateNextSalesReturnNumber = (): string => {

@@ -38,6 +38,7 @@ import {
 } from "../lib/orderWorkflow";
 
 interface OrderManagerProps {
+  key?: React.Key;
   orderId: string | null;
   onBack: () => void;
   initialTab?: string;
@@ -121,14 +122,16 @@ const getTabColorClasses = (isActive: boolean, status: 'approved' | 'saved' | 'p
 export function OrderManager({
   orderId: initialOrderId,
   onBack,
-  initialTab = "production",
+  initialTab,
   onNavigateToWarehouse,
   onNavigateToAccounting,
 }: OrderManagerProps) {
   const [currentOrderId, setCurrentOrderId] = useState<string | null>(
     initialOrderId,
   );
-  const [activeTab, setActiveTab] = useState<TabType>(initialTab as TabType);
+  const [activeTab, setActiveTab] = useState<TabType>(
+    (initialTab as TabType) || "production"
+  );
 
   useEffect(() => {
     if (initialTab) {
@@ -137,14 +140,16 @@ export function OrderManager({
   }, [initialTab, initialOrderId]);
   const [order, setOrder] = useState<ProductionOrder | null>(null);
 
-  const loadOrder = async (id: string | null, forceTabChange = true) => {
+  const loadOrder = async (id: string | null, targetTab?: string) => {
     if (id) {
       const found = await getOrderById(id);
       if (found) {
         setOrder(found);
 
-        if (forceTabChange) {
-          // Auto-select tab based on status if opening
+        const tabToOpen = targetTab || initialTab;
+        if (tabToOpen) {
+          setActiveTab(tabToOpen as TabType);
+        } else {
           setActiveTab(getDefaultTabForStatus(found.status));
         }
       } else {
@@ -160,9 +165,9 @@ export function OrderManager({
 
   useEffect(() => {
     if (currentOrderId) {
-      loadOrder(currentOrderId, true);
+      loadOrder(currentOrderId, initialTab);
     }
-  }, [currentOrderId]);
+  }, [currentOrderId, initialTab]);
 
   // Subscribe to Event Bus for reactive UI updates
   useEffect(() => {
@@ -436,7 +441,7 @@ export function OrderManager({
           <OrderFinishedGoodsTab
             key={order.updatedAt}
             order={order}
-            onSaved={() => loadOrder(currentOrderId, false)}
+            onSaved={() => loadOrder(currentOrderId)}
             onNavigateToWarehouse={onNavigateToWarehouse}
             onNavigateToPacking={() => setActiveTab("packing")}
           />

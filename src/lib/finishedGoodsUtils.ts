@@ -18,6 +18,9 @@ export interface FinishedProductItem {
   invoices: PackingInvoice[];
   receivedDate: string;
   approvedBy: string;
+  barcodes: string[];
+  barcodeMap: Record<string, string>;
+  primaryBarcode?: string;
 }
 
 export function processOrderItem(order: ProductionOrder): FinishedProductItem {
@@ -110,6 +113,25 @@ export function processOrderItem(order: ProductionOrder): FinishedProductItem {
     order.packingApprovedAt || order.updatedAt || order.createdAt;
   const approvedBy = order.packingApprovedBy || "قسم التغليف";
 
+  // Collect barcodes associated with this order and its variants
+  const barcodeMap: Record<string, string> = { ...(order.barcodes || {}) };
+  const barcodesSet = new Set<string>();
+  if (order.barcode) barcodesSet.add(order.barcode);
+  Object.values(order.barcodes || {}).forEach(b => { if (b) barcodesSet.add(b); });
+
+  order.batches?.forEach(b => {
+    b.finishingData?.actualQuantities?.forEach(q => {
+      if (q.barcode) {
+        barcodesSet.add(q.barcode);
+        barcodeMap[`${q.size}_${q.color}`] = q.barcode;
+        barcodeMap[`${b.batchNumber}_${q.size}_${q.color}`] = q.barcode;
+      }
+    });
+  });
+
+  const barcodes = Array.from(barcodesSet);
+  const primaryBarcode = barcodes[0] || order.barcode || undefined;
+
   return {
     order,
     isApproved,
@@ -122,5 +144,8 @@ export function processOrderItem(order: ProductionOrder): FinishedProductItem {
     invoices,
     receivedDate,
     approvedBy,
+    barcodes,
+    barcodeMap,
+    primaryBarcode
   };
 }

@@ -1,5 +1,6 @@
 import React from 'react';
 import { getFactorySettings } from '../../../lib/storage';
+import { BarcodeSvg } from '../../barcode/BarcodeSvg';
 
 interface PrintHeaderProps {
   documentTitle?: string;
@@ -78,11 +79,21 @@ export const PrintHeader: React.FC<PrintHeaderProps> = ({
           </div>
         </div>
 
-        {/* Left: Metadata (Order #, Date, Time) */}
+        {/* Left: Metadata (Order #, Barcode, Date, Time) */}
         <div className="text-left text-[10px] text-slate-800 flex flex-col items-end leading-tight">
           {orderNumber && (
-            <div className="bg-slate-900 text-white px-2 py-0.5 rounded font-mono font-bold text-[11px] mb-1">
-              رقم الأمر: {orderNumber}
+            <div className="flex flex-col items-end mb-1">
+              <div className="bg-slate-900 text-white px-2 py-0.5 rounded font-mono font-bold text-[11px]">
+                رقم الأمر: {orderNumber}
+              </div>
+              <div className="mt-0.5 w-[110px] flex justify-end">
+                <BarcodeSvg 
+                  value={orderNumber} 
+                  height={20} 
+                  width={1.2} 
+                  displayValue={false} 
+                />
+              </div>
             </div>
           )}
           <p><span className="font-semibold text-slate-600">تاريخ الإصدار:</span> {date || defaultDate}</p>

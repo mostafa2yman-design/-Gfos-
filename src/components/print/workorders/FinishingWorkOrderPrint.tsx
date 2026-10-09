@@ -32,13 +32,8 @@ export const FinishingWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ orde
 
       {/* Operational Instructions for Finishing */}
       <PrintInstructions
-        title="تعليمات التشطيب الفنية واشتراطات الفرز"
-        instructions={order.finishingInstructions || [
-          'تنظيف القطع تماماً من الخيوط والفتل الزائدة (السفطة والتنظيف الداخلي والخارجي).',
-          'مراجعة قياسات الأبعاد الحرجة (محيط الصدر، الطول الكلي، طول الكم) ومطابقتها مع جدول المقاسات.',
-          'الفرز الدقيق وتصنيف الإنتاج إلى (فرز أول سليم - فرز ثانٍ مقبول - هالك/تالف مرفوض).',
-          'التأكد من سلامة الخياطات وثبات الأزرار والسوست والكباسين قبل التحويل للمكواة.'
-        ]}
+        title="تعليمات تشغيل مرحلة التشطيب"
+        instructions={order.finishingInstructions}
       />
 
       {/* Finishing Execution Table */}

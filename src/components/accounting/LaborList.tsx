@@ -1,260 +1,251 @@
 import React, { useState, useEffect } from 'react';
-import { LaborProfile } from '../../types';
+import { LaborProfile, OperationalGroup, Department } from '../../types';
 import { getLabor, saveLabor, getOperationalGroups, getDepartments } from '../../lib/accountingStorage';
-import { OperationalGroup, Department } from '../../types';
-import { Plus, Edit, Trash2, Search, HardHat, Phone } from 'lucide-react';
+import { Plus, Edit, Trash2, Search, HardHat, Phone, Building2, Users, Coins } from 'lucide-react';
+import { UniversalMasterEntityModal } from './UniversalMasterEntityModal';
 
 export function LaborList() {
   const [items, setItems] = useState<LaborProfile[]>([]);
   const [groups, setGroups] = useState<OperationalGroup[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [search, setSearch] = useState('');
-  const [showModal, setShowModal] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<LaborProfile | null>(null);
 
-  const [formData, setFormData] = useState<Partial<LaborProfile>>({
-    name: '', role: 'عامل خياطة', phone: '', baseSalary: 0, isActive: true, salaryType: 'يومية', salaryPeriod: 'يومي', dailyWorkingHours: 8
-  });
-
-  useEffect(() => {
+  const loadData = () => {
     setItems(getLabor());
     setGroups(getOperationalGroups());
     setDepartments(getDepartments());
-  }, []);
-
-  const handleSave = () => {
-    if (!formData.name) return;
-    let updated = [...items];
-    if (editingId) {
-      updated = updated.map(a => a.id === editingId ? { ...a, ...formData } as LaborProfile : a);
-    } else {
-      updated.push({ ...formData, id: Date.now().toString() } as LaborProfile);
-    }
-    setItems(updated);
-    saveLabor(updated);
-    setShowModal(false);
   };
 
-  const handleDelete = (id: string) => {
-    if(confirm('هل أنت متأكد من الحذف؟')) {
+  useEffect(() => {
+    loadData();
+    const handleUpdate = () => loadData();
+    window.addEventListener('labor_updated', handleUpdate);
+    return () => window.removeEventListener('labor_updated', handleUpdate);
+  }, []);
+
+  const handleDelete = (id: string, name: string) => {
+    if (confirm(`هل أنت متأكد من حذف العامل (${name})؟`)) {
       const updated = items.filter(a => a.id !== id);
       setItems(updated);
       saveLabor(updated);
+      window.dispatchEvent(new CustomEvent('labor_updated'));
     }
   };
 
-  const filtered = items.filter(a => a.name.includes(search));
+  const filtered = items.filter(a => {
+    return (
+      (a.name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (a.code || '').toLowerCase().includes(search.toLowerCase()) ||
+      (a.role || '').toLowerCase().includes(search.toLowerCase()) ||
+      (a.phone || '').includes(search)
+    );
+  });
+
+  const activeCount = items.filter(i => i.isActive !== false).length;
+  const pieceWorkersCount = items.filter(i => i.salaryType === 'بالقطعة').length;
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-col sm:flex-row justify-between gap-4">
+      {/* Top Stats Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="bg-white p-3.5 rounded-xl border border-slate-200 shadow-2xs flex items-center justify-between">
+          <div>
+            <span className="text-xs text-slate-500 font-bold">إجمالي قوة العمل</span>
+            <div className="text-xl font-black text-slate-800">{items.length}</div>
+          </div>
+          <div className="w-9 h-9 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+            <HardHat className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-xl border border-emerald-100 shadow-2xs flex items-center justify-between">
+          <div>
+            <span className="text-xs text-emerald-600 font-bold">العمالة النشطة</span>
+            <div className="text-xl font-black text-emerald-900">{activeCount}</div>
+          </div>
+          <div className="w-9 h-9 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+            <Users className="w-5 h-5" />
+          </div>
+        </div>
+
+        <div className="bg-white p-3.5 rounded-xl border border-amber-100 shadow-2xs flex items-center justify-between">
+          <div>
+            <span className="text-xs text-amber-600 font-bold">عمال بالقطعة والإنتاجية</span>
+            <div className="text-xl font-black text-amber-900">{pieceWorkersCount}</div>
+          </div>
+          <div className="w-9 h-9 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+            <Coins className="w-5 h-5" />
+          </div>
+        </div>
+      </div>
+
+      {/* Filter and Action Bar */}
+      <div className="flex flex-col sm:flex-row justify-between gap-3 bg-white p-3 rounded-xl border border-slate-200">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 w-4 h-4" />
           <input
             type="text"
-            placeholder="بحث بالاسم..."
+            placeholder="بحث باسم العامل، الكود، الوظيفة، الهاتف..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-4 pr-10 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 appearance-none bg-white"
+            className="w-full pl-4 pr-10 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 appearance-none bg-white text-xs sm:text-sm"
           />
         </div>
+
         <button
+          type="button"
           onClick={() => {
-            setEditingId(null);
-            setFormData({ name: '', role: 'عامل خياطة', phone: '', baseSalary: 0, isActive: true });
-            setShowModal(true);
+            setEditingItem(null);
+            setIsModalOpen(true);
           }}
-          className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-medium shadow-sm whitespace-nowrap"
+          className="flex items-center gap-1.5 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors font-bold text-xs shadow-xs cursor-pointer whitespace-nowrap"
         >
           <Plus className="w-4 h-4" />
-          إضافة عامل جديد
+          <span>+ إضافة عامل / فني جديد</span>
         </button>
       </div>
 
-      <div className="overflow-x-auto border border-slate-200 rounded-lg">
-        <table className="w-full text-right text-sm">
-          <thead className="bg-slate-50 border-b border-slate-200 text-slate-600">
+      {/* Main Table */}
+      <div className="overflow-x-auto border border-slate-200 rounded-xl bg-white shadow-2xs">
+        <table className="w-full text-right text-xs">
+          <thead className="bg-slate-50 border-b border-slate-200 text-slate-700 font-bold">
             <tr>
-              <th className="p-3 font-semibold">الاسم</th>
-              <th className="p-3 font-semibold">القسم</th>
-              <th className="p-3 font-semibold">المجموعة</th>
-              <th className="p-3 font-semibold">رقم الهاتف</th>
-              <th className="p-3 font-semibold">نوع الراتب</th>
-              <th className="p-3 font-semibold">الدورية</th>
-              <th className="p-3 font-semibold">الساعات</th>
-              <th className="p-3 font-semibold">القيمة</th>
-              <th className="p-3 font-semibold">الحالة</th>
-              <th className="p-3 font-semibold w-24 text-center">الإجراءات</th>
+              <th className="p-3">الكود</th>
+              <th className="p-3">الاسم والمهارة</th>
+              <th className="p-3">الوظيفة / الدور</th>
+              <th className="p-3">القسم والخط</th>
+              <th className="p-3">الهاتف</th>
+              <th className="p-3">نظام الأجر</th>
+              <th className="p-3">الأجر / سعر القطعة</th>
+              <th className="p-3">حساب الأجور (الشجرة)</th>
+              <th className="p-3">الحالة</th>
+              <th className="p-3 w-24 text-center">الإجراءات</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {filtered.map(item => (
-              <tr key={item.id} className="hover:bg-slate-50 transition-colors">
-                <td className="p-3 font-medium text-slate-900">
-                  <div className="flex items-center gap-2">
-                    <HardHat className="w-4 h-4 text-slate-400" />
-                    {item.name}
-                  </div>
-                </td>
-                <td className="p-3 text-slate-600">{item.role}</td>
-                <td className="p-3 text-slate-600">{groups.find(g => g.id === item.operationalGroupId)?.name || '-'}</td>
-                <td className="p-3 text-slate-600">
-                  <div className="flex items-center gap-1">
-                    <Phone className="w-3 h-3" />
-                    <span dir="ltr">{item.phone || '-'}</span>
-                  </div>
-                </td>
-                <td className="p-3 text-slate-600">{item.salaryType || 'يومية'}</td>
-                <td className="p-3 text-slate-600">{item.salaryPeriod || 'يومي'}</td>
-                <td className="p-3 text-slate-600">{item.dailyWorkingHours || '-'}</td>
-                <td className="p-3 font-medium text-indigo-700">{item.baseSalary} جنيه</td>
-                <td className="p-3">
-                  <span className={`px-2 py-1 rounded text-xs font-medium ${item.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-red-100 text-red-700'}`}>
-                    {item.isActive ? 'نشط' : 'موقوف'}
-                  </span>
-                </td>
-                <td className="p-3">
-                  <div className="flex justify-center gap-2">
-                    <button onClick={() => { setEditingId(item.id); setFormData(item); setShowModal(true); }} className="p-1 text-blue-600 hover:bg-blue-50 rounded">
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => handleDelete(item.id)} className="p-1 text-red-600 hover:bg-red-50 rounded">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {filtered.map(item => {
+              const group = groups.find(g => g.id === item.operationalGroupId);
+              const dept = departments.find(d => d.id === item.departmentId || d.name === item.role);
+
+              return (
+                <tr key={item.id} className="hover:bg-slate-50/80 transition-colors">
+                  <td className="p-3 font-mono font-bold text-slate-700">
+                    <span className="bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                      {item.code || item.id.slice(-6)}
+                    </span>
+                  </td>
+                  <td className="p-3 font-medium text-slate-900">
+                    <div className="flex items-center gap-2">
+                      <HardHat className="w-4 h-4 text-indigo-600 shrink-0" />
+                      <div>
+                        <div className="font-bold text-slate-900">{item.name}</div>
+                        {item.skillLevel && (
+                          <div className="text-[11px] text-slate-500">{item.skillLevel}</div>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-3 text-slate-700 font-medium">{item.role}</td>
+                  <td className="p-3 text-slate-600">
+                    <div className="space-y-0.5">
+                      <div className="font-medium text-slate-800">{dept?.name || item.departmentId || '-'}</div>
+                      {group && (
+                        <div className="text-[10px] text-indigo-600 font-medium">خط: {group.name}</div>
+                      )}
+                    </div>
+                  </td>
+                  <td className="p-3 text-slate-600 font-mono">
+                    {item.phone ? (
+                      <div className="flex items-center gap-1">
+                        <Phone className="w-3 h-3 text-slate-400" />
+                        <span dir="ltr">{item.phone}</span>
+                      </div>
+                    ) : (
+                      <span className="text-slate-400">-</span>
+                    )}
+                  </td>
+                  <td className="p-3">
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-bold ${
+                      item.salaryType === 'بالقطعة' 
+                        ? 'bg-amber-50 text-amber-800 border border-amber-200' 
+                        : 'bg-blue-50 text-blue-800 border border-blue-200'
+                    }`}>
+                      {item.salaryType || 'يومية'} ({item.salaryPeriod || 'يومي'})
+                    </span>
+                  </td>
+                  <td className="p-3 font-bold text-slate-900">
+                    {item.salaryType === 'بالقطعة' && item.pieceRate ? (
+                      <span>{Number(item.pieceRate).toLocaleString('ar-EG')} ج.م / قطعة</span>
+                    ) : (
+                      <span>{Number(item.baseSalary || 0).toLocaleString('ar-EG')} ج.م</span>
+                    )}
+                  </td>
+                  <td className="p-3">
+                    <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-indigo-50 text-indigo-700 border border-indigo-200">
+                      {item.linkedAccountId || '5122'}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                      item.isActive !== false ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'
+                    }`}>
+                      {item.isActive !== false ? 'نشط' : 'موقوف'}
+                    </span>
+                  </td>
+                  <td className="p-3">
+                    <div className="flex justify-center gap-1">
+                      <button 
+                        type="button"
+                        onClick={() => {
+                          setEditingItem(item);
+                          setIsModalOpen(true);
+                        }} 
+                        className="p-1.5 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                        title="تعديل كافة بيانات وملف العامل"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button 
+                        type="button"
+                        onClick={() => handleDelete(item.id, item.name)} 
+                        className="p-1.5 text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                        title="حذف"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={10} className="p-8 text-center text-slate-500">لا توجد سجلات عمالة مسجلة</td>
+                <td colSpan={10} className="p-8 text-center text-slate-500 font-medium">
+                  لا توجد سجلات عمالة مسجلة مطابقة للبحث
+                </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
 
-      {showModal && (
-        <div className="fixed inset-0 bg-slate-900/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
-            <div className="p-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-              <h3 className="font-bold text-slate-800">{editingId ? 'تعديل السجل' : 'إضافة عامل جديد'}</h3>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600">×</button>
-            </div>
-            <div className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">الاسم</label>
-                <input 
-                  type="text" 
-                  value={formData.name || ''} 
-                  onChange={e => setFormData({...formData, name: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                />
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">رقم الهاتف</label>
-                  <input 
-                    type="text" 
-                    value={formData.phone || ''} 
-                    onChange={e => setFormData({...formData, phone: e.target.value})}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">القسم</label>
-                  <select 
-                    value={formData.role || ''} 
-                    onChange={e => setFormData({...formData, role: e.target.value})}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                  >
-                    <option value="">اختر القسم</option>
-                    {departments.map(d => (
-                      <option key={d.id} value={d.name}>{d.name}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">المجموعة التابع لها</label>
-                <select 
-                  value={formData.operationalGroupId || ''} 
-                  onChange={e => setFormData({...formData, operationalGroupId: e.target.value})}
-                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                >
-                  <option value="">بدون مجموعة</option>
-                  {groups.map(g => (
-                    <option key={g.id} value={g.id}>{g.name}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">نوع الراتب</label>
-                  <select 
-                    value={formData.salaryType || 'يومية'} 
-                    onChange={e => setFormData({...formData, salaryType: e.target.value as 'يومية' | 'بالقطعة'})}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                  >
-                    <option value="يومية">يومية</option>
-                    <option value="بالقطعة">بالقطعة</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">دورية الراتب</label>
-                  <select 
-                    value={formData.salaryPeriod || 'يومي'} 
-                    onChange={e => setFormData({...formData, salaryPeriod: e.target.value as 'يومي' | 'أسبوعي' | 'شهري'})}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none bg-white"
-                  >
-                    <option value="يومي">يومي</option>
-                    <option value="أسبوعي">أسبوعي</option>
-                    <option value="شهري">شهري</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">ساعات العمل اليومية</label>
-                  <input 
-                    type="number" 
-                    value={formData.dailyWorkingHours || 8} 
-                    onChange={e => setFormData({...formData, dailyWorkingHours: Number(e.target.value)})}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">قيمة الراتب</label>
-                  <input 
-                    type="number" 
-                    value={formData.baseSalary || 0} 
-                    onChange={e => setFormData({...formData, baseSalary: Number(e.target.value)})}
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2 mt-4">
-                <input 
-                  type="checkbox" 
-                  id="isActive" 
-                  checked={formData.isActive !== false} 
-                  onChange={e => setFormData({...formData, isActive: e.target.checked})}
-                  className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500"
-                />
-                <label htmlFor="isActive" className="text-sm font-medium text-slate-700">عامل نشط</label>
-              </div>
-            </div>
-            <div className="p-4 border-t border-slate-200 bg-slate-50 flex justify-end gap-2">
-              <button onClick={() => setShowModal(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-200 rounded-lg transition-colors font-medium">إلغاء</button>
-              <button onClick={handleSave} className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors font-medium">حفظ</button>
-            </div>
-          </div>
-        </div>
+      {/* Universal Master Entity Modal */}
+      {isModalOpen && (
+        <UniversalMasterEntityModal
+          initialType="labor"
+          editingItem={editingItem}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingItem(null);
+          }}
+          onSuccess={() => {
+            setIsModalOpen(false);
+            setEditingItem(null);
+            loadData();
+          }}
+        />
       )}
     </div>
   );

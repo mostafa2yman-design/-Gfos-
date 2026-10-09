@@ -36,13 +36,8 @@ export const PackingWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order,
 
       {/* Operational Instructions for Packing */}
       <PrintInstructions
-        title="تعليمات التغليف والتعبئة والمواصفات الفنية"
-        instructions={order.packingInstructions || [
-          'تطبيق كود التغليف المعتمد (فردي بكيس سيلوفان شفاف / تعليق بشماعة / دستة مجمعة).',
-          'وضع الليبل التعريفي وكود الصنف والباركود الملصق على الكيس الخارجي بدقة.',
-          'رص القطع داخل كراتين التصدير/الشحن مع وضع بطاقة بيان بمحتويات الكرتونة (Packing List).',
-          'غلق الكراتين بشريط لاصق مميز والتأكد من جفاف الكراتين وسلامتها قبل توريدها لمخزن التام.'
-        ]}
+        title="تعليمات تشغيل التغليف والتخزين"
+        instructions={order.packingInstructions}
       />
 
       {/* Details of Packing Invoices */}

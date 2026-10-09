@@ -289,6 +289,72 @@ export const IroningForm: React.FC<Props> = ({ orderId, onSaved }) => {
         )}
 
         <div className="p-6 space-y-6">
+          {batches.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+              <div className="bg-slate-50 px-6 py-4 border-b border-slate-200">
+                <h3 className="text-lg font-bold text-slate-800">ملخص أمر المكواة</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-right">
+                  <thead className="bg-slate-50 text-slate-700">
+                    <tr>
+                      <th className="px-4 py-3 font-bold border-b">باتش</th>
+                      <th className="px-4 py-3 font-bold border-b">المسئول / العامل</th>
+                      <th className="px-4 py-3 font-bold border-b text-center">المطلوب (المستلم من التشطيب)</th>
+                      <th className="px-4 py-3 font-bold border-b text-center">الفعلي (المكوي)</th>
+                      <th className="px-4 py-3 font-bold border-b text-center">النقص</th>
+                      <th className="px-4 py-3 font-bold border-b text-center">السعر / قطعة</th>
+                      <th className="px-4 py-3 font-bold border-b text-center">الحالة</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {batches.map(batch => {
+                      const fData = batch.ironingData;
+                      let bReq = 0;
+                      let bAct = 0;
+                      
+                      // Required is what came out of finishing or sewing
+                      if (batch.finishingData?.actualQuantities && batch.finishingData.actualQuantities.length > 0) {
+                        batch.finishingData.actualQuantities.forEach(fq => bReq += (fq.actualQuantity || 0));
+                      } else if (batch.sewingData?.actualQuantities && batch.sewingData.actualQuantities.length > 0) {
+                        batch.sewingData.actualQuantities.forEach(sq => bReq += (sq.actualQuantity || 0));
+                      }
+                      if (bReq === 0) {
+                        batch.sizes.forEach(bs => bs.variants.forEach(v => bReq += v.quantity));
+                      }
+                      
+                      fData?.actualQuantities?.forEach(v => bAct += (v.actualQuantity || 0));
+                      const bMiss = bReq - bAct;
+                      const worker = fData?.workerName || "—";
+                      const price = fData?.actualCostPerPiece !== undefined && fData?.actualCostPerPiece !== null 
+                        ? Number(fData.actualCostPerPiece).toFixed(2) 
+                        : "—";
+                      const isComplete = fData?.status === 'مكتمل';
+                      
+                      return (
+                        <tr key={batch.id}>
+                          <td className="px-4 py-3 font-bold">{batch.batchNumber}</td>
+                          <td className="px-4 py-3 text-slate-600">{worker}</td>
+                          <td className="px-4 py-3 text-center font-bold text-slate-700">{bReq}</td>
+                          <td className="px-4 py-3 text-center text-indigo-700 font-bold">{bAct}</td>
+                          <td className="px-4 py-3 text-center text-amber-600 font-bold">{bMiss > 0 ? bMiss : "—"}</td>
+                          <td className="px-4 py-3 text-center text-emerald-700 font-bold">{price}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                              isComplete ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {fData?.status || 'لم يبدأ'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {batches.map((batch) => {
             const fData = batch.ironingData;
             if (!fData) return null;

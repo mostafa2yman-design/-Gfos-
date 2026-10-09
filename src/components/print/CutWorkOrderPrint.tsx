@@ -9,6 +9,7 @@ interface Props {
 
 export const CutWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order, fabricSummary }, ref) => {
   const primaryFabric = fabricSummary?.primaryFabric;
+  const requiredFabricName = primaryFabric?.item || (order.materials && order.materials.length > 0 ? order.materials[0].name : '—');
   
   // Calculate planned and actual total quantities
   let totalPlanned = 0;
@@ -38,20 +39,16 @@ export const CutWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order, fab
         additionalInfo={[
           { label: 'رقم أمر القص', value: order.cutData?.cutOrderNumber || '—' },
           { label: 'القائم بالقص', value: order.cutData?.cutterName || 'لم يحدد' },
-          { label: 'نوع القماش', value: order.cutData?.actualFabricName || (primaryFabric ? primaryFabric.item : '—') },
+          { label: 'خامة القماش المطلوبة', value: requiredFabricName },
+          { label: 'الخامة الفعلية المستخدمة', value: order.cutData?.actualFabricName || 'لم تحدد بعد' },
           { label: 'إجمالي المخطط', value: `${totalPlanned} قطعة` }
         ]}
       />
 
       {/* Operational Instructions for Cutting */}
       <PrintInstructions
-        title="تعليمات تشغيل صالة القص والمواصفات الفنية"
-        instructions={[
-          'مراجعة اتجاه النسيج ووجه القماش ومطابقة أرقام لوتات الصباغة قبل الفرش.',
-          'الالتزام الصارم بتعشيقة الباترون المعتمدة ومطابقة خطوط الاتزان (علامات الركوردات).',
-          'تسجيل وزن الفرشة بالكامل ووزن الطاقات المستهلكة بدقة وإثبات العوادم والهوالك.',
-          'ترقيم وتكتكة طبقات القص فور الانتهاء لضمان عدم اختلاط تدرجات الصباغة في المراحل التالية.'
-        ]}
+        title="تعليمات تشغيل صالة القص"
+        instructions={order.cuttingInstructions}
         type="quality"
       />
 

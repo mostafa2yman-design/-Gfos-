@@ -263,6 +263,35 @@ export function PurchaseInvoiceDetailsModal({ invoice, onClose, onEdit }: Purcha
             </div>
           </div>
 
+          {/* Official Approval System Audit Box */}
+          <div className="p-3.5 bg-emerald-50/60 rounded-xl border border-emerald-200 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-600 text-white flex items-center justify-center shrink-0 shadow-2xs">
+                <CheckCircle2 className="w-5 h-5" />
+              </div>
+              <div className="space-y-0.5 text-right">
+                <div className="flex items-center gap-2">
+                  <span className="font-black text-emerald-950">فاتورة شراء معتمدة ومسجلة رسمياً بالنظام</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 font-bold font-mono">
+                    {invoice.verificationCode || 'APV-PUR-VERIFIED'}
+                  </span>
+                </div>
+                <div className="text-slate-700">
+                  المعتمد: <span className="font-black text-slate-900">{typeof invoice.approvedBy === 'object' ? invoice.approvedBy?.userName : (invoice.approvedBy || 'رئيس الحسابات والتكاليف')}</span>
+                  {' '}(<span className="text-slate-600 font-bold">{typeof invoice.approvedBy === 'object' ? invoice.approvedBy?.userRoleLabel : 'إدارة المشتريات والحسابات'}</span>)
+                </div>
+                <div className="text-[11px] text-slate-500 font-mono">
+                  تاريخ وتوقيت الاعتماد: <span className="font-bold text-slate-800">{invoice.approvalDate || invoice.date}</span> {invoice.approvalTime ? `الساعة ${invoice.approvalTime}` : ''}
+                </div>
+              </div>
+            </div>
+            <div className="text-right sm:text-left shrink-0">
+              <span className="inline-block px-3 py-1 rounded-lg bg-emerald-100/80 text-emerald-800 text-[11px] font-black border border-emerald-300">
+                اعتماد وتدقيق رقمي ✓
+              </span>
+            </div>
+          </div>
+
           {/* Print Signatures */}
           <div className="hidden print:grid grid-cols-3 gap-4 pt-4 border-t-2 border-slate-800 text-center text-xs break-inside-avoid">
             <div className="border border-slate-300 rounded p-2 bg-slate-50">

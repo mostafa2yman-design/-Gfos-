@@ -33,13 +33,8 @@ export const IroningWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order 
 
       {/* Operational Instructions for Ironing */}
       <PrintInstructions
-        title="تعليمات المكواة والبخار واشتراطات الجودة"
-        instructions={order.ironingInstructions || [
-          'ضبط درجات حرارة أجهزة الكي وضغط البخار بما يناسب نوع نسيج القماش لتجنب اللمعان أو الحرق.',
-          'كي الياقات والأساور والكمر والجيوب مع مراعاة فرد الكسرات والدرزات بالشكل المطلوب.',
-          'ترك القطع لتجف تماماً وتفقد حرارتها قبل الطي والتعليق لمنع حدوث تجاعيد ورطوبة.',
-          'الفحص البصري أثناء الكي واستبعاد أي قطعة بها بقع زيتية أو أوساخ لتنظيفها فوراً.'
-        ]}
+        title="تعليمات تشغيل مرحلة المكواة"
+        instructions={order.ironingInstructions || order.finishingInstructions}
       />
 
       {/* Ironing Execution Table */}

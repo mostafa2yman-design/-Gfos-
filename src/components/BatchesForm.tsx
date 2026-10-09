@@ -4,7 +4,7 @@ import { getOrderById } from '../lib/storage';
 import * as Cmd from '../lib/productionOrderCommands';
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Toast } from "./ui/Toast";
-import { Check, Plus, Trash2, Users, Building2 } from 'lucide-react';
+import { Check, Plus, Trash2, Users, Building2, Layers, Package, Printer } from 'lucide-react';
 
 interface BatchesFormProps {
   key?: React.Key;
@@ -98,9 +98,79 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
     const result = await Cmd.saveBatches(order, newBatches, method);
     if (result.success) {
       if (result.data) setOrder(result.data);
+      setToastConfig({ message: `تم إعادة تقسيم الباتشات ${method} بنجاح`, type: "success" });
     } else {
       setError(result.error || "حدث خطأ");
     }
+  };
+
+  const handleUpdateVariantQuantity = async (batchId: string, sizeName: string, colorName: string, newQty: number) => {
+    if (isReadOnly) return;
+    const qty = Math.max(0, newQty || 0);
+    const updatedBatches = (order.batches || []).map(batch => {
+      if (batch.id !== batchId) return batch;
+      return {
+        ...batch,
+        sizes: batch.sizes.map(s => {
+          if (s.size !== sizeName) return s;
+          return {
+            ...s,
+            variants: s.variants.map(v => {
+              if (v.color !== colorName) return v;
+              return { ...v, quantity: qty };
+            })
+          };
+        })
+      };
+    });
+    
+    const result = await Cmd.saveBatches(order, updatedBatches, order.batchSplitMethod || 'مخصص');
+    if (result.success && result.data) {
+      setOrder(result.data);
+    }
+  };
+
+  const handleAddNewBatch = async () => {
+    if (isReadOnly) return;
+    const nextNum = (order.batches?.length || 0) + 1;
+    const newBatch: BatchItem = {
+      id: crypto.randomUUID(),
+      batchNumber: `B-${order.orderNumber}-${String(nextNum).padStart(3, '0')}`,
+      sizes: (order.cutData?.sizes || []).map(s => ({
+        size: s.size,
+        variants: s.variants.map(v => ({ color: v.color, quantity: 0 }))
+      })),
+      prepStatus: 'جاري',
+      accessoriesPrep: []
+    };
+    const updated = [...(order.batches || []), newBatch];
+    const res = await Cmd.saveBatches(order, updated, order.batchSplitMethod || 'مخصص');
+    if (res.success && res.data) {
+      setOrder(res.data);
+      setToastConfig({ message: `تمت إضافة باتش جديد ${newBatch.batchNumber}`, type: 'success' });
+    }
+  };
+
+  const handleDeleteBatch = async (batchId: string) => {
+    if (isReadOnly) return;
+    if ((order.batches || []).length <= 1) {
+      setToastConfig({ message: 'يجب أن يحتوي أمر الإنتاج على باتش واحد على الأقل', type: 'error' });
+      return;
+    }
+    setConfirmConfig({
+      isOpen: true,
+      message: 'هل أنت متأكد من حذف هذا الباتش من التقسيم؟',
+      onConfirm: async () => {
+        const updated = (order.batches || []).filter(b => b.id !== batchId);
+        const res = await Cmd.saveBatches(order, updated, order.batchSplitMethod || 'مخصص');
+        setConfirmConfig(null);
+        if (res.success && res.data) {
+          setOrder(res.data);
+          setToastConfig({ message: 'تم حذف الباتش بنجاح', type: 'success' });
+        }
+      },
+      onCancel: () => setConfirmConfig(null)
+    });
   };
 
   const handleLockBatches = async () => {
@@ -168,164 +238,317 @@ export function BatchesForm({ orderId, onSaved }: BatchesFormProps) {
         </div>
       )}
 
-      <div className="flex justify-between items-center bg-slate-50 p-4 rounded-lg border border-slate-200">
+      {/* Header bar */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-50 p-4 rounded-xl border border-slate-200">
         <div>
-          <h3 className="font-bold text-slate-800">تقسيم الباتشات</h3>
-          <p className="text-sm text-slate-500">توزيع القص الفعلي على دفعات تشغيل</p>
+          <div className="flex items-center gap-2">
+            <Layers className="w-5 h-5 text-indigo-600" />
+            <h3 className="font-bold text-slate-800 text-lg">تقسيم الباتشات</h3>
+          </div>
+          <p className="text-sm text-slate-500 mt-0.5">
+            توزيع ناتج القص الفعلي على دفعات تشغيل مستقلة لكل مرحلة
+          </p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-3">
           {!isReadOnly ? (
             <button
               onClick={handleLockBatches}
               disabled={totalBatches !== totalActual}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors shadow-sm font-medium text-sm ${
-                totalBatches === totalActual ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-slate-300 text-slate-500 cursor-not-allowed'
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-lg transition-colors shadow-sm font-bold text-sm ${
+                totalBatches === totalActual ? 'bg-indigo-600 text-white hover:bg-indigo-700 cursor-pointer' : 'bg-slate-300 text-slate-500 cursor-not-allowed'
               }`}
             >
-              <Check className="w-4 h-4" />
-              اعتماد الباتشات
+              <Check className="w-4 h-4 stroke-[2.5]" />
+              اعتماد وتثبيت الباتشات
             </button>
           ) : (
-             <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg shadow-sm font-medium text-sm">
-                <Check className="w-4 h-4" />
-                تم الاعتماد
+             <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 text-emerald-700 border border-emerald-200 rounded-lg shadow-sm font-bold text-sm">
+                <Check className="w-4 h-4 stroke-[2.5]" />
+                تم الاعتماد والتثبيت
              </div>
           )}
         </div>
       </div>
 
+      {/* Overview stats cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
-          <p className="text-sm text-slate-500 mb-1">القص الفعلي (متاح)</p>
-          <p className="text-2xl font-bold text-slate-800">{totalActual}</p>
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <p className="text-xs font-semibold text-slate-500 mb-1">القص الفعلي الكلي (المتاح)</p>
+          <p className="text-2xl font-black text-slate-800">{totalActual} <span className="text-xs font-normal text-slate-500">قطعة</span></p>
         </div>
-        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm">
-          <p className="text-sm text-slate-500 mb-1">إجمالي الموزع في الباتشات</p>
-          <p className={`text-2xl font-bold ${statusColor}`}>{totalBatches}</p>
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm">
+          <p className="text-xs font-semibold text-slate-500 mb-1">إجمالي الموزع في الباتشات</p>
+          <p className={`text-2xl font-black ${statusColor}`}>{totalBatches} <span className="text-xs font-normal text-slate-500">قطعة</span></p>
         </div>
-        <div className="bg-white p-4 rounded-lg border border-slate-200 shadow-sm col-span-2 flex items-center justify-between">
+        <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm col-span-2 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <p className="text-sm text-slate-500 mb-1">حالة التوزيع</p>
-            <p className={`text-lg font-bold ${statusColor}`}>{statusMessage}</p>
+            <p className="text-xs font-semibold text-slate-500 mb-1">حالة التوزيع والتطابق</p>
+            <div className="flex items-center gap-2">
+              <span className={`w-2.5 h-2.5 rounded-full ${totalBatches === totalActual ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
+              <p className={`text-base font-bold ${statusColor}`}>{statusMessage}</p>
+            </div>
+            {totalBatches !== totalActual && (
+              <p className="text-xs text-slate-400 mt-0.5">
+                {totalActual - totalBatches > 0 
+                  ? `متبقي ${totalActual - totalBatches} قطعة بحاجة للتوزيع`
+                  : `فائض ${totalBatches - totalActual} قطعة فوق ناتج القص`}
+              </p>
+            )}
           </div>
           {!isReadOnly && (
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               <button
+                type="button"
                 onClick={() => handleSplitMethodChange('حسب اللون')}
-                className={`px-3 py-1.5 text-sm font-medium rounded border ${order.batchSplitMethod === 'حسب اللون' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors ${
+                  order.batchSplitMethod === 'حسب اللون' 
+                    ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-xs' 
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
               >
                 تقسيم تلقائي حسب اللون
               </button>
               <button
+                type="button"
                 onClick={() => handleSplitMethodChange('حسب المقاس')}
-                className={`px-3 py-1.5 text-sm font-medium rounded border ${order.batchSplitMethod === 'حسب المقاس' ? 'bg-indigo-50 border-indigo-200 text-indigo-700' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-colors ${
+                  order.batchSplitMethod === 'حسب المقاس' 
+                    ? 'bg-indigo-50 border-indigo-300 text-indigo-700 shadow-xs' 
+                    : 'bg-white border-slate-200 text-slate-700 hover:bg-slate-50'
+                }`}
               >
                 تقسيم تلقائي حسب المقاس
+              </button>
+              <button
+                type="button"
+                onClick={handleAddNewBatch}
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-bold bg-white text-emerald-700 border border-emerald-300 rounded-lg hover:bg-emerald-50 transition-colors shadow-xs"
+                title="إضافة باتش جديد فارغ للتوزيع اليدوي"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                إضافة باتش
               </button>
             </div>
           )}
         </div>
       </div>
 
-            <div className="space-y-4">
-        {batches.length > 0 ? (
-          <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm text-right whitespace-nowrap">
-                <thead className="bg-slate-50 text-slate-700">
-                  <tr>
-                    <th className="px-4 py-3 font-bold border-b">رقم الباتش</th>
-                    <th className="px-4 py-3 font-bold border-b">المقاس</th>
-                    <th className="px-4 py-3 font-bold border-b">اللون</th>
-                    <th className="px-4 py-3 font-bold border-b text-center">المطلوب</th>
-                    <th className="px-4 py-3 font-bold border-b text-center">حالة القص</th>
-                    <th className="px-4 py-3 font-bold border-b text-center">حالة الطباعة</th>
-                    <th className="px-4 py-3 font-bold border-b text-center">حالة الخياطة</th>
-                    <th className="px-4 py-3 font-bold border-b text-center">مسؤول الخياطة</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100">
-                  {batches.map(batch => {
-                    const printStatus = batch.printEmbroideryStatus || 'لم يبدأ';
-                    const sewStatus = batch.sewingData?.status || 'لم يبدأ';
-                    const prepStatus = batch.prepStatus || 'لم يبدأ';
-                    
-                    const isExternal =
-                      batch.sewingData?.manufacturingType === 'تصنيع خارجي' ||
-                      Boolean(batch.sewingData?.externalManufacturer?.trim());
-                    const isInternal =
-                      batch.sewingData?.manufacturingType === 'تصنيع داخلي' ||
-                      Boolean(batch.sewingData?.sewingGroup?.trim());
-                    const sewingResponsibleName = isExternal
-                      ? (batch.sewingData?.externalManufacturer?.trim() || 'جهة خارجية')
-                      : isInternal
-                      ? (batch.sewingData?.sewingGroup?.trim() || 'مجموعة داخلية')
-                      : null;
+      {/* Quick navigation pill bar if multiple batches */}
+      {batches.length > 1 && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+          <span className="text-slate-500 font-semibold shrink-0">الانتقال السريع للباتش:</span>
+          {batches.map((b, idx) => {
+            let bSum = 0;
+            b.sizes.forEach(s => s.variants.forEach(v => bSum += v.quantity));
+            return (
+              <a
+                key={b.id}
+                href={`#batch-${b.id}`}
+                className="inline-flex items-center gap-1.5 px-3 py-1 bg-white hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 rounded-lg shrink-0 font-medium transition-colors shadow-2xs"
+              >
+                <span className="font-bold text-indigo-600">#{idx + 1}</span>
+                <span>{b.batchNumber}</span>
+                <span className="bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded text-[11px] font-bold">
+                  {bSum} ق
+                </span>
+              </a>
+            );
+          })}
+        </div>
+      )}
 
-                    return batch.sizes.map((size) => (
-                      <React.Fragment key={`${batch.id}-${size.size}`}>
-                        {size.variants.map((variant, vIdx) => (
-                          <tr key={`${batch.id}-${size.size}-${variant.color}`}>
-                            <td className="px-4 py-2 font-bold text-slate-800">{batch.batchNumber}</td>
-                            <td className="px-4 py-2 text-slate-700">{size.size}</td>
-                            <td className="px-4 py-2 text-slate-600">{variant.color}</td>
-                            <td className="px-4 py-2 text-center font-bold text-indigo-600">{variant.quantity}</td>
-                            <td className="px-4 py-2 text-center">
-                              <span className="bg-emerald-50 text-emerald-700 px-2 py-1 rounded text-xs">مكتمل</span>
-                            </td>
-                            <td className="px-4 py-2 text-center">
-                              <span className={`px-2 py-1 rounded text-xs ${
-                                printStatus === 'مكتمل' ? 'bg-emerald-50 text-emerald-700' :
-                                printStatus === 'جاري' ? 'bg-amber-50 text-amber-700' :
-                                printStatus === 'تم التخطي' ? 'bg-slate-100 text-slate-600' :
-                                'bg-slate-100 text-slate-500'
-                              }`}>{printStatus}</span>
-                            </td>
-                            <td className="px-4 py-2 text-center">
-                              <span className={`px-2 py-1 rounded text-xs ${
-                                sewStatus === 'مكتمل' ? 'bg-emerald-50 text-emerald-700' :
-                                sewStatus === 'جاري' ? 'bg-amber-50 text-amber-700' :
-                                'bg-slate-100 text-slate-500'
-                              }`}>{sewStatus}</span>
-                            </td>
-                            <td className="px-4 py-2 text-center">
-                              {sewingResponsibleName ? (
-                                <span
-                                  className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold ${
-                                    isInternal
-                                      ? 'bg-blue-50 text-blue-800 border border-blue-200'
-                                      : 'bg-amber-50 text-amber-900 border border-amber-200'
-                                  }`}
-                                >
-                                  {isInternal ? (
-                                    <>
-                                      <Users className="w-3 h-3 text-blue-600" />
-                                      <span>مجموعة: {sewingResponsibleName}</span>
-                                    </>
-                                  ) : (
-                                    <>
-                                      <Building2 className="w-3 h-3 text-amber-600" />
-                                      <span>جهة: {sewingResponsibleName}</span>
-                                    </>
-                                  )}
+      {/* Separate Table for each batch */}
+      <div className="space-y-6">
+        {batches.length > 0 ? (
+          batches.map((batch, index) => {
+            let batchTotal = 0;
+            batch.sizes.forEach(s => s.variants.forEach(v => batchTotal += v.quantity));
+            const batchPercentage = totalActual > 0 ? ((batchTotal / totalActual) * 100).toFixed(1) : '0';
+
+            const printStatus = batch.printEmbroideryStatus || 'لم يبدأ';
+            const sewStatus = batch.sewingData?.status || 'لم يبدأ';
+            const prepStatus = batch.prepStatus || 'لم يبدأ';
+
+            const isExternal =
+              batch.sewingData?.manufacturingType === 'تصنيع خارجي' ||
+              Boolean(batch.sewingData?.externalManufacturer?.trim());
+            const isInternal =
+              batch.sewingData?.manufacturingType === 'تصنيع داخلي' ||
+              Boolean(batch.sewingData?.sewingGroup?.trim());
+            const sewingResponsibleName = isExternal
+              ? (batch.sewingData?.externalManufacturer?.trim() || 'جهة خارجية')
+              : isInternal
+              ? (batch.sewingData?.sewingGroup?.trim() || 'مجموعة داخلية')
+              : null;
+
+            // Collect all variants for this batch
+            const items: { size: string; color: string; quantity: number }[] = [];
+            batch.sizes.forEach(s => {
+              s.variants.forEach(v => {
+                items.push({ size: s.size, color: v.color, quantity: v.quantity });
+              });
+            });
+
+            // If read-only, filter rows with quantity > 0
+            const displayItems = isReadOnly ? items.filter(i => i.quantity > 0) : items;
+
+            return (
+              <div
+                id={`batch-${batch.id}`}
+                key={batch.id}
+                className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden transition-all hover:border-slate-300"
+              >
+                {/* Batch Header Bar */}
+                <div className="bg-slate-50/90 px-5 py-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-base shadow-xs shrink-0">
+                      {index + 1}
+                    </div>
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h4 className="font-extrabold text-slate-800 text-base">
+                          {batch.batchNumber}
+                        </h4>
+                        <span className="bg-indigo-50 text-indigo-700 text-xs px-2.5 py-0.5 rounded-full font-bold border border-indigo-200">
+                          إجمالي الباتش: {batchTotal} قطعة ({batchPercentage}%)
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-slate-500">
+                        <span>مراحل الباتش:</span>
+                        <span className="text-emerald-700 font-semibold">القص (مكتمل)</span>
+                        <span>•</span>
+                        <span className="text-slate-600 font-semibold">التجهيز ({prepStatus})</span>
+                        <span>•</span>
+                        <span className="text-slate-600 font-semibold">الطباعة ({printStatus})</span>
+                        <span>•</span>
+                        <span className="text-slate-600 font-semibold">الخياطة ({sewStatus})</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Badges & Actions */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {sewingResponsibleName && (
+                      <span
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold ${
+                          isInternal
+                            ? 'bg-blue-50 text-blue-800 border border-blue-200'
+                            : 'bg-amber-50 text-amber-900 border border-amber-200'
+                        }`}
+                      >
+                        {isInternal ? <Users className="w-3.5 h-3.5 text-blue-600" /> : <Building2 className="w-3.5 h-3.5 text-amber-600" />}
+                        <span>{isInternal ? 'مجموعة: ' : 'جهة: '}{sewingResponsibleName}</span>
+                      </span>
+                    )}
+
+                    {!isReadOnly && batches.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteBatch(batch.id)}
+                        className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50 px-2.5 py-1 rounded-lg transition-colors border border-transparent hover:border-red-200 text-xs font-semibold"
+                        title="حذف هذا الباتش"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>حذف الباتش</span>
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* The Dedicated Table for this Batch */}
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm text-right">
+                    <thead className="bg-slate-100/70 text-slate-700 text-xs font-bold border-b border-slate-200">
+                      <tr>
+                        <th className="px-4 py-3 text-center w-12 border-b">#</th>
+                        <th className="px-4 py-3 border-b">المقاس</th>
+                        <th className="px-4 py-3 border-b">اللون</th>
+                        <th className="px-4 py-3 text-center border-b">الكمية الموزعة في هذا الباتش</th>
+                        <th className="px-4 py-3 text-center border-b">نسبة الصنف من الباتش</th>
+                        <th className="px-4 py-3 text-center border-b">إجمالي المقصوص الفعلي</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {displayItems.length > 0 ? (
+                        displayItems.map((item, rowIdx) => {
+                          const totalCutForVariant = order.cutData?.sizes
+                            ?.find(s => s.size === item.size)
+                            ?.variants?.find(v => v.color === item.color)?.actualQuantity || 0;
+
+                          const rowPercentage = batchTotal > 0 ? ((item.quantity / batchTotal) * 100).toFixed(1) : '0';
+
+                          return (
+                            <tr key={`${batch.id}-${item.size}-${item.color}`} className="hover:bg-indigo-50/20 transition-colors">
+                              <td className="px-4 py-2.5 text-center text-xs text-slate-400 font-mono">
+                                {rowIdx + 1}
+                              </td>
+                              <td className="px-4 py-2.5 font-bold text-slate-800">
+                                <span className="bg-slate-100 border border-slate-200 px-2.5 py-0.5 rounded text-xs font-bold">
+                                  {item.size}
                                 </span>
-                              ) : (
-                                <span className="text-slate-400 text-xs italic">غير محدد</span>
-                              )}
-                            </td>
-                          </tr>
-                        ))}
-                      </React.Fragment>
-                    ));
-                  })}
-                </tbody>
-              </table>
-            </div>
-          </div>
+                              </td>
+                              <td className="px-4 py-2.5 text-slate-700 font-medium">
+                                <span className="inline-flex items-center gap-1.5">
+                                  <span className="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
+                                  {item.color}
+                                </span>
+                              </td>
+                              <td className="px-4 py-2.5 text-center">
+                                {!isReadOnly ? (
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={item.quantity}
+                                    onChange={(e) => handleUpdateVariantQuantity(batch.id, item.size, item.color, parseInt(e.target.value) || 0)}
+                                    className="w-24 text-center font-bold text-indigo-700 border border-slate-300 rounded-lg px-2 py-1 text-sm bg-white focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs"
+                                  />
+                                ) : (
+                                  <span className="font-extrabold text-indigo-700 text-sm">{item.quantity} قطعة</span>
+                                )}
+                              </td>
+                              <td className="px-4 py-2.5 text-center text-xs font-semibold text-slate-500">
+                                {rowPercentage}%
+                              </td>
+                              <td className="px-4 py-2.5 text-center text-xs text-slate-500 font-medium">
+                                {totalCutForVariant} قطعة
+                              </td>
+                            </tr>
+                          );
+                        })
+                      ) : (
+                        <tr>
+                          <td colSpan={6} className="px-4 py-6 text-center text-slate-400 text-sm italic">
+                            لا توجد كميات موزعة في هذا الباتش حالياً
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                    <tfoot className="bg-slate-50/80 border-t border-slate-200">
+                      <tr>
+                        <td colSpan={3} className="px-4 py-3 font-bold text-slate-800 text-xs">
+                          إجمالي كمية الباتش ({batch.batchNumber})
+                        </td>
+                        <td className="px-4 py-3 text-center font-black text-indigo-700 text-base">
+                          {batchTotal} قطعة
+                        </td>
+                        <td className="px-4 py-3 text-center font-bold text-slate-600 text-xs">
+                          100%
+                        </td>
+                        <td className="px-4 py-3 text-center text-xs font-semibold text-slate-600">
+                          {batchPercentage}% من إجمالي ناتج القص ({totalActual} ق)
+                        </td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              </div>
+            );
+          })
         ) : (
-          <div className="text-center py-12 bg-slate-50 rounded-lg border-2 border-dashed border-slate-200">
-            <p className="text-slate-500 font-medium">لم يتم إنشاء أي باتشات بعد</p>
-            <p className="text-slate-400 text-sm mt-1">اختر طريقة التقسيم التلقائي للبدء</p>
+          <div className="text-center py-12 bg-slate-50 rounded-xl border-2 border-dashed border-slate-200">
+            <Layers className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+            <p className="text-slate-600 font-bold text-base">لم يتم تقسيم الباتشات بعد</p>
+            <p className="text-slate-400 text-sm mt-1">اختر طريقة التقسيم التلقائي (حسب اللون أو حسب المقاس) لتوليد الجداول</p>
           </div>
         )}
       </div>

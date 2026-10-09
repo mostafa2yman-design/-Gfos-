@@ -32,6 +32,8 @@ interface OrderBasicInfoProps {
   standardFinishingCostPerPiece?: number;
   standardIroningCostPerPiece?: number;
   sellingPrice?: number;
+  cuttingInstructions?: string;
+  sewingInstructions?: string;
   finishingInstructions?: string;
   ironingInstructions?: string;
   packingInstructions?: string;
@@ -51,6 +53,8 @@ export function OrderBasicInfo({
   standardFinishingCostPerPiece,
   standardIroningCostPerPiece,
   sellingPrice,
+  cuttingInstructions,
+  sewingInstructions,
   finishingInstructions,
   ironingInstructions,
   packingInstructions,
@@ -404,62 +408,82 @@ export function OrderBasicInfo({
         </div>
 
         <div className="p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-            {/* تعليمات التشطيب */}
-            <div className="space-y-1.5">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* ملاحظات قص */}
+            <div className="space-y-1.5 bg-slate-50/60 p-3 rounded-lg border border-slate-200">
+              <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Scissors className="w-3.5 h-3.5 text-indigo-600" />
+                ملاحظات قص
+              </label>
+              <textarea
+                value={cuttingInstructions ?? ''}
+                disabled={readOnly}
+                onChange={(e) => onChange('cuttingInstructions', e.target.value)}
+                placeholder="تعليمات فرش القماش، اتجاه النسيج، الهالك..."
+                rows={3}
+                className={`w-full px-3 py-2 border rounded-lg text-xs transition-all ${
+                  readOnly
+                    ? 'bg-slate-100 text-slate-700 border-slate-200 cursor-not-allowed'
+                    : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs'
+                }`}
+              />
+            </div>
+
+            {/* ملاحظات خياطة */}
+            <div className="space-y-1.5 bg-slate-50/60 p-3 rounded-lg border border-slate-200">
+              <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
+                <Shirt className="w-3.5 h-3.5 text-blue-600" />
+                ملاحظات خياطة
+              </label>
+              <textarea
+                value={sewingInstructions ?? ''}
+                disabled={readOnly}
+                onChange={(e) => onChange('sewingInstructions', e.target.value)}
+                placeholder="تعليمات التجميع، نوع الخيط، مواضع التكتات..."
+                rows={3}
+                className={`w-full px-3 py-2 border rounded-lg text-xs transition-all ${
+                  readOnly
+                    ? 'bg-slate-100 text-slate-700 border-slate-200 cursor-not-allowed'
+                    : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs'
+                }`}
+              />
+            </div>
+
+            {/* ملاحظات تشطيب */}
+            <div className="space-y-1.5 bg-slate-50/60 p-3 rounded-lg border border-slate-200">
               <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-amber-600" />
-                تعليمات التشطيب
+                ملاحظات تشطيب
               </label>
               <textarea
                 value={finishingInstructions ?? ''}
                 disabled={readOnly}
                 onChange={(e) => onChange('finishingInstructions', e.target.value)}
-                placeholder="مثال: تركيب أزرار إضافية، قص الخيوط بعناية، فحص الغرز..."
+                placeholder="قص الخيوط، تركيب الأزرار، فحص الغرز..."
                 rows={3}
-                className={`w-full px-3.5 py-2.5 border rounded-lg text-sm transition-all ${
+                className={`w-full px-3 py-2 border rounded-lg text-xs transition-all ${
                   readOnly
-                    ? 'bg-slate-50 text-slate-700 border-slate-200 cursor-not-allowed'
+                    ? 'bg-slate-100 text-slate-700 border-slate-200 cursor-not-allowed'
                     : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs'
                 }`}
               />
             </div>
 
-            {/* تعليمات المكواة */}
-            <div className="space-y-1.5">
+            {/* ملاحظات تغليف وتخزين */}
+            <div className="space-y-1.5 bg-slate-50/60 p-3 rounded-lg border border-slate-200">
               <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Flame className="w-3.5 h-3.5 text-rose-600" />
-                تعليمات المكواة
-              </label>
-              <textarea
-                value={ironingInstructions ?? ''}
-                disabled={readOnly}
-                onChange={(e) => onChange('ironingInstructions', e.target.value)}
-                placeholder="مثال: كي بالبخار بدرجة حرارة متوسطة، فرد الياقة..."
-                rows={3}
-                className={`w-full px-3.5 py-2.5 border rounded-lg text-sm transition-all ${
-                  readOnly
-                    ? 'bg-slate-50 text-slate-700 border-slate-200 cursor-not-allowed'
-                    : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs'
-                }`}
-              />
-            </div>
-
-            {/* تعليمات التعبئة والتغليف */}
-            <div className="space-y-1.5">
-              <label className="block text-xs font-bold text-slate-700 flex items-center gap-1.5">
-                <Package className="w-3.5 h-3.5 text-indigo-600" />
-                تعليمات التعبئة والتغليف
+                <Package className="w-3.5 h-3.5 text-emerald-600" />
+                ملاحظات تغليف وتخزين
               </label>
               <textarea
                 value={packingInstructions ?? ''}
                 disabled={readOnly}
                 onChange={(e) => onChange('packingInstructions', e.target.value)}
-                placeholder="مثال: وضع كيس فردي لكل قطعة، كرتونة تحتوي 24 قطعة..."
+                placeholder="طريقة التطبيق، الأكياس، كراتين الشحن..."
                 rows={3}
-                className={`w-full px-3.5 py-2.5 border rounded-lg text-sm transition-all ${
+                className={`w-full px-3 py-2 border rounded-lg text-xs transition-all ${
                   readOnly
-                    ? 'bg-slate-50 text-slate-700 border-slate-200 cursor-not-allowed'
+                    ? 'bg-slate-100 text-slate-700 border-slate-200 cursor-not-allowed'
                     : 'bg-white border-slate-300 text-slate-800 placeholder-slate-400 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 shadow-2xs'
                 }`}
               />

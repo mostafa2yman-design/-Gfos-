@@ -7,7 +7,6 @@ import {
   Filter,
   Users,
   PackageSearch,
-  ArrowUpDown,
   Eye,
   Edit,
   Trash2,
@@ -19,109 +18,146 @@ import {
   AlertCircle,
   FileText,
   Printer,
-  TrendingDown,
   DollarSign,
   Layers,
   Sparkles,
   RefreshCw,
-  ExternalLink
+  Boxes,
+  RotateCcw,
+  BookOpen,
+  LayoutGrid,
+  Table as TableIcon,
+  Truck,
+  ArrowRight
 } from 'lucide-react';
-import { PurchaseInvoice, PurchasePaymentStatus } from '../../types';
+import {
+  PurchaseInvoice,
+  PurchasePaymentStatus,
+  PurchasePaymentMethod,
+  PurchaseReceiptStatus,
+  PurchaseReturn,
+  PurchaseReturnReason,
+  PurchaseReturnRefundMethod,
+  PurchaseMetrics
+} from '../../types/purchases';
+import { getPeriodDateRange } from '../../lib/periodUtils';
 import {
   getPurchases,
   savePurchases,
   addPurchase,
   updatePurchase,
-  deletePurchase
+  deletePurchase,
+  getPurchaseReturns,
+  addPurchaseReturn,
+  updatePurchaseReturn,
+  deletePurchaseReturn,
+  calculatePurchaseMetrics
 } from '../../lib/purchasesStorage';
 import { PurchaseInvoiceFormModal } from './PurchaseInvoiceFormModal';
 import { PurchaseInvoiceDetailsModal } from './PurchaseInvoiceDetailsModal';
+import { PurchaseReturnFormModal } from './PurchaseReturnFormModal';
+import { PurchaseReturnDetailsModal } from './PurchaseReturnDetailsModal';
 import { QuickAddSupplierModal } from './QuickAddSupplierModal';
 import { QuickAddMaterialModal } from './QuickAddMaterialModal';
+import { useNotification } from '../../context/NotificationContext';
 
 interface PurchasesDashboardProps {
   onNavigateToAccounting?: (tab: 'customers' | 'materials', autoOpenAdd?: boolean) => void;
+  onNavigateToWarehouse?: () => void;
+  onNavigateToJournal?: () => void;
+  onNavigateToTreasury?: () => void;
 }
 
-export function PurchasesDashboard({ onNavigateToAccounting }: PurchasesDashboardProps) {
+export function PurchasesDashboard({
+  onNavigateToAccounting,
+  onNavigateToWarehouse,
+  onNavigateToJournal,
+  onNavigateToTreasury
+}: PurchasesDashboardProps) {
+  const { notifySuccess, notifyInfo } = useNotification();
+
+  // Primary Data
   const [purchases, setPurchases] = useState<PurchaseInvoice[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [selectedSupplierFilter, setSelectedSupplierFilter] = useState('all');
-  const [selectedStatusFilter, setSelectedStatusFilter] = useState<string>('all');
+  const [purchaseReturns, setPurchaseReturns] = useState<PurchaseReturn[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  // Date Range State (User-specified period filter: "خلال فترة معينة اقوم انا بتحديدها")
-  const [datePreset, setDatePreset] = useState<string>('month'); // default: this month
-  const [startDate, setStartDate] = useState<string>(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1).toISOString().split('T')[0];
-  });
-  const [endDate, setEndDate] = useState<string>(() => {
-    return new Date().toISOString().split('T')[0];
-  });
+  // Tabs: 'invoices' | 'returns'
+  const [mainTab, setMainTab] = useState<'invoices' | 'returns'>('invoices');
 
-  // Modal states
-  const [showInvoiceForm, setShowInvoiceForm] = useState(false);
+  // Filters State
+  const [searchTerm, setSearchTerm] = useState('');
+  const [supplierFilter, setSupplierFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [receiptFilter, setReceiptFilter] = useState<string>('all');
+  const [paymentMethodFilter, setPaymentMethodFilter] = useState<string>('all');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
+  const [periodPreset, setPeriodPreset] = useState<string>('all');
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+
+  // Modals State for Invoices
+  const [isInvoiceFormOpen, setIsInvoiceFormOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<PurchaseInvoice | null>(null);
   const [viewingInvoice, setViewingInvoice] = useState<PurchaseInvoice | null>(null);
   const [expandedInvoiceId, setExpandedInvoiceId] = useState<string | null>(null);
+  const [confirmDeleteInvoiceConfig, setConfirmDeleteInvoiceConfig] = useState<{
+    isOpen: boolean;
+    invoice: PurchaseInvoice | null;
+  }>({ isOpen: false, invoice: null });
 
-  // Quick addition modals from shortcuts
+  // Modals State for Returns
+  const [isReturnFormOpen, setIsReturnFormOpen] = useState(false);
+  const [editingReturn, setEditingReturn] = useState<PurchaseReturn | null>(null);
+  const [viewingReturn, setViewingReturn] = useState<PurchaseReturn | null>(null);
+  const [returnInitialInvoice, setReturnInitialInvoice] = useState<PurchaseInvoice | null>(null);
+  const [confirmDeleteReturnConfig, setConfirmDeleteReturnConfig] = useState<{
+    isOpen: boolean;
+    returnRecord: PurchaseReturn | null;
+  }>({ isOpen: false, returnRecord: null });
+
+  // Quick Addition Modals
   const [showQuickSupplierModal, setShowQuickSupplierModal] = useState(false);
   const [showQuickMaterialModal, setShowQuickMaterialModal] = useState(false);
-  const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' } | null>(null);
 
-  // Load purchases
+  // Load primary data
   const loadData = () => {
-    setPurchases(getPurchases());
+    setLoading(true);
+    try {
+      setPurchases(getPurchases());
+      setPurchaseReturns(getPurchaseReturns());
+    } catch (err) {
+      console.error('Failed to load purchases data:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     loadData();
+
     const handleUpdate = () => loadData();
     window.addEventListener('purchases_updated', handleUpdate);
-    return () => window.removeEventListener('purchases_updated', handleUpdate);
+    window.addEventListener('purchase_returns_updated', handleUpdate);
+    window.addEventListener('raw_materials_updated', handleUpdate);
+    return () => {
+      window.removeEventListener('purchases_updated', handleUpdate);
+      window.removeEventListener('purchase_returns_updated', handleUpdate);
+      window.removeEventListener('raw_materials_updated', handleUpdate);
+    };
   }, []);
 
-  // Quick Date Range Presets
-  const applyDatePreset = (preset: string) => {
-    setDatePreset(preset);
-    const today = new Date();
-    const todayStr = today.toISOString().split('T')[0];
-
-    if (preset === 'today') {
-      setStartDate(todayStr);
-      setEndDate(todayStr);
-    } else if (preset === 'week') {
-      const d = new Date(today);
-      const day = d.getDay(); // 0 is Sunday
-      // In Middle East / Egypt week starts Saturday (6) or Sunday (0)
-      const diff = d.getDate() - day + (day === 6 ? 0 : -1);
-      const startOfWeek = new Date(d.setDate(diff));
-      setStartDate(startOfWeek.toISOString().split('T')[0]);
-      setEndDate(todayStr);
-    } else if (preset === 'month') {
-      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
-      setStartDate(firstDay.toISOString().split('T')[0]);
-      setEndDate(todayStr);
-    } else if (preset === 'last30') {
-      const past30 = new Date(today);
-      past30.setDate(today.getDate() - 30);
-      setStartDate(past30.toISOString().split('T')[0]);
-      setEndDate(todayStr);
-    } else if (preset === 'year') {
-      const firstDayOfYear = new Date(today.getFullYear(), 0, 1);
-      setStartDate(firstDayOfYear.toISOString().split('T')[0]);
-      setEndDate(todayStr);
-    } else if (preset === 'all') {
-      setStartDate('');
-      setEndDate('');
-    }
+  // Quick Period Presets (Factory Weekly Cycles: Saturday-Friday)
+  const applyPeriodPreset = (preset: string) => {
+    setPeriodPreset(preset);
+    const range = getPeriodDateRange(preset);
+    setDateFrom(range.startDate);
+    setDateTo(range.endDate);
   };
 
   // Suppliers list for dropdown
   const uniqueSuppliers = useMemo(() => {
     const map = new Map<string, string>();
-    purchases.forEach((p) => {
+    purchases.forEach(p => {
       if (p.supplierId && p.supplierName) {
         map.set(p.supplierId, p.supplierName);
       }
@@ -129,320 +165,630 @@ export function PurchasesDashboard({ onNavigateToAccounting }: PurchasesDashboar
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [purchases]);
 
-  // Filtered Purchases based on user-specified period, search, and status
-  const filteredPurchases = useMemo(() => {
-    return purchases.filter((inv) => {
-      // Date Filter
-      if (startDate && inv.date < startDate) return false;
-      if (endDate && inv.date > endDate) return false;
-
-      // Supplier Filter
-      if (selectedSupplierFilter !== 'all' && inv.supplierId !== selectedSupplierFilter) {
-        return false;
-      }
-
-      // Status Filter
-      if (selectedStatusFilter !== 'all' && inv.paymentStatus !== selectedStatusFilter) {
-        return false;
-      }
-
-      // Search Query (invoice number, supplier name, notes, ref)
-      if (searchQuery.trim()) {
-        const q = searchQuery.toLowerCase().trim();
-        const matchesInvNo = inv.invoiceNumber?.toLowerCase().includes(q);
-        const matchesSupp = inv.supplierName?.toLowerCase().includes(q);
-        const matchesNotes = inv.notes?.toLowerCase().includes(q);
-        const matchesRef = inv.referenceNumber?.toLowerCase().includes(q);
-        const matchesItem = inv.items?.some((it) => it.materialName?.toLowerCase().includes(q));
-        if (!matchesInvNo && !matchesSupp && !matchesNotes && !matchesRef && !matchesItem) {
+  // Filtered Purchases Invoices
+  const filteredInvoices = useMemo(() => {
+    return purchases.filter(inv => {
+      // Search
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase().trim();
+        const matchesNum = inv.invoiceNumber?.toLowerCase().includes(q) || false;
+        const matchesSupp = inv.supplierName?.toLowerCase().includes(q) || false;
+        const matchesPhone = inv.supplierPhone?.toLowerCase().includes(q) || false;
+        const matchesRef = inv.referenceNumber?.toLowerCase().includes(q) || false;
+        const matchesNotes = inv.notes?.toLowerCase().includes(q) || false;
+        const matchesItem = inv.items?.some(it => it.materialName?.toLowerCase().includes(q)) || false;
+        if (!matchesNum && !matchesSupp && !matchesPhone && !matchesRef && !matchesNotes && !matchesItem) {
           return false;
         }
       }
 
+      // Supplier
+      if (supplierFilter !== 'all' && inv.supplierId !== supplierFilter) {
+        return false;
+      }
+
+      // Payment Status
+      if (statusFilter !== 'all' && inv.paymentStatus !== statusFilter) {
+        return false;
+      }
+
+      // Receipt Status
+      if (receiptFilter !== 'all') {
+        const invReceipt = inv.receiptStatus || 'received';
+        if (invReceipt !== receiptFilter) return false;
+      }
+
+      // Payment Method
+      if (paymentMethodFilter !== 'all' && inv.paymentMethod !== paymentMethodFilter) {
+        return false;
+      }
+
+      // Date Range
+      if (dateFrom && inv.date < dateFrom) return false;
+      if (dateTo && inv.date > dateTo) return false;
+
       return true;
     });
-  }, [purchases, startDate, endDate, selectedSupplierFilter, selectedStatusFilter, searchQuery]);
+  }, [purchases, searchTerm, supplierFilter, statusFilter, receiptFilter, paymentMethodFilter, dateFrom, dateTo]);
 
-  // KPI Calculations for the selected period
-  const stats = useMemo(() => {
-    const totalAmount = filteredPurchases.reduce((s, p) => s + (Number(p.grandTotal) || 0), 0);
-    const paidAmount = filteredPurchases.reduce((s, p) => s + (Number(p.paidAmount) || 0), 0);
-    const remainingAmount = filteredPurchases.reduce((s, p) => s + (Number(p.remainingAmount) || 0), 0);
-    const totalInvoices = filteredPurchases.length;
-    const totalItemsCount = filteredPurchases.reduce((s, p) => s + (p.items?.length || 0), 0);
-    const totalQuantity = filteredPurchases.reduce(
-      (s, p) => s + (p.items?.reduce((is, it) => is + (Number(it.quantity) || 0), 0) || 0),
+  // Aggregate Metrics for Invoices
+  const invoiceMetrics: PurchaseMetrics = useMemo(() => {
+    return calculatePurchaseMetrics(filteredInvoices);
+  }, [filteredInvoices]);
+
+  // Filtered Purchase Returns
+  const filteredReturns = useMemo(() => {
+    return purchaseReturns.filter(ret => {
+      if (searchTerm.trim()) {
+        const q = searchTerm.toLowerCase().trim();
+        const matchesNum = ret.returnNumber?.toLowerCase().includes(q) || false;
+        const matchesInv = ret.originalInvoiceNumber?.toLowerCase().includes(q) || false;
+        const matchesSupp = ret.supplierName?.toLowerCase().includes(q) || false;
+        const matchesPhone = ret.supplierPhone?.toLowerCase().includes(q) || false;
+        const matchesItem = ret.items?.some(it => it.materialName?.toLowerCase().includes(q)) || false;
+        const matchesNotes = ret.notes?.toLowerCase().includes(q) || false;
+        if (!matchesNum && !matchesInv && !matchesSupp && !matchesPhone && !matchesItem && !matchesNotes) {
+          return false;
+        }
+      }
+
+      if (supplierFilter !== 'all' && ret.supplierId !== supplierFilter) {
+        return false;
+      }
+
+      if (dateFrom && ret.date < dateFrom) return false;
+      if (dateTo && ret.date > dateTo) return false;
+
+      return true;
+    });
+  }, [purchaseReturns, searchTerm, supplierFilter, dateFrom, dateTo]);
+
+  // Aggregate Metrics for Returns
+  const returnMetrics = useMemo(() => {
+    const totalReturnsValue = filteredReturns.reduce((sum, r) => sum + (Number(r.grandTotal) || 0), 0);
+    const totalReturnsCount = filteredReturns.length;
+    const creditDeductionTotal = filteredReturns
+      .filter(r => r.refundMethod === 'credit_deduction')
+      .reduce((sum, r) => sum + (Number(r.grandTotal) || 0), 0);
+    const cashBankRefundTotal = filteredReturns
+      .filter(r => r.refundMethod === 'cash' || r.refundMethod === 'bank')
+      .reduce((sum, r) => sum + (Number(r.grandTotal) || 0), 0);
+    const totalUnitsReturned = filteredReturns.reduce(
+      (sum, r) => sum + r.items.reduce((s, it) => s + (Number(it.quantity) || 0), 0),
       0
     );
 
+    const returnRate = invoiceMetrics.totalPurchasesValue > 0
+      ? (totalReturnsValue / invoiceMetrics.totalPurchasesValue) * 100
+      : 0;
+
     return {
-      totalAmount,
-      paidAmount,
-      remainingAmount,
-      totalInvoices,
-      totalItemsCount,
-      totalQuantity,
+      totalReturnsValue: Math.round(totalReturnsValue * 100) / 100,
+      totalReturnsCount,
+      creditDeductionTotal: Math.round(creditDeductionTotal * 100) / 100,
+      cashBankRefundTotal: Math.round(cashBankRefundTotal * 100) / 100,
+      totalUnitsReturned: Math.round(totalUnitsReturned * 100) / 100,
+      returnRate: Math.round(returnRate * 10) / 10
     };
-  }, [filteredPurchases]);
+  }, [filteredReturns, invoiceMetrics.totalPurchasesValue]);
 
-  // Handlers for Save, Edit, Delete
-  const handleSaveInvoice = (invoice: PurchaseInvoice) => {
+  // Invoices Handlers
+  const handleSaveInvoice = (savedInv: PurchaseInvoice) => {
     if (editingInvoice) {
-      updatePurchase(invoice);
-      setNotification({ message: `تم تحديث فاتورة الشراء رقم ${invoice.invoiceNumber} بنجاح`, type: 'success' });
+      updatePurchase(savedInv);
+      notifySuccess(
+        `تم تحديث فاتورة الشراء (${savedInv.invoiceNumber}) وترحيل القيد المحاسبي بنجاح`,
+        'إدارة المشتريات'
+      );
     } else {
-      addPurchase(invoice);
-      setNotification({ message: `تمت إضافة فاتورة الشراء رقم ${invoice.invoiceNumber} بنجاح`, type: 'success' });
+      addPurchase(savedInv);
+      notifySuccess(
+        `تم تسجيل فاتورة الشراء (${savedInv.invoiceNumber}) وإثبات القيد الآلي وتحديث المخزن بنجاح`,
+        'إدارة المشتريات'
+      );
     }
+    loadData();
+    setIsInvoiceFormOpen(false);
     setEditingInvoice(null);
-    setShowInvoiceForm(false);
-    setTimeout(() => setNotification(null), 4000);
   };
 
-  const handleDelete = (id: string, invoiceNumber: string) => {
-    if (confirm(`هل أنت متأكد من حذف فاتورة الشراء ${invoiceNumber}؟`)) {
-      deletePurchase(id);
-      setNotification({ message: `تم حذف الفاتورة ${invoiceNumber}`, type: 'info' });
-      setTimeout(() => setNotification(null), 3000);
+  const handleDeleteInvoiceConfirm = () => {
+    if (!confirmDeleteInvoiceConfig.invoice) return;
+    deletePurchase(confirmDeleteInvoiceConfig.invoice.id);
+    notifyInfo(
+      `تم حذف فاتورة الشراء رقم ${confirmDeleteInvoiceConfig.invoice.invoiceNumber}`,
+      'إدارة المشتريات'
+    );
+    setConfirmDeleteInvoiceConfig({ isOpen: false, invoice: null });
+    loadData();
+  };
+
+  // Returns Handlers
+  const handleSaveReturn = async (savedRet: PurchaseReturn) => {
+    if (editingReturn) {
+      await updatePurchaseReturn(savedRet);
+      notifySuccess(
+        `تم تحديث إذن مردودات المشتريات (${savedRet.returnNumber}) وإعادة احتساب القيد والمخزن`,
+        'مردودات المشتريات'
+      );
+    } else {
+      await addPurchaseReturn(savedRet);
+      notifySuccess(
+        `تم تسجيل إذن المرتجع (${savedRet.returnNumber}) وخصم كميات المخزن وترحيل القيد المحاسبي بنجاح`,
+        'مردودات المشتريات'
+      );
     }
+    loadData();
+    setIsReturnFormOpen(false);
+    setEditingReturn(null);
+    setReturnInitialInvoice(null);
   };
 
-  const toggleExpand = (id: string) => {
-    setExpandedInvoiceId(expandedInvoiceId === id ? null : id);
+  const handleDeleteReturnConfirm = () => {
+    if (!confirmDeleteReturnConfig.returnRecord) return;
+    deletePurchaseReturn(confirmDeleteReturnConfig.returnRecord.id);
+    notifyInfo(
+      `تم حذف إذن المرتجع رقم ${confirmDeleteReturnConfig.returnRecord.returnNumber}`,
+      'مردودات المشتريات'
+    );
+    setConfirmDeleteReturnConfig({ isOpen: false, returnRecord: null });
+    loadData();
   };
 
+  const handleOpenCreateReturnForInvoice = (invoice: PurchaseInvoice) => {
+    setReturnInitialInvoice(invoice);
+    setEditingReturn(null);
+    setIsReturnFormOpen(true);
+  };
+
+  // Badges
   const getStatusBadge = (status: PurchasePaymentStatus) => {
     switch (status) {
       case 'paid':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-            <CheckCircle2 className="w-3 h-3" />
-            <span>مدفوع</span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-300">
+            <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+            <span>مدفوع بالكامل</span>
           </span>
         );
       case 'partial':
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-            <Clock className="w-3 h-3" />
-            <span>جزئي</span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-300">
+            <Clock className="w-3 h-3 text-amber-600" />
+            <span>سداد جزئي</span>
           </span>
         );
       case 'unpaid':
       default:
         return (
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
-            <AlertCircle className="w-3 h-3" />
-            <span>آجل</span>
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-300">
+            <AlertCircle className="w-3 h-3 text-rose-600" />
+            <span>آجل / غير مسدد</span>
           </span>
         );
     }
   };
 
-  const getPaymentMethodBadge = (method: PurchaseInvoice['paymentMethod']) => {
+  const getReceiptBadge = (status?: PurchaseReceiptStatus) => {
+    switch (status) {
+      case 'received':
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
+            <CheckCircle2 className="w-3 h-3 text-teal-600" />
+            <span>تم الاستلام بالمخزن</span>
+          </span>
+        );
+      case 'pending':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600 border border-slate-200">
+            <Clock className="w-3 h-3 text-slate-400" />
+            <span>قيد التوريد والشحن</span>
+          </span>
+        );
+      case 'partial':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+            <Truck className="w-3 h-3 text-amber-600" />
+            <span>استلام جزئي</span>
+          </span>
+        );
+    }
+  };
+
+  const getPaymentMethodBadge = (method: PurchasePaymentMethod) => {
     switch (method) {
       case 'cash':
-        return <span className="text-slate-600 font-semibold">نقدي (خزينة)</span>;
+        return <span className="text-slate-600 font-bold">نقداً (خزينة)</span>;
       case 'bank':
-        return <span className="text-indigo-600 font-semibold">تحويل بنكي</span>;
+        return <span className="text-blue-700 font-bold">تحويل بنكي</span>;
       case 'credit':
-        return <span className="text-amber-700 font-semibold">آجل (موردين)</span>;
+        return <span className="text-purple-700 font-bold">آجل (مورد)</span>;
       case 'cheque':
-        return <span className="text-purple-700 font-semibold">شيك</span>;
+        return <span className="text-amber-700 font-bold">شيك مصرفي</span>;
       default:
         return <span>{method}</span>;
     }
   };
 
+  const getReturnReasonBadge = (reason: PurchaseReturnReason) => {
+    switch (reason) {
+      case 'defective':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
+            <AlertCircle className="w-3 h-3 text-rose-600" />
+            <span>عيوب نسيج / تالف</span>
+          </span>
+        );
+      case 'wrong_spec':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
+            <span>مواصفات غير مطابقة</span>
+          </span>
+        );
+      case 'wrong_color':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-100 text-purple-800 border border-purple-200">
+            <span>اختلاف الصباغة واللون</span>
+          </span>
+        );
+      case 'surplus':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-800 border border-blue-200">
+            <span>فائض عن حاجة التشغيل</span>
+          </span>
+        );
+      case 'delayed':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+            <span>تأخر بالتوريد</span>
+          </span>
+        );
+      case 'damaged':
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-800 border border-red-200">
+            <span>تلفيات شحن وتفريغ</span>
+          </span>
+        );
+      default:
+        return (
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+            <span>سبب آخر</span>
+          </span>
+        );
+    }
+  };
+
+  const getRefundMethodBadge = (method: PurchaseReturnRefundMethod) => {
+    switch (method) {
+      case 'credit_deduction':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-purple-50 text-purple-700 border border-purple-200">
+            <span>خصم من رصيد المورد</span>
+          </span>
+        );
+      case 'cash':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+            <span>استرداد نقدي بالخزينة</span>
+          </span>
+        );
+      case 'bank':
+        return (
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+            <span>تحويل بنكي مسترد</span>
+          </span>
+        );
+      default:
+        return <span className="text-slate-600 font-bold">{method}</span>;
+    }
+  };
+
   return (
-    <div className="space-y-6 text-right" dir="rtl">
-      {/* Toast Notification */}
-      {notification && (
-        <div
-          className={`fixed bottom-5 left-5 z-50 p-4 rounded-xl shadow-lg border flex items-center gap-3 animate-slideUp ${
-            notification.type === 'success'
-              ? 'bg-emerald-50 border-emerald-300 text-emerald-900'
-              : 'bg-slate-900 text-white border-slate-700'
-          }`}
-        >
-          <Sparkles className="w-5 h-5 text-emerald-500 shrink-0" />
-          <span className="text-xs font-bold">{notification.message}</span>
-        </div>
-      )}
-
-      {/* Main Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
-        <div className="flex items-center gap-4">
-          <div className="w-12 h-12 bg-indigo-600 text-white rounded-xl shadow-xs flex items-center justify-center shrink-0">
-            <ShoppingCart className="w-6 h-6" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h2 className="text-2xl font-black text-slate-900">إدارة فواتير المشتريات</h2>
-              <span className="bg-indigo-100 text-indigo-800 text-xs font-bold px-2.5 py-0.5 rounded-full border border-indigo-200">
-                المبيعات والمشتريات
-              </span>
+    <div className="space-y-6" dir="rtl">
+      {/* Top Banner & Header (Exact match to Sales Dashboard styling) */}
+      <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 rounded-2xl shadow-xl border border-indigo-900/40 relative overflow-hidden">
+        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-5">
+          <div className="space-y-1.5">
+            <div className="flex items-center gap-2.5">
+              <div className="p-3 bg-indigo-600/30 rounded-xl border border-indigo-400/30 text-indigo-300">
+                <ShoppingCart className="w-6 h-6" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-2xl font-black">إدارة المشتريات وتوريدات الخامات</h2>
+                  <span className="bg-indigo-500/20 text-indigo-300 text-xs font-bold px-2.5 py-0.5 rounded-full border border-indigo-400/30">
+                    منظومة توريد الأقمشة والإكسسوارات ومستلزمات الإنتاج
+                  </span>
+                </div>
+                <p className="text-xs text-indigo-200/80 mt-0.5">
+                  تسجيل فواتير الشراء وإثبات القيود الآلية ومتابعة ذمم الموردين ومردودات المشتريات
+                </p>
+              </div>
             </div>
-            <p className="text-xs text-slate-500 mt-1">
-              متابعة توريدات الخامات، مستلزمات الإنتاج، حسابات الموردين وتدفقات النقدية الخارجة
-            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2.5">
+            {onNavigateToJournal && (
+              <button
+                type="button"
+                onClick={onNavigateToJournal}
+                className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 border border-white/10 cursor-pointer shadow-xs"
+              >
+                <BookOpen className="w-4 h-4 text-indigo-300" />
+                <span>دفتر قيود المشتريات</span>
+              </button>
+            )}
+
+            {onNavigateToWarehouse && (
+              <button
+                type="button"
+                onClick={onNavigateToWarehouse}
+                className="px-3.5 py-2.5 bg-white/10 hover:bg-white/20 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 border border-white/10 cursor-pointer shadow-xs"
+              >
+                <Boxes className="w-4 h-4 text-emerald-300" />
+                <span>مخزن الخامات والمستلزمات</span>
+              </button>
+            )}
+
+            {onNavigateToTreasury && (
+              <button
+                type="button"
+                onClick={onNavigateToTreasury}
+                className="px-3.5 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black transition-colors flex items-center gap-1.5 shadow-md cursor-pointer"
+              >
+                <DollarSign className="w-4 h-4" />
+                <span>سداد مورد (الخزينة)</span>
+              </button>
+            )}
+
+            <button
+              type="button"
+              onClick={() => {
+                setEditingReturn(null);
+                setReturnInitialInvoice(null);
+                setIsReturnFormOpen(true);
+              }}
+              className="px-4 py-2.5 bg-orange-600 hover:bg-orange-500 text-white rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 shadow-md cursor-pointer"
+            >
+              <RotateCcw className="w-4 h-4" />
+              <span>تسجيل مرتجع مشتريات</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setEditingInvoice(null);
+                setIsInvoiceFormOpen(true);
+              }}
+              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black transition-colors flex items-center gap-2 shadow-lg hover:shadow-indigo-500/30 cursor-pointer"
+            >
+              <Plus className="w-4 h-4" />
+              <span>فاتورة مشتريات جديدة</span>
+            </button>
           </div>
         </div>
 
-        {/* Header Actions & Shortcuts */}
-        <div className="flex items-center gap-2 flex-wrap w-full md:w-auto justify-end">
-          {/* Quick Shortcut: Add Supplier */}
+        {/* Navigation Tabs (فواتير المشتريات vs مرتجعات المشتريات) */}
+        <div className="mt-6 pt-4 border-t border-slate-700/60 flex items-center gap-3">
           <button
-            onClick={() => setShowQuickSupplierModal(true)}
-            className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition-colors cursor-pointer"
-            title="إضافة مورد جديد في التكوين الهيكلي"
+            type="button"
+            onClick={() => setMainTab('invoices')}
+            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              mainTab === 'invoices'
+                ? 'bg-indigo-600 text-white shadow-md'
+                : 'bg-white/10 text-slate-300 hover:bg-white/20 hover:text-white'
+            }`}
           >
-            <Users className="w-4 h-4 text-indigo-600" />
-            <span>+ إضافة مورد</span>
+            <ShoppingCart className="w-4 h-4" />
+            <span>فواتير المشتريات ({purchases.length})</span>
           </button>
 
-          {/* Quick Shortcut: Add Material to Structural Configuration */}
           <button
-            onClick={() => setShowQuickMaterialModal(true)}
-            className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-3 py-2 rounded-xl transition-colors cursor-pointer"
-            title="إضافة صنف خام جديد للتكوين الهيكلي"
+            type="button"
+            onClick={() => setMainTab('returns')}
+            className={`flex items-center gap-2 px-5 py-2 rounded-xl text-xs font-black transition-all cursor-pointer ${
+              mainTab === 'returns'
+                ? 'bg-orange-600 text-white shadow-md'
+                : 'bg-white/10 text-slate-300 hover:bg-white/20 hover:text-white'
+            }`}
           >
-            <PackageSearch className="w-4 h-4 text-indigo-600" />
-            <span>+ إضافة صنف هيكلي</span>
-          </button>
-
-          {/* Primary CTA: Add Purchase Invoice */}
-          <button
-            onClick={() => {
-              setEditingInvoice(null);
-              setShowInvoiceForm(true);
-            }}
-            className="flex items-center gap-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold px-5 py-2 rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer"
-          >
-            <Plus className="w-4 h-4" />
-            <span>إضافة فاتورة شراء</span>
+            <RotateCcw className="w-4 h-4" />
+            <span>مرتجعات ومردودات المشتريات ({purchaseReturns.length})</span>
           </button>
         </div>
       </div>
 
-      {/* Date Range & Period Filter Bar ("يظهر فيها تفاصيل المشتريات اللى اشتريتها خلال فتره معينه اقوم انا بتحديدها") */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs space-y-4">
-        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
-          <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-indigo-600" />
-            <span className="text-xs font-bold text-slate-800">تحديد فترة المشتريات:</span>
-            {startDate || endDate ? (
-              <span className="text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded font-semibold">
-                {startDate ? `من ${startDate}` : 'من البداية'} {endDate ? `إلى ${endDate}` : 'إلى الآن'}
-              </span>
-            ) : (
-              <span className="text-[11px] text-slate-500 bg-slate-100 px-2 py-0.5 rounded font-semibold">
-                عرض جميع الفترات
-              </span>
-            )}
+      {/* KPI Overview Cards (5 Cards matching Sales Dashboard) */}
+      {mainTab === 'invoices' ? (
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
+          {/* Total Purchases Value */}
+          <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">إجمالي المشتريات</p>
+              <p className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
+                {invoiceMetrics.totalPurchasesValue.toLocaleString('ar-EG')}{' '}
+                <span className="text-xs font-bold text-slate-400">ج.م</span>
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+              <DollarSign className="w-5 h-5" />
+            </div>
           </div>
 
-          {/* Quick Preset Buttons */}
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <button
-              onClick={() => applyDatePreset('today')}
-              className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                datePreset === 'today'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
-            >
-              اليوم
-            </button>
-            <button
-              onClick={() => applyDatePreset('week')}
-              className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                datePreset === 'week'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
-            >
-              هذا الأسبوع
-            </button>
-            <button
-              onClick={() => applyDatePreset('month')}
-              className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                datePreset === 'month'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
-            >
-              هذا الشهر
-            </button>
-            <button
-              onClick={() => applyDatePreset('last30')}
-              className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                datePreset === 'last30'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
-            >
-              آخر 30 يوم
-            </button>
-            <button
-              onClick={() => applyDatePreset('year')}
-              className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                datePreset === 'year'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
-            >
-              هذا العام
-            </button>
-            <button
-              onClick={() => applyDatePreset('all')}
-              className={`text-xs px-3 py-1.5 rounded-lg font-bold transition-all cursor-pointer ${
-                datePreset === 'all'
-                  ? 'bg-indigo-600 text-white shadow-xs'
-                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-              }`}
-            >
-              كل الفترات
-            </button>
+          {/* Paid Cash & Bank */}
+          <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">المسدد للموردين</p>
+              <p className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">
+                {invoiceMetrics.totalPaidAmount.toLocaleString('ar-EG')}{' '}
+                <span className="text-xs font-bold text-emerald-400">ج.م</span>
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Remaining Payables */}
+          <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">المستحق للموردين (الآجل)</p>
+              <p className="text-xl sm:text-2xl font-black text-rose-600 mt-1">
+                {invoiceMetrics.totalRemainingAmount.toLocaleString('ar-EG')}{' '}
+                <span className="text-xs font-bold text-rose-400">ج.م</span>
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Invoices and Raw Materials Count */}
+          <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">الفواتير والكميات الواردة</p>
+              <p className="text-xl sm:text-2xl font-black text-indigo-700 mt-1">
+                {invoiceMetrics.totalItemsQuantity.toLocaleString('ar-EG')}{' '}
+                <span className="text-xs font-bold text-slate-400">وحدة/كجم</span>
+              </p>
+              <p className="text-[11px] text-slate-400 font-bold mt-0.5">
+                {invoiceMetrics.totalInvoicesCount} فاتورة شراء
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-bold">
+              <Boxes className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Payment Rate */}
+          <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-200 col-span-2 md:col-span-1 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">نسبة سداد المشتريات</p>
+              <p className="text-xl sm:text-2xl font-black text-blue-600 mt-1">
+                {invoiceMetrics.paymentRate}%
+              </p>
+              <div className="w-24 bg-slate-100 rounded-full h-1.5 mt-1.5 overflow-hidden">
+                <div
+                  className="bg-blue-600 h-1.5 rounded-full"
+                  style={{ width: `${Math.min(100, invoiceMetrics.paymentRate)}%` }}
+                />
+              </div>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold">
+              <Clock className="w-5 h-5" />
+            </div>
           </div>
         </div>
+      ) : (
+        /* Returns KPI Cards */
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
+          {/* Total Returns Value */}
+          <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">إجمالي المردودات للموردين</p>
+              <p className="text-xl sm:text-2xl font-black text-orange-600 mt-1">
+                {returnMetrics.totalReturnsValue.toLocaleString('ar-EG')}{' '}
+                <span className="text-xs font-bold text-slate-400">ج.م</span>
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-orange-50 text-orange-600 flex items-center justify-center font-bold">
+              <RotateCcw className="w-5 h-5" />
+            </div>
+          </div>
 
-        {/* Custom Date Pickers & Filters */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 pt-3 border-t border-slate-100">
-          <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">من تاريخ</label>
+          {/* Credit Deductions */}
+          <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">مخصوم من رصيد الموردين</p>
+              <p className="text-xl sm:text-2xl font-black text-purple-700 mt-1">
+                {returnMetrics.creditDeductionTotal.toLocaleString('ar-EG')}{' '}
+                <span className="text-xs font-bold text-purple-400">ج.م</span>
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center font-bold">
+              <Building className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Cash/Bank Refunds */}
+          <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">مسترد نقداً وبنكياً</p>
+              <p className="text-xl sm:text-2xl font-black text-emerald-600 mt-1">
+                {returnMetrics.cashBankRefundTotal.toLocaleString('ar-EG')}{' '}
+                <span className="text-xs font-bold text-emerald-400">ج.م</span>
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold">
+              <DollarSign className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Returned Units & Returns count */}
+          <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-200 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">أذون وكميات المرتجع</p>
+              <p className="text-xl sm:text-2xl font-black text-slate-900 mt-1">
+                {returnMetrics.totalUnitsReturned.toLocaleString('ar-EG')}{' '}
+                <span className="text-xs font-bold text-slate-400">وحدة</span>
+              </p>
+              <p className="text-[11px] text-slate-400 font-bold mt-0.5">
+                {returnMetrics.totalReturnsCount} إذن ارتجاع
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold">
+              <Boxes className="w-5 h-5" />
+            </div>
+          </div>
+
+          {/* Return Rate */}
+          <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-200 col-span-2 md:col-span-1 flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-500">نسبة المردودات من المشتريات</p>
+              <p className="text-xl sm:text-2xl font-black text-rose-600 mt-1">
+                {returnMetrics.returnRate}%
+              </p>
+              <p className="text-[11px] text-slate-400 font-bold mt-0.5">
+                مؤشر جودة الخامات الموردة
+              </p>
+            </div>
+            <div className="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center font-bold">
+              <AlertCircle className="w-5 h-5" />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Comprehensive Filter Toolbar (Exact match to Sales Dashboard) */}
+      <div className="bg-white p-4 rounded-2xl shadow-xs border border-slate-200 space-y-3">
+        {/* Row 1: Search, Supplier, Statuses, Payment Method, View Toggles */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-2.5">
+          {/* Search Box */}
+          <div className="relative lg:col-span-2">
+            <Search className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
             <input
-              type="date"
-              value={startDate}
-              onChange={(e) => {
-                setStartDate(e.target.value);
-                setDatePreset('custom');
-              }}
-              className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-hidden font-semibold"
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder={
+                mainTab === 'invoices'
+                  ? 'بحث برقم الفاتورة، اسم المورد، هاتف، خامة...'
+                  : 'بحث برقم إذن المرتجع، الفاتورة، المورد، الخامة...'
+              }
+              className="w-full pl-3 pr-9 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-hidden font-bold"
             />
           </div>
 
+          {/* Supplier Filter */}
           <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">إلى تاريخ</label>
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => {
-                setEndDate(e.target.value);
-                setDatePreset('custom');
-              }}
-              className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-hidden font-semibold"
-            />
-          </div>
-
-          <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">تصفية بحسب المورد</label>
             <select
-              value={selectedSupplierFilter}
-              onChange={(e) => setSelectedSupplierFilter(e.target.value)}
-              className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-hidden"
+              value={supplierFilter}
+              onChange={e => setSupplierFilter(e.target.value)}
+              className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 focus:bg-white font-bold cursor-pointer"
             >
-              <option value="all">جميع الموردين ({uniqueSuppliers.length})</option>
-              {uniqueSuppliers.map((s) => (
+              <option value="all">كافة الموردين ({uniqueSuppliers.length})</option>
+              {uniqueSuppliers.map(s => (
                 <option key={s.id} value={s.id}>
                   {s.name}
                 </option>
@@ -450,331 +796,772 @@ export function PurchasesDashboard({ onNavigateToAccounting }: PurchasesDashboar
             </select>
           </div>
 
-          <div>
-            <label className="block text-[11px] font-bold text-slate-600 mb-1">حالة السداد</label>
-            <select
-              value={selectedStatusFilter}
-              onChange={(e) => setSelectedStatusFilter(e.target.value)}
-              className="w-full px-3 py-1.5 border border-slate-300 rounded-lg text-xs bg-slate-50 focus:bg-white focus:ring-2 focus:ring-indigo-500 outline-hidden"
+          {/* Payment Status Filter (for invoices) */}
+          {mainTab === 'invoices' && (
+            <div>
+              <select
+                value={statusFilter}
+                onChange={e => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 focus:bg-white font-bold cursor-pointer"
+              >
+                <option value="all">كافة حالات السداد</option>
+                <option value="paid">مدفوع بالكامل</option>
+                <option value="partial">سداد جزئي</option>
+                <option value="unpaid">آجل / غير مسدد</option>
+              </select>
+            </div>
+          )}
+
+          {/* Receipt / Delivery Status (for invoices) */}
+          {mainTab === 'invoices' && (
+            <div>
+              <select
+                value={receiptFilter}
+                onChange={e => setReceiptFilter(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 focus:bg-white font-bold cursor-pointer"
+              >
+                <option value="all">كافة حالات الاستلام</option>
+                <option value="received">تم الاستلام بالمخزن</option>
+                <option value="pending">قيد التوريد والشحن</option>
+                <option value="partial">استلام جزئي</option>
+              </select>
+            </div>
+          )}
+
+          {/* Payment Method Filter */}
+          {mainTab === 'invoices' && (
+            <div>
+              <select
+                value={paymentMethodFilter}
+                onChange={e => setPaymentMethodFilter(e.target.value)}
+                className="w-full px-3 py-2 rounded-xl text-xs bg-slate-50 border border-slate-200 focus:bg-white font-bold cursor-pointer"
+              >
+                <option value="all">طرق السداد</option>
+                <option value="cash">نقداً (خزينة)</option>
+                <option value="bank">تحويل بنكي</option>
+                <option value="credit">آجل مورد</option>
+                <option value="cheque">شيك</option>
+              </select>
+            </div>
+          )}
+
+          {/* View Mode Toggle: Table or Cards */}
+          <div className="flex items-center justify-end gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200">
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                viewMode === 'table' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="عرض جدول"
             >
-              <option value="all">جميع الحالات</option>
-              <option value="paid">مدفوع بالكامل</option>
-              <option value="partial">مدفوع جزئياً</option>
-              <option value="unpaid">آجل / غير مدفوع</option>
-            </select>
-          </div>
-        </div>
-      </div>
-
-      {/* KPI Cards for Selected Period */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Total Amount */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-500">إجمالي المشتريات في الفترة</span>
-            <div className="w-8 h-8 rounded-lg bg-indigo-50 text-indigo-600 flex items-center justify-center">
-              <DollarSign className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-2xl font-black text-slate-900">
-            {stats.totalAmount.toLocaleString('ar-EG')}{' '}
-            <span className="text-xs font-bold text-slate-500">ج.م</span>
-          </div>
-          <div className="text-[11px] text-slate-500 mt-1">
-            صافي القيمة بعد الخصومات والضرائب
+              <TableIcon className="w-4 h-4" />
+              <span className="hidden sm:inline">جدول</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              className={`p-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                viewMode === 'cards' ? 'bg-white text-indigo-700 shadow-xs' : 'text-slate-500 hover:text-slate-900'
+              }`}
+              title="عرض بطاقات"
+            >
+              <LayoutGrid className="w-4 h-4" />
+              <span className="hidden sm:inline">بطاقات</span>
+            </button>
           </div>
         </div>
 
-        {/* Invoices Count */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-500">عدد فواتير الشراء</span>
-            <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center">
-              <FileText className="w-4 h-4" />
-            </div>
+        {/* Row 2: Quick Period Presets (Factory Weekly Cycles: Saturday-Friday) */}
+        <div className="flex flex-wrap items-center justify-between pt-3 mt-3 border-t border-slate-100 gap-2">
+          <div className="flex items-center gap-1.5 text-xs flex-wrap">
+            <span className="text-slate-400 font-medium">فترات العمل:</span>
+            <button
+              type="button"
+              onClick={() => applyPeriodPreset('this_week')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1 ${
+                periodPreset === 'this_week'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-indigo-50 text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
+              }`}
+            >
+              <span>هذا الأسبوع (أسبوع المصنع)</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPeriodPreset('last_week')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                periodPreset === 'last_week'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700'
+              }`}
+            >
+              الأسبوع السابق
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPeriodPreset('today')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                periodPreset === 'today'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700'
+              }`}
+            >
+              اليوم
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPeriodPreset('this_month')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                periodPreset === 'this_month'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700'
+              }`}
+            >
+              هذا الشهر
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPeriodPreset('this_quarter')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                periodPreset === 'this_quarter'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700'
+              }`}
+            >
+              الربع الحالي
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPeriodPreset('this_year')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                periodPreset === 'this_year'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700'
+              }`}
+            >
+              العام الحالي
+            </button>
+            <button
+              type="button"
+              onClick={() => applyPeriodPreset('all')}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors cursor-pointer ${
+                periodPreset === 'all' && !dateFrom && !dateTo
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'bg-slate-100 hover:bg-indigo-50 hover:text-indigo-600 text-slate-700'
+              }`}
+            >
+              كافة الفترات
+            </button>
           </div>
-          <div className="text-2xl font-black text-slate-900">
-            {stats.totalInvoices}{' '}
-            <span className="text-xs font-bold text-slate-500">فاتورة</span>
-          </div>
-          <div className="text-[11px] text-slate-500 mt-1">
-            إجمالي {stats.totalItemsCount} بند توريد ({stats.totalQuantity.toLocaleString('ar-EG')} وحدة/كجم)
-          </div>
-        </div>
 
-        {/* Paid Amount */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-500">المسدد نقداً وبنكياً</span>
-            <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center">
-              <CheckCircle2 className="w-4 h-4" />
-            </div>
-          </div>
-          <div className="text-2xl font-black text-emerald-700">
-            {stats.paidAmount.toLocaleString('ar-EG')}{' '}
-            <span className="text-xs font-bold text-emerald-600">ج.م</span>
-          </div>
-          <div className="text-[11px] text-slate-500 mt-1">
-            تدفق نقدية خارج فعلي من الخزينة/البنك
-          </div>
-        </div>
+          {/* Date Pickers */}
+          <div className="flex items-center gap-2 flex-wrap text-xs text-slate-600 font-bold">
+            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+            <span>من:</span>
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={e => {
+                setDateFrom(e.target.value);
+                setPeriodPreset('custom');
+              }}
+              className="px-2 py-1 border border-slate-200 rounded-lg text-xs bg-slate-50 font-medium"
+            />
+            <span>إلى:</span>
+            <input
+              type="date"
+              value={dateTo}
+              onChange={e => {
+                setDateTo(e.target.value);
+                setPeriodPreset('custom');
+              }}
+              className="px-2 py-1 border border-slate-200 rounded-lg text-xs bg-slate-50 font-medium"
+            />
 
-        {/* Remaining (Credit) */}
-        <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-bold text-slate-500">المتبقي الآجل للموردين</span>
-            <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center">
-              <AlertCircle className="w-4 h-4" />
-            </div>
-          </div>
-          <div className={`text-2xl font-black ${stats.remainingAmount > 0 ? 'text-rose-600' : 'text-slate-800'}`}>
-            {stats.remainingAmount.toLocaleString('ar-EG')}{' '}
-            <span className="text-xs font-bold text-slate-500">ج.م</span>
-          </div>
-          <div className="text-[11px] text-slate-500 mt-1">
-            مستحقات واجبة السداد للشركات الموردة
-          </div>
-        </div>
-      </div>
-
-      {/* Invoices List Table Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        {/* Table Toolbar */}
-        <div className="p-4 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
-          <div className="flex items-center gap-2 flex-1 w-full sm:w-auto">
-            <div className="relative flex-1 max-w-md">
-              <Search className="w-4 h-4 text-slate-400 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="بحث برقم الفاتورة، اسم المورد، صنف أو ملاحظة..."
-                className="w-full pl-3 pr-9 py-2 border border-slate-300 rounded-xl text-xs bg-white focus:ring-2 focus:ring-indigo-500 outline-hidden"
-              />
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-xs font-bold text-slate-600">
-            <span>عدد النتائج: {filteredPurchases.length} فاتورة</span>
-          </div>
-        </div>
-
-        {/* Table Content */}
-        {filteredPurchases.length === 0 ? (
-          <div className="p-12 text-center space-y-3">
-            <div className="w-16 h-16 rounded-2xl bg-slate-100 text-slate-400 flex items-center justify-center mx-auto">
-              <ShoppingCart className="w-8 h-8" />
-            </div>
-            <h3 className="text-base font-bold text-slate-800">لا توجد فواتير مشتريات تطابق الفترة المحددة</h3>
-            <p className="text-xs text-slate-500 max-w-md mx-auto">
-              لم يتم العثور على أية فواتير خلال التاريخ المحدد أو ببيانات البحث الحالية. يمكنك تغيير الفترة أو إضافة فاتورة شراء جديدة.
-            </p>
-            <div className="flex items-center justify-center gap-2 pt-2">
+            {(dateFrom || dateTo || searchTerm || supplierFilter !== 'all' || statusFilter !== 'all' || receiptFilter !== 'all' || paymentMethodFilter !== 'all') && (
               <button
-                onClick={() => applyDatePreset('all')}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-lg transition-colors cursor-pointer"
-              >
-                عرض كل الفترات
-              </button>
-              <button
+                type="button"
                 onClick={() => {
-                  setEditingInvoice(null);
-                  setShowInvoiceForm(true);
+                  setSearchTerm('');
+                  setSupplierFilter('all');
+                  setStatusFilter('all');
+                  setReceiptFilter('all');
+                  setPaymentMethodFilter('all');
+                  setDateFrom('');
+                  setDateTo('');
+                  setPeriodPreset('all');
                 }}
-                className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
+                className="text-xs text-rose-600 hover:text-rose-800 font-bold transition-colors cursor-pointer mr-2"
               >
-                + إضافة فاتورة شراء جديدة
+                إعادة ضبط الفلاتر
               </button>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* MAIN CONTENT DISPLAY */}
+      {mainTab === 'invoices' ? (
+        /* INVOICES SECTION */
+        viewMode === 'table' ? (
+          /* Table View for Invoices */
+          <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead>
+                  <tr className="bg-slate-800 text-white font-bold border-b border-slate-700">
+                    <th className="p-3 w-10 text-center"></th>
+                    <th className="p-3 min-w-[130px]">رقم الفاتورة</th>
+                    <th className="p-3 min-w-[100px]">تاريخ التوريد</th>
+                    <th className="p-3 min-w-[180px]">المورد</th>
+                    <th className="p-3 min-w-[100px]">طريقة السداد</th>
+                    <th className="p-3 min-w-[110px]">حالة السداد</th>
+                    <th className="p-3 min-w-[110px]">حالة الاستلام</th>
+                    <th className="p-3 min-w-[110px] text-left">إجمالي الفاتورة</th>
+                    <th className="p-3 min-w-[100px] text-left">المسدد</th>
+                    <th className="p-3 min-w-[100px] text-left">المتبقي الآجل</th>
+                    <th className="p-3 min-w-[120px] text-center">الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={11} className="p-8 text-center text-slate-400">
+                        <ShoppingCart className="w-12 h-12 mx-auto text-slate-300 mb-2 stroke-1" />
+                        <p className="font-bold text-sm">لا توجد فواتير مشتريات تطابق البحث أو الفلترة المحددة</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredInvoices.map(inv => {
+                      const isExpanded = expandedInvoiceId === inv.id;
+                      return (
+                        <React.Fragment key={inv.id}>
+                          <tr className="hover:bg-slate-50/80 transition-colors group">
+                            {/* Expand row */}
+                            <td className="p-3 text-center">
+                              <button
+                                onClick={() => setExpandedInvoiceId(isExpanded ? null : inv.id)}
+                                className="p-1 hover:bg-slate-200 rounded-md text-slate-400 hover:text-slate-700 transition-colors"
+                              >
+                                {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                              </button>
+                            </td>
+
+                            {/* Invoice Number */}
+                            <td className="p-3 font-mono font-black text-indigo-900">
+                              <div className="flex items-center gap-1.5">
+                                <span>{inv.invoiceNumber}</span>
+                                {inv.referenceNumber && (
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded-md bg-slate-100 text-slate-500 font-normal">
+                                    {inv.referenceNumber}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+
+                            {/* Date */}
+                            <td className="p-3 text-slate-600 font-mono">
+                              {inv.date}
+                            </td>
+
+                            {/* Supplier */}
+                            <td className="p-3">
+                              <div className="font-bold text-slate-800">{inv.supplierName}</div>
+                              {inv.supplierPhone && (
+                                <div className="text-[11px] text-slate-400 font-mono">{inv.supplierPhone}</div>
+                              )}
+                            </td>
+
+                            {/* Payment Method */}
+                            <td className="p-3">
+                              {getPaymentMethodBadge(inv.paymentMethod)}
+                            </td>
+
+                            {/* Payment Status */}
+                            <td className="p-3">
+                              {getStatusBadge(inv.paymentStatus)}
+                            </td>
+
+                            {/* Receipt Status */}
+                            <td className="p-3">
+                              {getReceiptBadge(inv.receiptStatus)}
+                            </td>
+
+                            {/* Grand Total */}
+                            <td className="p-3 text-left font-mono font-black text-slate-900 text-sm">
+                              {Number(inv.grandTotal).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}{' '}
+                              <span className="text-[10px] font-normal text-slate-400">ج.م</span>
+                            </td>
+
+                            {/* Paid */}
+                            <td className="p-3 text-left font-mono font-bold text-emerald-600">
+                              {Number(inv.paidAmount).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}
+                            </td>
+
+                            {/* Remaining */}
+                            <td className="p-3 text-left font-mono font-bold text-rose-600">
+                              {Number(inv.remainingAmount).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}
+                            </td>
+
+                            {/* Actions */}
+                            <td className="p-3">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => setViewingInvoice(inv)}
+                                  className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                                  title="عرض تفاصيل الفاتورة"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenCreateReturnForInvoice(inv)}
+                                  className="p-1.5 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors cursor-pointer"
+                                  title="تسجيل مرتجع لهذه الفاتورة"
+                                >
+                                  <RotateCcw className="w-4 h-4" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setEditingInvoice(inv);
+                                    setIsInvoiceFormOpen(true);
+                                  }}
+                                  className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                                  title="تعديل الفاتورة"
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </button>
+
+                                <button
+                                  type="button"
+                                  onClick={() => setConfirmDeleteInvoiceConfig({ isOpen: true, invoice: inv })}
+                                  className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                                  title="حذف الفاتورة"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+
+                          {/* Expanded Items Preview Row */}
+                          {isExpanded && (
+                            <tr className="bg-slate-50/90 border-b border-slate-200">
+                              <td colSpan={11} className="p-4">
+                                <div className="space-y-2">
+                                  <div className="flex items-center justify-between">
+                                    <span className="text-xs font-black text-slate-700 flex items-center gap-1.5">
+                                      <Boxes className="w-4 h-4 text-indigo-600" />
+                                      <span>الخامات والمستلزمات الواردة بالفاتورة ({inv.items?.length || 0} صنف):</span>
+                                    </span>
+                                    {inv.notes && (
+                                      <span className="text-xs text-slate-500 italic font-medium">
+                                        ملاحظات: {inv.notes}
+                                      </span>
+                                    )}
+                                  </div>
+
+                                  <div className="bg-white rounded-xl border border-slate-200 overflow-hidden shadow-xs">
+                                    <table className="w-full text-right text-xs">
+                                      <thead>
+                                        <tr className="bg-slate-100 text-slate-600 font-bold border-b border-slate-200">
+                                          <th className="p-2">اسم الخامة</th>
+                                          <th className="p-2 text-center">النوع</th>
+                                          <th className="p-2 text-center">الوحدة</th>
+                                          <th className="p-2 text-center">الكمية</th>
+                                          <th className="p-2 text-left">سعر الوحدة</th>
+                                          <th className="p-2 text-left">الإجمالي</th>
+                                          <th className="p-2">ملاحظات</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody className="divide-y divide-slate-100">
+                                        {(inv.items || []).map((it, idx) => (
+                                          <tr key={idx} className="hover:bg-slate-50">
+                                            <td className="p-2 font-bold text-slate-800">{it.materialName}</td>
+                                            <td className="p-2 text-center text-[10px] text-slate-500">
+                                              {it.materialType === 'fabric' ? 'قماش' : 'إكسسوار'}
+                                            </td>
+                                            <td className="p-2 text-center text-slate-500">{it.unit}</td>
+                                            <td className="p-2 text-center font-bold font-mono text-indigo-700">
+                                              {it.quantity}
+                                            </td>
+                                            <td className="p-2 text-left font-mono">
+                                              {Number(it.unitPrice).toLocaleString('ar-EG')} ج.م
+                                            </td>
+                                            <td className="p-2 text-left font-mono font-bold text-slate-900">
+                                              {Number(it.total).toLocaleString('ar-EG')} ج.م
+                                            </td>
+                                            <td className="p-2 text-slate-400 text-[11px]">{it.notes || '-'}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                  </div>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-right text-xs">
-              <thead className="bg-slate-50 border-b border-slate-200 text-slate-600 font-bold">
-                <tr>
-                  <th className="p-3.5 text-center w-10"></th>
-                  <th className="p-3.5">رقم الفاتورة</th>
-                  <th className="p-3.5">التاريخ</th>
-                  <th className="p-3.5">المورد</th>
-                  <th className="p-3.5 text-center">الأصناف</th>
-                  <th className="p-3.5 text-center">الكمية</th>
-                  <th className="p-3.5 text-left">إجمالي الفاتورة</th>
-                  <th className="p-3.5 text-left">المسدد</th>
-                  <th className="p-3.5 text-left">المتبقي</th>
-                  <th className="p-3.5 text-center">السداد</th>
-                  <th className="p-3.5 text-center">الحالة</th>
-                  <th className="p-3.5 text-center w-28">الإجراءات</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {filteredPurchases.map((inv) => {
-                  const isExpanded = expandedInvoiceId === inv.id;
-                  const totalQty = inv.items?.reduce((s, it) => s + (Number(it.quantity) || 0), 0) || 0;
+          /* Cards View for Invoices */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredInvoices.length === 0 ? (
+              <div className="col-span-full p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400">
+                <ShoppingCart className="w-12 h-12 mx-auto text-slate-300 mb-2 stroke-1" />
+                <p className="font-bold text-sm">لا توجد فواتير مشتريات تطابق البحث أو الفلترة</p>
+              </div>
+            ) : (
+              filteredInvoices.map(inv => (
+                <div
+                  key={inv.id}
+                  className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4 group"
+                >
+                  <div className="space-y-3">
+                    {/* Top Row: Invoice # and Status Badge */}
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-base font-black font-mono text-indigo-900 block">
+                          {inv.invoiceNumber}
+                        </span>
+                        <span className="text-xs text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+                          <Calendar className="w-3 h-3" />
+                          <span>{inv.date}</span>
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        {getStatusBadge(inv.paymentStatus)}
+                        {getReceiptBadge(inv.receiptStatus)}
+                      </div>
+                    </div>
 
-                  return (
-                    <React.Fragment key={inv.id}>
-                      <tr className={`hover:bg-slate-50/80 transition-colors ${isExpanded ? 'bg-indigo-50/20' : ''}`}>
-                        {/* Expand Row Button */}
-                        <td className="p-3 text-center">
-                          <button
-                            onClick={() => toggleExpand(inv.id)}
-                            className="p-1 rounded hover:bg-slate-200/60 text-slate-400 hover:text-slate-700 transition-colors"
-                            title={isExpanded ? 'طي التفاصيل' : 'عرض الأصناف والبنود'}
-                          >
-                            {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-                          </button>
-                        </td>
+                    {/* Supplier info */}
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1 text-xs">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                        <Building className="w-4 h-4 text-indigo-600 shrink-0" />
+                        <span className="truncate">{inv.supplierName}</span>
+                      </div>
+                      {inv.supplierPhone && (
+                        <p className="text-[11px] text-slate-500 font-mono">{inv.supplierPhone}</p>
+                      )}
+                    </div>
 
-                        {/* Invoice Number */}
-                        <td className="p-3">
-                          <span className="font-bold text-indigo-700 block">{inv.invoiceNumber}</span>
-                          {inv.referenceNumber && (
-                            <span className="text-[10px] text-slate-400 block">{inv.referenceNumber}</span>
-                          )}
+                    {/* Financial summary breakdown */}
+                    <div className="space-y-1.5 text-xs font-bold pt-1 border-t border-slate-100">
+                      <div className="flex justify-between items-center text-slate-600">
+                        <span>إجمالي الفاتورة:</span>
+                        <span className="font-mono text-sm font-black text-slate-900">
+                          {Number(inv.grandTotal).toLocaleString('ar-EG')} ج.م
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-emerald-600">
+                        <span>المسدد:</span>
+                        <span className="font-mono">
+                          {Number(inv.paidAmount).toLocaleString('ar-EG')} ج.م
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center text-rose-600">
+                        <span>المتبقي الآجل:</span>
+                        <span className="font-mono">
+                          {Number(inv.remainingAmount).toLocaleString('ar-EG')} ج.م
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Items Count and Summary */}
+                    <div className="text-[11px] text-slate-500 bg-indigo-50/50 p-2 rounded-lg flex items-center justify-between">
+                      <span className="font-bold">عدد الأصناف: {inv.items?.length || 0} صنف</span>
+                      <span className="font-bold text-indigo-700">طريقة السداد: {inv.paymentMethod}</span>
+                    </div>
+                  </div>
+
+                  {/* Actions Bar */}
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-between gap-1">
+                    <button
+                      type="button"
+                      onClick={() => handleOpenCreateReturnForInvoice(inv)}
+                      className="px-3 py-1.5 bg-orange-50 hover:bg-orange-100 text-orange-800 rounded-xl text-xs font-bold transition-colors flex items-center gap-1 border border-orange-200 cursor-pointer"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5 text-orange-600" />
+                      <span>إرجاع</span>
+                    </button>
+
+                    <div className="flex items-center gap-1">
+                      <button
+                        type="button"
+                        onClick={() => setViewingInvoice(inv)}
+                        className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                        title="عرض التفاصيل"
+                      >
+                        <Eye className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingInvoice(inv);
+                          setIsInvoiceFormOpen(true);
+                        }}
+                        className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                        title="تعديل"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteInvoiceConfig({ isOpen: true, invoice: inv })}
+                        className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                        title="حذف"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )
+      ) : (
+        /* RETURNS SECTION */
+        viewMode === 'table' ? (
+          /* Table View for Purchase Returns */
+          <div className="bg-white rounded-2xl shadow-xs border border-slate-200 overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full text-right text-xs">
+                <thead>
+                  <tr className="bg-slate-800 text-white font-bold border-b border-slate-700">
+                    <th className="p-3 min-w-[130px]">رقم إذن المرتجع</th>
+                    <th className="p-3 min-w-[100px]">تاريخ الارتجاع</th>
+                    <th className="p-3 min-w-[180px]">المورد</th>
+                    <th className="p-3 min-w-[130px]">فاتورة الشراء الأصلية</th>
+                    <th className="p-3 min-w-[130px]">طريقة التسوية المالية</th>
+                    <th className="p-3 min-w-[110px]">حالة المخزون</th>
+                    <th className="p-3 min-w-[110px] text-left">قيمة المرتجع</th>
+                    <th className="p-3 min-w-[100px] text-center">عدد الأصناف</th>
+                    <th className="p-3 min-w-[100px] text-center">الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {filteredReturns.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="p-8 text-center text-slate-400">
+                        <RotateCcw className="w-12 h-12 mx-auto text-slate-300 mb-2 stroke-1" />
+                        <p className="font-bold text-sm">لا توجد أذون مردودات مشتريات مسجلة تطابق البحث</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredReturns.map(ret => (
+                      <tr key={ret.id} className="hover:bg-slate-50/80 transition-colors group">
+                        {/* Return Number */}
+                        <td className="p-3 font-mono font-black text-orange-900">
+                          {ret.returnNumber}
                         </td>
 
                         {/* Date */}
-                        <td className="p-3 text-slate-700 font-semibold whitespace-nowrap">
-                          {new Date(inv.date).toLocaleDateString('ar-EG', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                          })}
+                        <td className="p-3 text-slate-600 font-mono">
+                          {ret.date}
                         </td>
 
                         {/* Supplier */}
                         <td className="p-3">
-                          <span className="font-bold text-slate-900 block">{inv.supplierName}</span>
-                          {inv.supplierPhone && (
-                            <span className="text-[10px] text-slate-500 block">{inv.supplierPhone}</span>
+                          <div className="font-bold text-slate-800">{ret.supplierName}</div>
+                          {ret.supplierPhone && (
+                            <div className="text-[11px] text-slate-400 font-mono">{ret.supplierPhone}</div>
                           )}
                         </td>
 
-                        {/* Items Count */}
-                        <td className="p-3 text-center">
-                          <span className="bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded text-[11px]">
-                            {inv.items?.length || 0} صنف
-                          </span>
+                        {/* Original Invoice */}
+                        <td className="p-3 font-mono font-bold text-indigo-700">
+                          {ret.originalInvoiceNumber}
                         </td>
 
-                        {/* Total Quantity */}
-                        <td className="p-3 text-center font-bold text-slate-800">
-                          {totalQty.toLocaleString('ar-EG')}
+                        {/* Refund Method */}
+                        <td className="p-3">
+                          {getRefundMethodBadge(ret.refundMethod)}
+                        </td>
+
+                        {/* Stock Returned */}
+                        <td className="p-3">
+                          {ret.stockReturned ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-bold bg-teal-50 text-teal-700 border border-teal-200">
+                              <CheckCircle2 className="w-3 h-3 text-teal-600" />
+                              <span>مخصوم من المخزن</span>
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-medium bg-slate-100 text-slate-600">
+                              لم يتم الخصم
+                            </span>
+                          )}
                         </td>
 
                         {/* Grand Total */}
-                        <td className="p-3 text-left font-black text-slate-900">
-                          {inv.grandTotal.toLocaleString('ar-EG')} ج.م
+                        <td className="p-3 text-left font-mono font-black text-orange-700 text-sm">
+                          {Number(ret.grandTotal).toLocaleString('ar-EG', { minimumFractionDigits: 2 })}{' '}
+                          <span className="text-[10px] font-normal text-slate-400">ج.م</span>
                         </td>
 
-                        {/* Paid Amount */}
-                        <td className="p-3 text-left font-bold text-emerald-700">
-                          {inv.paidAmount.toLocaleString('ar-EG')} ج.م
-                        </td>
-
-                        {/* Remaining Amount */}
-                        <td className="p-3 text-left">
-                          <span
-                            className={`font-bold ${
-                              inv.remainingAmount > 0 ? 'text-rose-600 font-black' : 'text-slate-400'
-                            }`}
-                          >
-                            {inv.remainingAmount > 0 ? `${inv.remainingAmount.toLocaleString('ar-EG')} ج.م` : '—'}
-                          </span>
-                        </td>
-
-                        {/* Payment Method */}
-                        <td className="p-3 text-center text-[11px]">
-                          {getPaymentMethodBadge(inv.paymentMethod)}
-                        </td>
-
-                        {/* Status */}
-                        <td className="p-3 text-center">
-                          {getStatusBadge(inv.paymentStatus)}
+                        {/* Items Count */}
+                        <td className="p-3 text-center font-bold text-slate-700">
+                          {ret.items.length} صنف (
+                          {ret.items.reduce((s, it) => s + (Number(it.quantity) || 0), 0)} وحدة)
                         </td>
 
                         {/* Actions */}
-                        <td className="p-3 text-center">
-                          <div className="flex items-center justify-center gap-1">
+                        <td className="p-3">
+                          <div className="flex items-center justify-center gap-1.5">
                             <button
-                              onClick={() => setViewingInvoice(inv)}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
-                              title="عرض تفاصيل الفاتورة والطباعة"
+                              type="button"
+                              onClick={() => setViewingReturn(ret)}
+                              className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                              title="عرض تفاصيل إذن المرتجع"
                             >
                               <Eye className="w-4 h-4" />
                             </button>
+
                             <button
+                              type="button"
                               onClick={() => {
-                                setEditingInvoice(inv);
-                                setShowInvoiceForm(true);
+                                setEditingReturn(ret);
+                                setIsReturnFormOpen(true);
                               }}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-amber-600 hover:bg-amber-50 transition-colors"
-                              title="تعديل الفاتورة"
+                              className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                              title="تعديل إذن المرتجع"
                             >
                               <Edit className="w-4 h-4" />
                             </button>
+
                             <button
-                              onClick={() => handleDelete(inv.id, inv.invoiceNumber)}
-                              className="p-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 transition-colors"
-                              title="حذف الفاتورة"
+                              type="button"
+                              onClick={() => setConfirmDeleteReturnConfig({ isOpen: true, returnRecord: ret })}
+                              className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                              title="حذف إذن المرتجع"
                             >
                               <Trash2 className="w-4 h-4" />
                             </button>
                           </div>
                         </td>
                       </tr>
-
-                      {/* Expanded Sub-Row showing Items Details */}
-                      {isExpanded && (
-                        <tr className="bg-slate-50/90 border-b border-slate-200">
-                          <td colSpan={12} className="p-4 pr-12">
-                            <div className="bg-white rounded-xl p-3.5 border border-slate-200 shadow-2xs space-y-2">
-                              <div className="flex items-center justify-between text-xs font-bold text-slate-700">
-                                <span>تفاصيل خامات وأصناف الفاتورة ({inv.items?.length} أصناف):</span>
-                                {inv.notes && (
-                                  <span className="text-[11px] text-slate-500 font-normal">
-                                    ملاحظات: {inv.notes}
-                                  </span>
-                                )}
-                              </div>
-                              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
-                                {inv.items?.map((it, idx) => (
-                                  <div
-                                    key={it.id || idx}
-                                    className="p-2.5 bg-slate-50 rounded-lg border border-slate-200 text-xs flex justify-between items-center"
-                                  >
-                                    <div>
-                                      <span className="font-bold text-slate-900 block">{it.materialName}</span>
-                                      <span className="text-[10px] text-slate-500 block mt-0.5">
-                                        الكمية: {it.quantity} {it.unit} • السعر: {it.unitPrice} ج.م
-                                        {it.discount > 0 && ` • خصم: ${it.discount} ج.م`}
-                                      </span>
-                                    </div>
-                                    <span className="font-black text-indigo-700 text-xs">
-                                      {it.total.toLocaleString('ar-EG')} ج.م
-                                    </span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </td>
-                        </tr>
-                      )}
-                    </React.Fragment>
-                  );
-                })}
-              </tbody>
-            </table>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
-        )}
-      </div>
+        ) : (
+          /* Cards View for Purchase Returns */
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {filteredReturns.length === 0 ? (
+              <div className="col-span-full p-12 text-center bg-white rounded-2xl border border-slate-200 text-slate-400">
+                <RotateCcw className="w-12 h-12 mx-auto text-slate-300 mb-2 stroke-1" />
+                <p className="font-bold text-sm">لا توجد أذون مردودات مشتريات مسجلة</p>
+              </div>
+            ) : (
+              filteredReturns.map(ret => (
+                <div
+                  key={ret.id}
+                  className="bg-white rounded-2xl p-5 border border-slate-200 shadow-xs hover:shadow-md transition-all flex flex-col justify-between space-y-4"
+                >
+                  <div className="space-y-3">
+                    <div className="flex items-start justify-between gap-2">
+                      <div>
+                        <span className="text-base font-black font-mono text-orange-900 block">
+                          {ret.returnNumber}
+                        </span>
+                        <span className="text-xs text-slate-400 font-mono flex items-center gap-1 mt-0.5">
+                          <Calendar className="w-3 h-3" />
+                          <span>{ret.date}</span>
+                        </span>
+                      </div>
+                      <div className="flex flex-col items-end gap-1">
+                        {getRefundMethodBadge(ret.refundMethod)}
+                      </div>
+                    </div>
 
-      {/* Add / Edit Invoice Modal */}
-      {showInvoiceForm && (
+                    <div className="p-3 bg-slate-50 rounded-xl border border-slate-100 space-y-1 text-xs">
+                      <div className="flex items-center gap-1.5 font-bold text-slate-800">
+                        <Building className="w-4 h-4 text-indigo-600 shrink-0" />
+                        <span>{ret.supplierName}</span>
+                      </div>
+                      <p className="text-[11px] text-slate-500">
+                        فاتورة الشراء: <strong className="text-indigo-700 font-mono">{ret.originalInvoiceNumber}</strong>
+                      </p>
+                    </div>
+
+                    <div className="p-3 rounded-xl bg-orange-50/70 border border-orange-200 text-xs flex justify-between items-center font-bold">
+                      <span className="text-orange-950">صافي قيمة المرتجع:</span>
+                      <span className="text-base font-black font-mono text-orange-700">
+                        {Number(ret.grandTotal).toLocaleString('ar-EG')} ج.م
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] text-slate-500 space-y-1">
+                      <div className="flex justify-between">
+                        <span>الأصناف المرتجعة:</span>
+                        <span className="font-bold">{ret.items.length} صنف</span>
+                      </div>
+                      {ret.returnReasonGeneral && (
+                        <p className="text-slate-600 italic truncate">
+                          السبب: {ret.returnReasonGeneral}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-1">
+                    <button
+                      type="button"
+                      onClick={() => setViewingReturn(ret)}
+                      className="p-1.5 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors cursor-pointer"
+                      title="عرض التفاصيل"
+                    >
+                      <Eye className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingReturn(ret);
+                        setIsReturnFormOpen(true);
+                      }}
+                      className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+                      title="تعديل"
+                    >
+                      <Edit className="w-4 h-4" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteReturnConfig({ isOpen: true, returnRecord: ret })}
+                      className="p-1.5 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                      title="حذف"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )
+      )}
+
+      {/* --- ALL MODALS --- */}
+
+      {/* Purchase Invoice Form Modal */}
+      {isInvoiceFormOpen && (
         <PurchaseInvoiceFormModal
           invoice={editingInvoice}
           onClose={() => {
-            setShowInvoiceForm(false);
+            setIsInvoiceFormOpen(false);
             setEditingInvoice(null);
           }}
           onSave={handleSaveInvoice}
@@ -782,46 +1569,148 @@ export function PurchasesDashboard({ onNavigateToAccounting }: PurchasesDashboar
         />
       )}
 
-      {/* Invoice Details & Print Modal */}
+      {/* Purchase Invoice Details Modal */}
       {viewingInvoice && (
         <PurchaseInvoiceDetailsModal
           invoice={viewingInvoice}
           onClose={() => setViewingInvoice(null)}
-          onEdit={(inv) => {
+          onEdit={inv => {
             setViewingInvoice(null);
             setEditingInvoice(inv);
-            setShowInvoiceForm(true);
+            setIsInvoiceFormOpen(true);
           }}
         />
       )}
 
-      {/* Quick Add Supplier Modal from Shortcut */}
+      {/* Purchase Return Form Modal */}
+      {isReturnFormOpen && (
+        <PurchaseReturnFormModal
+          initialInvoice={returnInitialInvoice}
+          returnRecord={editingReturn}
+          onClose={() => {
+            setIsReturnFormOpen(false);
+            setEditingReturn(null);
+            setReturnInitialInvoice(null);
+          }}
+          onSave={handleSaveReturn}
+        />
+      )}
+
+      {/* Purchase Return Details Modal */}
+      {viewingReturn && (
+        <PurchaseReturnDetailsModal
+          purchaseReturn={viewingReturn}
+          onClose={() => setViewingReturn(null)}
+          onNavigateToJournal={onNavigateToJournal}
+        />
+      )}
+
+      {/* Quick Add Supplier Modal */}
       {showQuickSupplierModal && (
         <QuickAddSupplierModal
           onClose={() => setShowQuickSupplierModal(false)}
-          onSuccess={(newSupp) => {
-            setNotification({
-              message: `تمت إضافة المورد "${newSupp.name}" بنجاح في التكوين الهيكلي`,
-              type: 'success',
-            });
-            setTimeout(() => setNotification(null), 4000);
+          onSuccess={supplier => {
+            setShowQuickSupplierModal(false);
+            notifySuccess(`تم إضافة المورد (${supplier.name}) بنجاح`, 'الموردون');
+            loadData();
           }}
         />
       )}
 
-      {/* Quick Add Material Modal from Shortcut */}
+      {/* Quick Add Material Modal */}
       {showQuickMaterialModal && (
         <QuickAddMaterialModal
           onClose={() => setShowQuickMaterialModal(false)}
-          onSuccess={(newMat) => {
-            setNotification({
-              message: `تمت إضافة الصنف "${newMat.name}" بنجاح في أصناف التكوين الهيكلي`,
-              type: 'success',
-            });
-            setTimeout(() => setNotification(null), 4000);
+          onSuccess={material => {
+            setShowQuickMaterialModal(false);
+            notifySuccess(`تم إضافة الخامة (${material.name}) بنجاح`, 'دليل الخامات');
+            loadData();
           }}
         />
+      )}
+
+      {/* Confirm Delete Invoice Modal */}
+      {confirmDeleteInvoiceConfig.isOpen && confirmDeleteInvoiceConfig.invoice && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="p-3 bg-rose-100 rounded-full">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-black text-slate-900">تأكيد حذف فاتورة الشراء</h3>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              هل أنت متأكد من حذف فاتورة الشراء رقم{' '}
+              <strong className="text-slate-900 font-mono">
+                {confirmDeleteInvoiceConfig.invoice.invoiceNumber}
+              </strong>{' '}
+              للمورد{' '}
+              <strong className="text-slate-900">
+                {confirmDeleteInvoiceConfig.invoice.supplierName}
+              </strong>
+              ؟ سيتم حذف حركات القيد المحاسبي والمخزن المرتبطة بها.
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteInvoiceConfig({ isOpen: false, invoice: null })}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteInvoiceConfirm}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black cursor-pointer shadow-md"
+              >
+                تأكيد الحذف
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete Return Modal */}
+      {confirmDeleteReturnConfig.isOpen && confirmDeleteReturnConfig.returnRecord && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-xs p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 animate-in fade-in zoom-in-95">
+            <div className="flex items-center gap-3 text-rose-600">
+              <div className="p-3 bg-rose-100 rounded-full">
+                <AlertCircle className="w-6 h-6" />
+              </div>
+              <h3 className="text-base font-black text-slate-900">تأكيد حذف إذن المرتجع</h3>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              هل أنت متأكد من حذف إذن مردودات المشتريات رقم{' '}
+              <strong className="text-slate-900 font-mono">
+                {confirmDeleteReturnConfig.returnRecord.returnNumber}
+              </strong>{' '}
+              للمورد{' '}
+              <strong className="text-slate-900">
+                {confirmDeleteReturnConfig.returnRecord.supplierName}
+              </strong>
+              ؟
+            </p>
+            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteReturnConfig({ isOpen: false, returnRecord: null })}
+                className="px-4 py-2 rounded-xl border border-slate-300 text-xs font-bold text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                إلغاء
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteReturnConfirm}
+                className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-black cursor-pointer shadow-md"
+              >
+                تأكيد الحذف
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
 }
+export default PurchasesDashboard;

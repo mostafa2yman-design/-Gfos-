@@ -7,9 +7,22 @@ import { Settings } from "./components/Settings";
 import { ConfigurationDashboard, AccountingTab } from "./components/accounting/ConfigurationDashboard";
 import { FinishedGoodsWarehouse } from "./components/FinishedGoodsWarehouse";
 import { PurchasesDashboard } from "./components/purchases/PurchasesDashboard";
+import { SalesDashboard } from "./components/sales/SalesDashboard";
+import { RawMaterialsWarehouse } from "./components/RawMaterialsWarehouse";
+import { UsersManagement } from "./components/users/UsersManagement";
+import { JournalEntriesView } from "./components/accounting/JournalEntriesView";
+import { GeneralLedgerView } from "./components/accounting/GeneralLedgerView";
+import { TrialBalanceView } from "./components/accounting/TrialBalanceView";
+import { IncomeStatementView } from "./components/accounting/IncomeStatementView";
+import { BalanceSheetView } from "./components/accounting/BalanceSheetView";
+import { CashFlowStatementView } from "./components/accounting/CashFlowStatementView";
+import { TreasuryDashboard } from "./components/treasury/TreasuryDashboard";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { AuthProvider } from "./context/AuthContext";
+import { NotificationProvider } from "./context/NotificationContext";
+import { NotificationToastContainer } from "./components/ui/NotificationToast";
 
-type ViewState = "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse" | "purchases";
+type ViewState = "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse" | "purchases" | "sales" | "raw_materials_warehouse" | "users" | "journal_entries" | "general_ledger" | "trial_balance" | "income_statement" | "balance_sheet" | "cash_flow" | "treasury";
 
 interface ReturnDestination {
   orderId?: string;
@@ -26,6 +39,7 @@ function AppContent() {
   const [accountingAutoOpenAdd, setAccountingAutoOpenAdd] = useState<boolean>(false);
   const [accountingAutoOpenAddMaterial, setAccountingAutoOpenAddMaterial] = useState<boolean>(false);
   const [returnDestination, setReturnDestination] = useState<ReturnDestination | null>(null);
+  const [selectedLedgerAccountCode, setSelectedLedgerAccountCode] = useState<string>('12411');
 
   const handleNavigate = (view: ViewState) => {
     setCurrentView(view);
@@ -85,10 +99,12 @@ function AppContent() {
         <ProductionOrdersList
           onEdit={handleEditOrder}
           onView={handleViewOrder}
+          onNavigateToOrder={handleNavigateToOrder}
         />
       )}
       {currentView === "form" && (
         <OrderManager
+          key={`${selectedOrderId}_${selectedTab}`}
           orderId={selectedOrderId}
           onBack={handleBackToList}
           initialTab={selectedTab}
@@ -96,7 +112,31 @@ function AppContent() {
           onNavigateToAccounting={handleNavigateToAccounting}
         />
       )}
-      {currentView === "settings" && <Settings onBack={handleBackToList} />}
+      {currentView === "settings" && (
+        <Settings
+          onBack={handleBackToList}
+          onNavigateToUsers={() => handleNavigate("users")}
+        />
+      )}
+      {currentView === "sales" && (
+        <SalesDashboard
+          onNavigateToJournal={() => handleNavigate("journal_entries")}
+          onNavigateToLedger={(code) => {
+            if (code) setSelectedLedgerAccountCode(code);
+            handleNavigate("general_ledger");
+          }}
+          onNavigateToWarehouse={() => handleNavigate("finished_goods_warehouse")}
+          onNavigateToTreasury={() => handleNavigate("treasury")}
+          onNavigateToCustomers={() =>
+            handleNavigateToAccounting(
+              "customers",
+              { sourceView: "sales", tab: "customers" },
+              true
+            )
+          }
+          onNavigateToOrder={(orderId) => handleNavigateToOrder(orderId, "packing")}
+        />
+      )}
       {currentView === "purchases" && (
         <PurchasesDashboard
           onNavigateToAccounting={(tab, autoOpenAdd = true) =>
@@ -106,11 +146,27 @@ function AppContent() {
               autoOpenAdd
             )
           }
+          onNavigateToWarehouse={() => handleNavigate("raw_materials_warehouse")}
+          onNavigateToTreasury={() => handleNavigate("treasury")}
+          onNavigateToJournal={() => handleNavigate("journal_entries")}
+        />
+      )}
+      {currentView === "raw_materials_warehouse" && (
+        <RawMaterialsWarehouse
+          onNavigateToPurchases={() => handleNavigate("purchases")}
+          onNavigateToAccountingMaterials={() =>
+            handleNavigateToAccounting(
+              "materials",
+              { sourceView: "raw_materials_warehouse", tab: "materials" },
+              true
+            )
+          }
         />
       )}
       {currentView === "finished_goods_warehouse" && (
         <FinishedGoodsWarehouse
           onNavigateToOrder={(orderId, tab) => handleNavigateToOrder(orderId, tab || "packing")}
+          onNavigateToSales={() => handleNavigate("sales")}
         />
       )}
       {currentView === "accounting_config" && (
@@ -119,10 +175,18 @@ function AppContent() {
           autoOpenAddCustomer={accountingAutoOpenAdd}
           autoOpenAddMaterial={accountingAutoOpenAddMaterial}
           returnDestination={returnDestination}
+          onNavigateToJournal={() => handleNavigate("journal_entries")}
+          onNavigateToLedger={() => handleNavigate("general_ledger")}
           onReturn={() => {
             if (returnDestination) {
-              if (returnDestination.sourceView === "purchases" || returnDestination.tab === "purchases") {
+              if (returnDestination.sourceView === "sales" || returnDestination.tab === "sales") {
+                setCurrentView("sales");
+                setReturnDestination(null);
+              } else if (returnDestination.sourceView === "purchases" || returnDestination.tab === "purchases") {
                 setCurrentView("purchases");
+                setReturnDestination(null);
+              } else if (returnDestination.sourceView === "raw_materials_warehouse") {
+                setCurrentView("raw_materials_warehouse");
                 setReturnDestination(null);
               } else if (returnDestination.orderId) {
                 handleNavigateToOrder(returnDestination.orderId, returnDestination.tab || "packing");
@@ -137,6 +201,149 @@ function AppContent() {
           }}
         />
       )}
+      {currentView === "users" && <UsersManagement />}
+      {currentView === "journal_entries" && (
+        <JournalEntriesView
+          onNavigateToLedger={(accountCode) => {
+            if (accountCode) setSelectedLedgerAccountCode(accountCode);
+            handleNavigate("general_ledger");
+          }}
+          onNavigateToTrialBalance={() => {
+            handleNavigate("trial_balance");
+          }}
+          onNavigateToIncomeStatement={() => {
+            handleNavigate("income_statement");
+          }}
+          onNavigateToBalanceSheet={() => {
+            handleNavigate("balance_sheet");
+          }}
+          onNavigateToCashFlow={() => {
+            handleNavigate("cash_flow");
+          }}
+        />
+      )}
+      {currentView === "general_ledger" && (
+        <GeneralLedgerView
+          initialAccountCode={selectedLedgerAccountCode}
+          onNavigateToJournal={() => {
+            handleNavigate("journal_entries");
+          }}
+          onNavigateToTrialBalance={() => {
+            handleNavigate("trial_balance");
+          }}
+          onNavigateToIncomeStatement={() => {
+            handleNavigate("income_statement");
+          }}
+          onNavigateToBalanceSheet={() => {
+            handleNavigate("balance_sheet");
+          }}
+          onNavigateToCashFlow={() => {
+            handleNavigate("cash_flow");
+          }}
+        />
+      )}
+      {currentView === "trial_balance" && (
+        <TrialBalanceView
+          onNavigateToLedger={(accountCode) => {
+            if (accountCode) setSelectedLedgerAccountCode(accountCode);
+            handleNavigate("general_ledger");
+          }}
+          onNavigateToJournal={() => {
+            handleNavigate("journal_entries");
+          }}
+          onNavigateToIncomeStatement={() => {
+            handleNavigate("income_statement");
+          }}
+          onNavigateToBalanceSheet={() => {
+            handleNavigate("balance_sheet");
+          }}
+          onNavigateToCashFlow={() => {
+            handleNavigate("cash_flow");
+          }}
+        />
+      )}
+      {currentView === "income_statement" && (
+        <IncomeStatementView
+          onNavigateToLedger={(accountCode) => {
+            if (accountCode) setSelectedLedgerAccountCode(accountCode);
+            handleNavigate("general_ledger");
+          }}
+          onNavigateToJournal={() => {
+            handleNavigate("journal_entries");
+          }}
+          onNavigateToTrialBalance={() => {
+            handleNavigate("trial_balance");
+          }}
+          onNavigateToBalanceSheet={() => {
+            handleNavigate("balance_sheet");
+          }}
+          onNavigateToCashFlow={() => {
+            handleNavigate("cash_flow");
+          }}
+          onBack={() => {
+            handleNavigate("dashboard");
+          }}
+        />
+      )}
+      {currentView === "balance_sheet" && (
+        <BalanceSheetView
+          onNavigateToLedger={(accountCode) => {
+            if (accountCode) setSelectedLedgerAccountCode(accountCode);
+            handleNavigate("general_ledger");
+          }}
+          onNavigateToJournal={() => {
+            handleNavigate("journal_entries");
+          }}
+          onNavigateToTrialBalance={() => {
+            handleNavigate("trial_balance");
+          }}
+          onNavigateToIncomeStatement={() => {
+            handleNavigate("income_statement");
+          }}
+          onNavigateToCashFlow={() => {
+            handleNavigate("cash_flow");
+          }}
+          onBack={() => {
+            handleNavigate("dashboard");
+          }}
+        />
+      )}
+      {currentView === "cash_flow" && (
+        <CashFlowStatementView
+          onNavigateToLedger={(accountCode) => {
+            if (accountCode) setSelectedLedgerAccountCode(accountCode);
+            handleNavigate("general_ledger");
+          }}
+          onNavigateToJournal={() => {
+            handleNavigate("journal_entries");
+          }}
+          onNavigateToTrialBalance={() => {
+            handleNavigate("trial_balance");
+          }}
+          onNavigateToIncomeStatement={() => {
+            handleNavigate("income_statement");
+          }}
+          onNavigateToBalanceSheet={() => {
+            handleNavigate("balance_sheet");
+          }}
+          onBack={() => {
+            handleNavigate("dashboard");
+          }}
+        />
+      )}
+      {currentView === "treasury" && (
+        <TreasuryDashboard
+          onNavigateToJournal={() => handleNavigate("journal_entries")}
+          onNavigateToLedger={(accountCode) => {
+            if (accountCode) setSelectedLedgerAccountCode(accountCode);
+            handleNavigate("general_ledger");
+          }}
+          onNavigateToSales={() => handleNavigate("sales")}
+          onNavigateToPurchases={() => handleNavigate("purchases")}
+          onNavigateToCashFlow={() => handleNavigate("cash_flow")}
+        />
+      )}
+      <NotificationToastContainer />
     </Layout>
   );
 }
@@ -144,7 +351,11 @@ function AppContent() {
 export default function App() {
   return (
     <ThemeProvider>
-      <AppContent />
+      <AuthProvider>
+        <NotificationProvider>
+          <AppContent />
+        </NotificationProvider>
+      </AuthProvider>
     </ThemeProvider>
   );
 }

@@ -35,15 +35,12 @@ export const BatchPreparationWorkOrder: React.FC<Props> = ({ order, batch }) => 
       />
 
       {/* Operational Instructions for Prep */}
-      <PrintInstructions
-        title="تعليمات تجهيز المستلزمات والصرف لخط الإنتاج"
-        instructions={[
-          'مراجعة كود ولون الإكسسوارات والمطابقة مع عينة البروفا المعتمدة من العميل.',
-          'حساب المنصرف بدقة وفقاً لحجم الباتش وإضافة نسبة هالك التشغيل المسموح بها.',
-          'تعبئة مستلزمات الباتش في كيس/صندوق مخصص ومميز برقم الباتش والموديل.',
-          'عدم تسليم الباتش لصالة الخياطة إلا بعد استيفاء توقيع استلام مسئول الخط.'
-        ]}
-      />
+      {order.cuttingInstructions && (
+        <PrintInstructions
+          title="تعليمات التشغيل وملاحظات الأقسام"
+          instructions={order.cuttingInstructions}
+        />
+      )}
 
       {/* 1. Batch Sizes and Quantities */}
       <PrintSection title="1. بيان كميات المقاسات والألوان للباتش" badge={`إجمالي الباتش: ${totalBatchQty} قطعة`}>
@@ -91,12 +88,10 @@ export const BatchPreparationWorkOrder: React.FC<Props> = ({ order, batch }) => 
           <table>
             <thead>
               <tr>
-                <th>اسم الإكسسوار / الصنف</th>
-                <th className="text-center w-16">الوحدة</th>
-                <th className="text-center w-28">المعدل للقطعة</th>
-                <th className="text-center w-32">المطلوب للباتش</th>
-                <th className="text-center w-32">المنصرف الفعلي</th>
-                <th className="text-center w-28">حالة التجهيز</th>
+                <th>اسم الاكسسوار او الصنف المطلوب</th>
+                <th>الاكسسوار الفعلى المنصرف</th>
+                <th className="text-center w-28">المطلوب للقطعه</th>
+                <th className="text-center w-32">العدد المطلوب تجهيزه</th>
               </tr>
             </thead>
             <tbody>
@@ -104,19 +99,14 @@ export const BatchPreparationWorkOrder: React.FC<Props> = ({ order, batch }) => 
                 const roundedRequired = acc.requiredForBatch % 1 === 0 
                   ? acc.requiredForBatch 
                   : Number(Number(acc.requiredForBatch).toFixed(3));
+                const perPiece = acc.standardPerPiece ? `${acc.standardPerPiece} (${acc.unit})` : '—';
                 
                 return (
                   <tr key={acc.accessoryId || acc.accessoryName}>
                     <td className="font-semibold">{acc.accessoryName}</td>
-                    <td className="text-center text-slate-600">{acc.unit}</td>
-                    <td className="text-center text-slate-700">{acc.standardPerPiece}</td>
+                    <td className="font-medium text-slate-800">{acc.actualAccessoryName || acc.accessoryName}</td>
+                    <td className="text-center text-slate-700">{perPiece}</td>
                     <td className="text-center font-bold text-indigo-950 bg-slate-50/50">{roundedRequired}</td>
-                    <td className="text-center font-bold text-slate-900">{roundedRequired}</td>
-                    <td className="text-center">
-                      <span className={`inline-block text-[9px] px-2 py-0.5 rounded font-bold ${acc.isPrepared ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}>
-                        {acc.isPrepared ? '✓ تم التجهيز' : 'قيد الصرف'}
-                      </span>
-                    </td>
                   </tr>
                 );
               })}

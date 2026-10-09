@@ -33,6 +33,7 @@ import {
 import { calculateGlobalCostMetrics, calculateOrderCostAnalysis } from "../lib/costUtils";
 import { processOrderItem } from "../lib/finishedGoodsUtils";
 import { WarehouseProductDetailsModal } from "./WarehouseProductDetailsModal";
+import { getDefaultTabForStatus } from "../lib/orderWorkflow";
 
 interface BatchSizeItem {
   size: string;
@@ -747,7 +748,7 @@ export function Dashboard({ onNavigate, onNavigateToOrder }: DashboardProps) {
                       <tr key={order.id} className="hover:bg-slate-50 transition-colors">
                         <td className="p-3">
                           <button 
-                            onClick={() => onNavigateToOrder?.(order.id, "production")} 
+                            onClick={() => onNavigateToOrder?.(order.id, getDefaultTabForStatus(order.status))} 
                             className="text-indigo-600 font-bold hover:text-indigo-800 hover:underline"
                           >
                             {order.orderNumber}

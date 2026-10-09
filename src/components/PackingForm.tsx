@@ -403,6 +403,13 @@ export const PackingForm: React.FC<Props> = ({ orderId, onSaved, onNavigateToAcc
         </div>
       </div>
 
+      {order.packingInstructions && (
+        <div className="bg-amber-50 p-4 rounded-xl border border-amber-200">
+          <h4 className="font-bold text-amber-900 text-sm mb-1">تعليمات وملاحظات التغليف والتخزين</h4>
+          <p className="text-amber-800 text-sm whitespace-pre-wrap">{order.packingInstructions}</p>
+        </div>
+      )}
+
       {/* Remaining Inventory Table */}
       <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
         <div className="bg-slate-50 px-6 py-4 border-b border-slate-200">

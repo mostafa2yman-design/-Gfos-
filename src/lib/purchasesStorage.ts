@@ -1,6 +1,9 @@
-import { PurchaseInvoice } from '../types';
+import { PurchaseInvoice, PurchaseReturn, PurchaseMetrics } from '../types';
+import { getActiveSessionUser, ROLE_LABELS } from './usersStorage';
+import { recordSystemApproval } from './auditStorage';
 
 const PURCHASES_KEY = 'accounting_purchases_v1';
+const PURCHASE_RETURNS_KEY = 'accounting_purchase_returns_v1';
 
 function getItems<T>(key: string): T[] {
   try {
@@ -289,8 +292,54 @@ export const savePurchases = (items: PurchaseInvoice[]): void => {
 
 export const addPurchase = (invoice: PurchaseInvoice): void => {
   const current = getPurchases();
-  const updated = [invoice, ...current];
+  const activeUser = getActiveSessionUser();
+  const dateStr = invoice.date || new Date().toISOString().split('T')[0];
+  const timeStr = new Date().toTimeString().slice(0, 8);
+  const nowIso = new Date().toISOString();
+  const verificationCode = invoice.verificationCode || `APV-${dateStr.replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+
+  const stampedInvoice: PurchaseInvoice = {
+    ...invoice,
+    approvedBy: invoice.approvedBy || {
+      userId: activeUser.id,
+      userName: activeUser.fullName || activeUser.username,
+      userRole: activeUser.role,
+      userRoleLabel: activeUser.roleTitle || (ROLE_LABELS as any)[activeUser.role]?.title || 'مسؤول المشتريات',
+      approvedAt: nowIso
+    },
+    approvedAt: invoice.approvedAt || nowIso,
+    approvalDate: invoice.approvalDate || dateStr,
+    approvalTime: invoice.approvalTime || timeStr,
+    verificationCode
+  };
+
+  const updated = [stampedInvoice, ...current];
   savePurchases(updated);
+
+  // Centrally record this approval in the system audit trail
+  try {
+    const approverName = typeof stampedInvoice.approvedBy === 'object' ? stampedInvoice.approvedBy?.userName : (stampedInvoice.approvedBy || activeUser.fullName);
+    const approverRole = typeof stampedInvoice.approvedBy === 'object' ? stampedInvoice.approvedBy?.userRoleLabel : activeUser.roleTitle;
+    recordSystemApproval({
+      actionType: 'purchase_invoice',
+      documentId: stampedInvoice.id,
+      documentNumber: stampedInvoice.invoiceNumber,
+      title: `اعتماد وإدخال فاتورة مشتريات خامات - ${stampedInvoice.supplierName}`,
+      details: `فاتورة شراء رقم ${stampedInvoice.invoiceNumber} من المورد ${stampedInvoice.supplierName} بقيمة ${stampedInvoice.grandTotal?.toLocaleString('ar-EG')} ج.م`,
+      amount: stampedInvoice.grandTotal,
+      counterpartyName: stampedInvoice.supplierName,
+      customDate: dateStr,
+      customTime: timeStr,
+      customUser: {
+        id: activeUser.id,
+        name: approverName || activeUser.fullName || activeUser.username,
+        role: activeUser.role,
+        roleTitle: approverRole || activeUser.roleTitle
+      }
+    });
+  } catch (err) {
+    console.error('Failed to log purchase approval:', err);
+  }
 };
 
 export const updatePurchase = (invoice: PurchaseInvoice): void => {
@@ -318,4 +367,189 @@ export const generateNextPurchaseInvoiceNumber = (): string => {
     }
   }
   return `PUR-${year}-${String(maxSeq + 1).padStart(3, '0')}`;
+};
+
+// ==========================================
+// --- Purchase Returns (مرتجعات ومردودات المشتريات) ---
+// ==========================================
+
+const getDefaultPurchaseReturns = (): PurchaseReturn[] => {
+  return [
+    {
+      id: 'pret_1',
+      returnNumber: 'PRET-2026-001',
+      date: '2026-09-22',
+      originalInvoiceId: 'pur_1',
+      originalInvoiceNumber: 'PUR-2026-001',
+      supplierId: 'supp_1',
+      supplierName: 'شركة النيل للغزل والمنسوجات',
+      supplierPhone: '01012345678',
+      items: [
+        {
+          id: 'pret_item_1',
+          originalItemId: 'item_1_1',
+          materialId: 'mat_1',
+          materialName: 'قماش قطن سنجل جيرسي 100%',
+          materialType: 'fabric',
+          unit: 'كجم',
+          quantity: 25,
+          unitPrice: 220,
+          total: 5500,
+          reason: 'defective',
+          condition: 'defect_vendor',
+          notes: 'وجود بقع وتفاوت في درجة الصباغة بالثوب رقم 4، تم إثباتها وردها للمورد'
+        }
+      ],
+      subtotal: 5500,
+      taxPercent: 0,
+      taxAmount: 0,
+      grandTotal: 5500,
+      refundMethod: 'credit_deduction',
+      refundedAmount: 5500,
+      stockReturned: true,
+      returnReasonGeneral: 'عيوب في درجة الصباغة بثوب القماش وتم خصم القيمة من رصيد المورد',
+      issuedByWarehouseUser: 'عمرو إبراهيم - أمين مخزن الخامات',
+      notes: 'تم تسليم الثوب التالف لمندوب شركة النيل مع توقيع إذن الاستلام وتعديل رصيد المخزن',
+      createdAt: '2026-09-22T13:40:00.000Z'
+    }
+  ];
+};
+
+export const getPurchaseReturns = (): PurchaseReturn[] => {
+  const items = getItems<PurchaseReturn>(PURCHASE_RETURNS_KEY);
+  if (items.length === 0) {
+    const defaults = getDefaultPurchaseReturns();
+    savePurchaseReturns(defaults);
+    return defaults;
+  }
+  return items;
+};
+
+export const savePurchaseReturns = (items: PurchaseReturn[]): void => {
+  saveItems(PURCHASE_RETURNS_KEY, items);
+  window.dispatchEvent(new CustomEvent('purchase_returns_updated'));
+  window.dispatchEvent(new CustomEvent('raw_materials_updated'));
+  window.dispatchEvent(new CustomEvent('purchases_updated'));
+  window.dispatchEvent(new CustomEvent('journal_entries_updated'));
+};
+
+export const generateNextPurchaseReturnNumber = (): string => {
+  const returns = getPurchaseReturns();
+  const year = new Date().getFullYear();
+  const prefix = `PRET-${year}-`;
+
+  const numbers = returns
+    .map((ret) => {
+      if (ret.returnNumber && ret.returnNumber.startsWith(prefix)) {
+        const numPart = ret.returnNumber.replace(prefix, '');
+        const parsed = parseInt(numPart, 10);
+        return isNaN(parsed) ? 0 : parsed;
+      }
+      return 0;
+    })
+    .filter((n) => n > 0);
+
+  const max = numbers.length > 0 ? Math.max(...numbers) : 0;
+  const next = max + 1;
+  return `${prefix}${String(next).padStart(3, '0')}`;
+};
+
+/**
+ * Adjusts original purchase invoice remaining and payment status if refund method is credit deduction
+ */
+export const adjustPurchaseInvoiceForReturn = (purchaseReturn: PurchaseReturn): void => {
+  const purchases = getPurchases();
+  const inv = purchases.find((i) => i.id === purchaseReturn.originalInvoiceId);
+  if (!inv) return;
+
+  if (purchaseReturn.refundMethod === 'credit_deduction') {
+    const curRemaining = Number(inv.remainingAmount) || 0;
+    inv.remainingAmount = Math.max(0, curRemaining - purchaseReturn.grandTotal);
+    if (inv.remainingAmount <= 0) {
+      inv.paymentStatus = 'paid';
+    }
+    updatePurchase(inv);
+  }
+};
+
+export const addPurchaseReturn = async (purchaseReturn: PurchaseReturn): Promise<void> => {
+  const current = getPurchaseReturns();
+  const updated = [purchaseReturn, ...current];
+  savePurchaseReturns(updated);
+
+  // 1. Adjust original purchase invoice credit if credit deduction
+  adjustPurchaseInvoiceForReturn(purchaseReturn);
+
+  // 2. Dispatch events
+  window.dispatchEvent(new CustomEvent('purchase_returns_updated'));
+  window.dispatchEvent(new CustomEvent('purchases_updated'));
+  window.dispatchEvent(new CustomEvent('raw_materials_updated'));
+  window.dispatchEvent(new CustomEvent('journal_entries_updated'));
+};
+
+export const updatePurchaseReturn = async (purchaseReturn: PurchaseReturn): Promise<void> => {
+  const current = getPurchaseReturns();
+  const index = current.findIndex((r) => r.id === purchaseReturn.id);
+  if (index >= 0) {
+    current[index] = {
+      ...purchaseReturn,
+      updatedAt: new Date().toISOString()
+    };
+    savePurchaseReturns([...current]);
+  } else {
+    await addPurchaseReturn(purchaseReturn);
+  }
+};
+
+export const deletePurchaseReturn = (id: string): void => {
+  const current = getPurchaseReturns();
+  const filtered = current.filter((r) => r.id !== id);
+  savePurchaseReturns(filtered);
+};
+
+export const calculatePurchaseMetrics = (invoices: PurchaseInvoice[]): PurchaseMetrics => {
+  let totalPurchasesValue = 0;
+  let totalPaidAmount = 0;
+  let totalRemainingAmount = 0;
+  let paidInvoicesCount = 0;
+  let partialInvoicesCount = 0;
+  let unpaidInvoicesCount = 0;
+  let totalItemsQuantity = 0;
+
+  invoices.forEach((inv) => {
+    const grand = Number(inv.grandTotal) || 0;
+    const paid = Number(inv.paidAmount) || 0;
+    const remaining = Number(inv.remainingAmount) || Math.max(0, grand - paid);
+
+    totalPurchasesValue += grand;
+    totalPaidAmount += paid;
+    totalRemainingAmount += remaining;
+
+    if (inv.paymentStatus === 'paid') paidInvoicesCount++;
+    else if (inv.paymentStatus === 'partial') partialInvoicesCount++;
+    else unpaidInvoicesCount++;
+
+    if (inv.items && Array.isArray(inv.items)) {
+      inv.items.forEach((it) => {
+        totalItemsQuantity += Number(it.quantity) || 0;
+      });
+    }
+  });
+
+  const totalInvoicesCount = invoices.length;
+  const paymentRate = totalPurchasesValue > 0 ? (totalPaidAmount / totalPurchasesValue) * 100 : 0;
+  const averageInvoiceValue = totalInvoicesCount > 0 ? totalPurchasesValue / totalInvoicesCount : 0;
+
+  return {
+    totalPurchasesValue: Math.round(totalPurchasesValue * 100) / 100,
+    totalInvoicesCount,
+    totalPaidAmount: Math.round(totalPaidAmount * 100) / 100,
+    totalRemainingAmount: Math.round(totalRemainingAmount * 100) / 100,
+    paidInvoicesCount,
+    partialInvoicesCount,
+    unpaidInvoicesCount,
+    paymentRate: Math.round(paymentRate * 10) / 10,
+    averageInvoiceValue: Math.round(averageInvoiceValue * 100) / 100,
+    totalItemsQuantity: Math.round(totalItemsQuantity * 100) / 100
+  };
 };

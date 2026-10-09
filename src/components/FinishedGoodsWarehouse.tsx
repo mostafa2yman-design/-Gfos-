@@ -19,7 +19,9 @@ import {
   ArrowUpDown,
   RefreshCw,
   Clock,
-  Sparkles
+  Sparkles,
+  TrendingUp,
+  Barcode
 } from "lucide-react";
 import { eventBus } from "../lib/events/eventBus";
 import { FinishedProductItem, ProductColorSummary, processOrderItem } from "../lib/finishedGoodsUtils";
@@ -27,9 +29,10 @@ import { PrintDocument, PrintHeader, PrintSection, PrintSignatures } from "./pri
 
 interface Props {
   onNavigateToOrder?: (orderId: string, tab?: string) => void;
+  onNavigateToSales?: () => void;
 }
 
-export const FinishedGoodsWarehouse: React.FC<Props> = ({ onNavigateToOrder }) => {
+export const FinishedGoodsWarehouse: React.FC<Props> = ({ onNavigateToOrder, onNavigateToSales }) => {
   const [orders, setOrders] = useState<ProductionOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -56,12 +59,18 @@ export const FinishedGoodsWarehouse: React.FC<Props> = ({ onNavigateToOrder }) =
 
     const handleUpdate = () => loadOrdersData();
     window.addEventListener("storage", handleUpdate);
+    window.addEventListener("gfos_storage_update", handleUpdate);
+    window.addEventListener("finished_goods_updated", handleUpdate);
+    window.addEventListener("sales_returns_updated", handleUpdate);
     const unsub = eventBus.subscribe("ORDER_UPDATED" as any, () => {
       loadOrdersData();
     });
 
     return () => {
       window.removeEventListener("storage", handleUpdate);
+      window.removeEventListener("gfos_storage_update", handleUpdate);
+      window.removeEventListener("finished_goods_updated", handleUpdate);
+      window.removeEventListener("sales_returns_updated", handleUpdate);
       unsub();
     };
   }, []);
@@ -91,11 +100,15 @@ export const FinishedGoodsWarehouse: React.FC<Props> = ({ onNavigateToOrder }) =
   // Filter and sort
   const filteredAndSortedItems = useMemo(() => {
     let result = currentItems.filter(item => {
+      const term = searchTerm.toLowerCase();
       const matchesSearch = 
-        item.order.orderNumber.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.order.styleName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.order.customerName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (item.order.category && item.order.category.toLowerCase().includes(searchTerm.toLowerCase()));
+        item.order.orderNumber.toLowerCase().includes(term) ||
+        item.order.styleName.toLowerCase().includes(term) ||
+        item.order.customerName.toLowerCase().includes(term) ||
+        (item.order.category && item.order.category.toLowerCase().includes(term)) ||
+        (item.order.barcode && item.order.barcode.toLowerCase().includes(term)) ||
+        (item.primaryBarcode && item.primaryBarcode.toLowerCase().includes(term)) ||
+        (item.barcodes && item.barcodes.some(b => b.toLowerCase().includes(term)));
 
       const matchesCategory = categoryFilter === "all" || item.order.category === categoryFilter;
 
@@ -160,6 +173,15 @@ export const FinishedGoodsWarehouse: React.FC<Props> = ({ onNavigateToOrder }) =
           </div>
 
           <div className="flex items-center gap-2 w-full md:w-auto">
+            {onNavigateToSales && (
+              <button
+                onClick={onNavigateToSales}
+                className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl text-sm font-bold transition-colors shadow-sm cursor-pointer"
+              >
+                <TrendingUp className="w-4 h-4" />
+                <span>فواتير المبيعات</span>
+              </button>
+            )}
             <button
               onClick={handlePrintInventory}
               className="flex-1 md:flex-none flex items-center justify-center gap-2 bg-white/10 hover:bg-white/20 text-white px-4 py-2.5 rounded-xl text-sm font-medium transition-colors border border-white/10"
@@ -246,11 +268,11 @@ export const FinishedGoodsWarehouse: React.FC<Props> = ({ onNavigateToOrder }) =
 
       {/* Filter & Search Controls */}
       <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 justify-between items-center">
-        <div className="relative w-full md:w-80">
+        <div className="relative w-full md:w-96">
           <Search className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             type="text"
-            placeholder="بحث برقم الأمر، اسم الموديل، العميل..."
+            placeholder="بحث برقم الأمر، كود الباركود (PM-00001)، الموديل، العميل..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             className="w-full pl-3 pr-10 py-2 border border-slate-300 rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
@@ -347,6 +369,12 @@ export const FinishedGoodsWarehouse: React.FC<Props> = ({ onNavigateToOrder }) =
                           <span className="font-mono text-xs font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700 border border-slate-200">
                             {item.order.orderNumber}
                           </span>
+                          {(item.primaryBarcode || item.order.barcode) && (
+                            <span className="inline-flex items-center gap-1 font-mono text-xs font-black px-2.5 py-0.5 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200 shadow-2xs" title="كود الباركود التسلسلي المعتمد">
+                              <Barcode className="w-3.5 h-3.5 text-indigo-600" />
+                              <span>{item.primaryBarcode || item.order.barcode}</span>
+                            </span>
+                          )}
                           <h3 className="text-lg font-bold text-slate-800 hover:text-indigo-600 transition-colors">
                             {item.order.styleName}
                           </h3>
@@ -546,6 +574,55 @@ export const FinishedGoodsWarehouse: React.FC<Props> = ({ onNavigateToOrder }) =
                         </table>
                       </div>
                     </div>
+
+                    {/* Barcodes Section: Sequential Barcodes attached to order variants */}
+                    {item.barcodes && item.barcodes.length > 0 && (
+                      <div className="bg-white rounded-xl border border-indigo-100 p-4 shadow-2xs space-y-3">
+                        <div className="flex items-center justify-between flex-wrap gap-2">
+                          <div className="flex items-center gap-2">
+                            <Barcode className="w-4 h-4 text-indigo-600" />
+                            <h5 className="font-bold text-slate-800 text-xs">
+                              أكواد الباركود التسلسلية المعتمدة للمنتج بالمخزن (مرافقة لأمر الإنتاج وفواتير البيع):
+                            </h5>
+                          </div>
+                          <span className="text-[11px] font-mono font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-full">
+                            {item.barcodes.length} كود تسلسلي معتمد
+                          </span>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5">
+                          {item.colors.map(color => {
+                            return item.sizes.map(size => {
+                              const qty = item.matrix[color]?.[size] || 0;
+                              const code = item.barcodeMap[`${size}_${color}`] || item.primaryBarcode;
+                              if (!code && qty === 0) return null;
+                              return (
+                                <div
+                                  key={`${color}-${size}`}
+                                  className="p-2.5 rounded-lg border border-slate-200 bg-slate-50/70 hover:bg-indigo-50/40 hover:border-indigo-200 transition-colors flex items-center justify-between text-xs"
+                                >
+                                  <div>
+                                    <div className="font-bold text-slate-800">
+                                      {color} / مقاس {size}
+                                    </div>
+                                    <div className="text-[10px] text-slate-500">
+                                      الكمية: {qty} قطعة
+                                    </div>
+                                  </div>
+                                  {code ? (
+                                    <span className="font-mono font-black text-indigo-900 bg-white border border-indigo-200 px-2 py-1 rounded shadow-2xs text-[11px]">
+                                      {code}
+                                    </span>
+                                  ) : (
+                                    <span className="text-slate-400 text-[10px]">-</span>
+                                  )}
+                                </div>
+                              );
+                            });
+                          })}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Packing Invoices & Receipts Details if available */}
                     {item.invoices && item.invoices.length > 0 && (

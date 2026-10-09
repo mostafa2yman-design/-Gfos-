@@ -308,6 +308,13 @@ export const SewingForm: React.FC<Props> = ({ orderId, onSaved }) => {
         />
       )}
 
+      {order.sewingInstructions && (
+        <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 mb-6">
+          <h4 className="font-bold text-amber-900 text-sm mb-1">تعليمات وملاحظات الخياطة</h4>
+          <p className="text-amber-800 text-sm whitespace-pre-wrap">{order.sewingInstructions}</p>
+        </div>
+      )}
+
       {batches.length === 0 ? (
         <div className="bg-white p-8 rounded-xl shadow-sm border border-slate-200 text-center text-slate-500">
           لا توجد باتشات في هذا الأمر.

@@ -68,6 +68,8 @@ export const saveOrder = async (order: ProductionOrder): Promise<{ success: bool
   return { success: true };
 };
 
+export const updateOrder = saveOrder;
+
 export const getOrderById = async (id: string): Promise<ProductionOrder | undefined> => {
   const orders = await getOrders();
   return orders.find(o => o.id === id);

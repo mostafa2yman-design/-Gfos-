@@ -17,15 +17,24 @@ import {
   Menu,
   X,
   PackageCheck,
-  ShoppingCart
+  ShoppingCart,
+  Boxes,
+  BookOpen,
+  Scale,
+  TrendingUp,
+  Building
 } from "lucide-react";
 import { useTheme } from "../contexts/ThemeContext";
 import { getPrimaryBg, getPrimaryText, getRadiusClass } from "../lib/theme";
+import { UserNavDropdown } from "./users/UserNavDropdown";
+import { SystemAuditLogModal } from "./audit/SystemAuditLogModal";
+
+export type LayoutViewType = "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse" | "purchases" | "sales" | "raw_materials_warehouse" | "users" | "journal_entries" | "general_ledger" | "trial_balance" | "income_statement" | "balance_sheet" | "cash_flow" | "treasury";
 
 interface LayoutProps {
   children: React.ReactNode;
-  currentView: "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse" | "purchases";
-  onNavigate: (view: "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse" | "purchases") => void;
+  currentView: LayoutViewType;
+  onNavigate: (view: LayoutViewType) => void;
 }
 
 export function Layout({ children, currentView, onNavigate }: LayoutProps) {
@@ -33,8 +42,9 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
   
   const [expandedSection, setExpandedSection] = useState<string>("admin");
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [showAuditModal, setShowAuditModal] = useState(false);
 
-  const handleNavClick = (view: "dashboard" | "list" | "form" | "settings" | "accounting_config" | "finished_goods_warehouse" | "purchases") => {
+  const handleNavClick = (view: LayoutViewType) => {
     onNavigate(view);
     setIsMobileMenuOpen(false);
   };
@@ -116,6 +126,17 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
                   <LayoutDashboard className="w-4 h-4" />
                 </button>
                 <button
+                  onClick={() => handleNavClick("users")}
+                  className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${
+                    currentView === "users"
+                      ? `${primaryBg} ${color === 'orange' ? 'text-slate-900' : 'text-white'}`
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <span>المستخدمين والصلاحيات (RBAC)</span>
+                  <ShieldCheck className="w-4 h-4" />
+                </button>
+                <button
                   className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} text-slate-400 hover:text-white hover:bg-slate-800`}
                 >
                   <span>مركز التقارير والإحصائيات الكلية</span>
@@ -179,6 +200,78 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
             {expandedSection === 'accounting' && (
               <div className="mt-1 space-y-1 mb-3">
                 <button
+                  onClick={() => handleNavClick("journal_entries")}
+                  className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${
+                    currentView === "journal_entries"
+                      ? `${primaryBg} ${color === 'orange' ? 'text-slate-900' : 'text-white'}`
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <span>دفتر القيود اليومية (المزدوجة)</span>
+                  <BookOpen className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleNavClick("general_ledger")}
+                  className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${
+                    currentView === "general_ledger"
+                      ? `${primaryBg} ${color === 'orange' ? 'text-slate-900' : 'text-white'}`
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <span>دفتر الأستاذ العام للحسابات</span>
+                  <Scale className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleNavClick("trial_balance")}
+                  className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${
+                    currentView === "trial_balance"
+                      ? `${primaryBg} ${color === 'orange' ? 'text-slate-900' : 'text-white'}`
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <span>ميزان المراجعة (بالمجاميع والأرصدة)</span>
+                  <FileText className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleNavClick("income_statement")}
+                  className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${
+                    currentView === "income_statement"
+                      ? `${primaryBg} ${color === 'orange' ? 'text-slate-900' : 'text-white'}`
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>قائمة الدخل والأرباح والخسائر (P&L)</span>
+                  </span>
+                  <TrendingUp className="w-4 h-4 text-emerald-400" />
+                </button>
+                <button
+                  onClick={() => handleNavClick("cash_flow")}
+                  className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${
+                    currentView === "cash_flow"
+                      ? `${primaryBg} ${color === 'orange' ? 'text-slate-900' : 'text-white'}`
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>قائمة التدفقات النقدية (Cash Flow)</span>
+                  </span>
+                  <DollarSign className="w-4 h-4 text-teal-400" />
+                </button>
+                <button
+                  onClick={() => handleNavClick("balance_sheet")}
+                  className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${
+                    currentView === "balance_sheet"
+                      ? `${primaryBg} ${color === 'orange' ? 'text-slate-900' : 'text-white'}`
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>قائمة المركز المالي (الميزانية العمومية)</span>
+                  </span>
+                  <Building className="w-4 h-4 text-indigo-400" />
+                </button>
+                <button
                   onClick={() => handleNavClick("accounting_config")}
                   className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${
                     currentView === "accounting_config"
@@ -186,7 +279,21 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
                       : "text-slate-400 hover:text-white hover:bg-slate-800"
                   }`}
                 >
-                  التكوين الهيكلي والمالي
+                  <span>شجرة الحسابات والتكوين المالي</span>
+                  <Grid className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleNavClick("treasury")}
+                  className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${
+                    currentView === "treasury"
+                      ? `${primaryBg} ${color === 'orange' ? 'text-slate-900' : 'text-white'}`
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>إيرادات ومصروفات (الخزينة)</span>
+                  </span>
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
                 </button>
               </div>
             )}
@@ -207,6 +314,17 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
             {expandedSection === 'sales' && (
               <div className="mt-1 space-y-1 mb-3">
                 <button
+                  onClick={() => handleNavClick("sales")}
+                  className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${
+                    currentView === "sales"
+                      ? `${primaryBg} ${color === 'orange' ? 'text-slate-900' : 'text-white'}`
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <span>إدارة المبيعات وفواتير العملاء</span>
+                  <TrendingUp className="w-4 h-4" />
+                </button>
+                <button
                   onClick={() => handleNavClick("purchases")}
                   className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${
                     currentView === "purchases"
@@ -218,6 +336,17 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
                   <ShoppingCart className="w-4 h-4" />
                 </button>
                 <button
+                  onClick={() => handleNavClick("raw_materials_warehouse")}
+                  className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${
+                    currentView === "raw_materials_warehouse"
+                      ? `${primaryBg} ${color === 'orange' ? 'text-slate-900' : 'text-white'}`
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <span>مخزن الأقمشة والإكسسوارات</span>
+                  <Boxes className="w-4 h-4" />
+                </button>
+                <button
                   onClick={() => handleNavClick("finished_goods_warehouse")}
                   className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${
                     currentView === "finished_goods_warehouse"
@@ -227,6 +356,29 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
                 >
                   <span>مخزن المنتجات التامة</span>
                   <PackageCheck className="w-4 h-4" />
+                </button>
+                <button
+                  onClick={() => handleNavClick("treasury")}
+                  className={`w-full flex items-center justify-end gap-3 px-4 py-3 text-sm font-bold transition-all ${radiusClass} ${
+                    currentView === "treasury"
+                      ? `${primaryBg} ${color === 'orange' ? 'text-slate-900' : 'text-white'}`
+                      : "text-slate-400 hover:text-white hover:bg-slate-800"
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>إيرادات ومصروفات وسندات الخزينة</span>
+                  </span>
+                  <DollarSign className="w-4 h-4 text-emerald-400" />
+                </button>
+
+                <button
+                  onClick={() => setShowAuditModal(true)}
+                  className={`w-full flex items-center justify-end gap-3 px-4 py-2.5 text-xs font-bold transition-all ${radiusClass} text-slate-400 hover:text-white hover:bg-slate-800`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <span>سجل الاعتمادات والرقابة الإدارية</span>
+                  </span>
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
                 </button>
               </div>
             )}
@@ -277,11 +429,48 @@ export function Layout({ children, currentView, onNavigate }: LayoutProps) {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto bg-slate-50 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full print:p-0 print:m-0 print:max-w-none">
+      <main className="flex-1 overflow-y-auto bg-slate-50 relative flex flex-col">
+        {/* Top Header Bar with User Nav Dropdown */}
+        <header className="bg-white border-b border-slate-200 px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between gap-4 sticky top-0 z-30 shadow-2xs print:hidden">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-400">نسيج ERP /</span>
+            <span className="text-xs font-bold text-slate-800">
+              {currentView === "dashboard" && "لوحة التحكم الرئيسية"}
+              {currentView === "list" && "أوامر الإنتاج والتصنيع"}
+              {currentView === "form" && "إدارة أمر التشغيل والباتشات"}
+              {currentView === "users" && "إدارة المستخدمين والصلاحيات (RBAC)"}
+              {currentView === "purchases" && "إدارة المشتريات وفواتير الشراء"}
+              {currentView === "raw_materials_warehouse" && "مخزن الأقمشة والإكسسوارات"}
+              {currentView === "finished_goods_warehouse" && "مخزن المنتجات التامة"}
+              {currentView === "accounting_config" && "التكوين الهيكلي والمالي"}
+              {currentView === "treasury" && "إدارة الإيرادات والمصروفات وحركة الخزينة والسيولة"}
+              {currentView === "settings" && "إعدادات النظام"}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => setShowAuditModal(true)}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-indigo-50 text-slate-700 hover:text-indigo-700 border border-slate-200 hover:border-indigo-200 text-xs font-bold transition-all cursor-pointer shadow-2xs"
+              title="سجل وتوثيق اعتمادات وحركات النظام"
+            >
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span className="hidden sm:inline">سجل الاعتمادات</span>
+            </button>
+            <UserNavDropdown onNavigateToUsers={() => handleNavClick("users")} />
+          </div>
+        </header>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full print:p-0 print:m-0 print:max-w-none flex-1">
           {children}
         </div>
       </main>
+
+      {/* System Audit & Approvals Log Modal */}
+      {showAuditModal && (
+        <SystemAuditLogModal onClose={() => setShowAuditModal(false)} />
+      )}
       
       <style dangerouslySetInnerHTML={{__html: `
         .custom-scrollbar::-webkit-scrollbar {

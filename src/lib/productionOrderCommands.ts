@@ -1,6 +1,8 @@
 import { eventBus } from "./events";
 import { ProductionOrder, SizeData, Variant, CutOrderData, BatchItem } from '../types';
 import { saveOrder as persistOrder, getOrderById, deleteOrder as removeOrderFromStorage, getOrders } from './storage';
+import { ensureOrderFinishingBarcodes } from './barcodeSettings';
+import { recordSystemApproval } from './auditStorage';
 
 export type CommandResult<T> = {
   success: boolean;
@@ -423,18 +425,21 @@ export async function approveBatchPrep(order: ProductionOrder, batchId: string, 
 }
 
 export async function approveAllPrep(order: ProductionOrder, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
-  const now = new Date().toISOString();
-  const updatedBatches = order.batches!.map(b => ({
-    ...b,
-    prepStatus: 'مكتمل' as const,
-    prepApprovedBy: b.prepApprovedBy || user,
-    prepApprovedAt: b.prepApprovedAt || now,
-    accessoriesPrep: b.accessoriesPrep?.map(a => ({ ...a, isPrepared: true })) || []
-  }));
+  if (!order.batches || order.batches.length === 0) {
+    return { success: false, error: 'لا توجد باتشات للاعتماد.' };
+  }
 
+  const unapprovedBatches = order.batches.filter(b => b.prepStatus !== 'مكتمل' && !b.prepApprovedBy);
+  if (unapprovedBatches.length > 0) {
+    return { 
+      success: false, 
+      error: `لا يمكن اعتماد مرحلة التجهيز بالكامل قبل اعتماد جميع باتشاتها أولاً (متبقي ${unapprovedBatches.length} باتش لم يعتمد).` 
+    };
+  }
+
+  const now = new Date().toISOString();
   const orderToSave: ProductionOrder = {
     ...order,
-    batches: updatedBatches,
     prepApprovedBy: user,
     prepApprovedAt: now,
     status: 'التجهيز مكتمل'
@@ -454,6 +459,18 @@ export async function approveAllPrep(order: ProductionOrder, user: string = 'ا�
     aggregateId: order.id,
     payload: { status: verifiedOrder.status }
   });
+
+  try {
+    recordSystemApproval({
+      actionType: 'production_stage_prep',
+      documentId: order.id,
+      documentNumber: order.orderNumber,
+      title: `اعتماد مرحلة تجهيز المستلزمات والإكسسوارات لأمر الإنتاج ${order.orderNumber}`,
+      details: `تم اعتماد صرف وتجهيز كافة المستلزمات والخيوط والإكسسوارات لباتشات التشغيل بواسطة ${user}`,
+      costCenter: order.styleName || 'عنبر التجهيز',
+      notes: `حالة أمر الإنتاج: ${verifiedOrder.status}`
+    });
+  } catch (err) {}
 
   return { success: true, data: verifiedOrder };
 }
@@ -543,17 +560,21 @@ export async function approveBatchPrintEmbroidery(order: ProductionOrder, batchI
 }
 
 export async function approvePrintEmbroidery(order: ProductionOrder, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
-  const now = new Date().toISOString();
-  const updatedBatches = order.batches!.map(b => ({
-    ...b,
-    printEmbroideryStatus: 'مكتمل' as const,
-    printApprovedBy: b.printApprovedBy || user,
-    printApprovedAt: b.printApprovedAt || now
-  }));
+  if (!order.batches || order.batches.length === 0) {
+    return { success: false, error: 'لا توجد باتشات للاعتماد.' };
+  }
 
+  const unapprovedBatches = order.batches.filter(b => b.printEmbroideryStatus !== 'مكتمل' && !b.printApprovedBy);
+  if (unapprovedBatches.length > 0) {
+    return { 
+      success: false, 
+      error: `لا يمكن اعتماد مرحلة الطباعة والتطريز بالكامل قبل اعتماد جميع باتشاتها أولاً (متبقي ${unapprovedBatches.length} باتش لم يعتمد).` 
+    };
+  }
+
+  const now = new Date().toISOString();
   const orderToSave: ProductionOrder = {
     ...order,
-    batches: updatedBatches,
     printEmbroideryApprovedBy: user,
     printEmbroideryApprovedAt: now,
     status: 'الطباعة والتطريز مكتمل'
@@ -607,42 +628,19 @@ export async function approveSewing(order: ProductionOrder, user: string = 'ال
     return { success: false, error: 'لا توجد باتشات للاعتماد' };
   }
   
-  for (const b of order.batches) {
-    if (!b.sewingData) {
-      return { success: false, error: `بيانات الخياطة مفقودة للباتش ${b.batchNumber}` };
-    }
-    const s = b.sewingData;
-    if (!s.manufacturingType) {
-      return { success: false, error: `نوع التصنيع مفقود للباتش ${b.batchNumber}` };
-    }
-    if (s.manufacturingType === 'تصنيع داخلي' && !s.sewingGroup) {
-      return { success: false, error: `مجموعة الخياطة مفقودة للباتش ${b.batchNumber}` };
-    }
-    if (s.manufacturingType === 'تصنيع خارجي' && !s.externalManufacturer) {
-      return { success: false, error: `جهة التصنيع الخارجي مفقودة للباتش ${b.batchNumber}` };
-    }
-    if (s.actualCostPerPiece === undefined || s.actualCostPerPiece === null) {
-      return { success: false, error: `سعر التصنيع الفعلي مفقود للباتش ${b.batchNumber}` };
-    }
-    if (!s.actualQuantities || s.actualQuantities.length === 0) {
-      return { success: false, error: `الكميات الفعلية مفقودة للباتش ${b.batchNumber}` };
-    }
+  const unapprovedBatches = order.batches.filter(b => b.sewingData?.status !== 'مكتمل');
+  if (unapprovedBatches.length > 0) {
+    return { 
+      success: false, 
+      error: `لا يمكن اعتماد مرحلة الخياطة بالكامل قبل اعتماد جميع باتشاتها أولاً (متبقي ${unapprovedBatches.length} باتش لم يعتمد).` 
+    };
   }
-
-  const updatedBatches = order.batches.map(b => ({
-    ...b,
-    sewingData: {
-      ...b.sewingData!,
-      status: 'مكتمل' as const,
-      approvedBy: user,
-      approvedAt: new Date().toISOString()
-    }
-  }));
 
   const orderToSave: ProductionOrder = {
     ...order,
     status: 'الخياطة مكتملة' as any,
-    batches: updatedBatches,
+    sewingApprovedBy: user,
+    sewingApprovedAt: new Date().toISOString(),
     updatedAt: new Date().toISOString()
   };
 
@@ -745,7 +743,10 @@ export async function approveBatchFinishing(order: ProductionOrder, batchId: str
     return { success: false, error: 'لا توجد باتشات' };
   }
   
-  const updatedBatches = order.batches.map(batch => {
+  // Ensure sequential barcodes for finished variants
+  const { order: barcodedOrder } = ensureOrderFinishingBarcodes(order);
+
+  const updatedBatches = (barcodedOrder.batches || []).map(batch => {
     if (batch.id === batchId) {
       if (!batch.finishingData) throw new Error('بيانات التشطيب مفقودة');
       return {
@@ -764,7 +765,7 @@ export async function approveBatchFinishing(order: ProductionOrder, batchId: str
   const allCompleted = updatedBatches.every(b => b.finishingData?.status === 'مكتمل');
   
   const updatedOrder = { 
-    ...order, 
+    ...barcodedOrder, 
     batches: updatedBatches,
     status: allCompleted ? ('التشطيب مكتمل' as import('../types').OrderStatus) : ('التشطيب جاري' as import('../types').OrderStatus)
   };
@@ -778,39 +779,24 @@ export async function approveBatchFinishing(order: ProductionOrder, batchId: str
 
 export async function approveAllFinishing(order: ProductionOrder, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
   if (!order.batches || order.batches.length === 0) {
-    return { success: false, error: 'لا توجد باتشات' };
+    return { success: false, error: 'لا توجد باتشات للاعتماد' };
   }
   
-  let hasError = false;
-  let errorMessage = '';
-
-  const updatedBatches = order.batches.map(batch => {
-    if (batch.finishingData?.status === 'مكتمل') return batch;
-    
-    if (!batch.finishingData || batch.finishingData.actualCostPerPiece === undefined || batch.finishingData.actualCostPerPiece === null) {
-      hasError = true;
-      errorMessage = `التكلفة الفعلية مفقودة للباتش ${batch.batchNumber}`;
-      return batch;
-    }
-
-    return {
-      ...batch,
-      finishingData: {
-        ...batch.finishingData,
-        status: 'مكتمل' as const,
-        approvedBy: user,
-        approvedAt: new Date().toISOString()
-      }
+  const unapprovedBatches = order.batches.filter(b => b.finishingData?.status !== 'مكتمل');
+  if (unapprovedBatches.length > 0) {
+    return { 
+      success: false, 
+      error: `لا يمكن اعتماد مرحلة التشطيب بالكامل قبل اعتماد جميع باتشاتها أولاً (متبقي ${unapprovedBatches.length} باتش لم يعتمد).` 
     };
-  });
-
-  if (hasError) {
-    return { success: false, error: errorMessage };
   }
+
+  // Ensure sequential barcodes for finished variants
+  const { order: barcodedOrder } = ensureOrderFinishingBarcodes(order);
   
   const updatedOrder = { 
-    ...order, 
-    batches: updatedBatches,
+    ...barcodedOrder, 
+    finishingApprovedBy: user,
+    finishingApprovedAt: new Date().toISOString(),
     status: 'التشطيب مكتمل' as import('../types').OrderStatus
   };
   
@@ -826,9 +812,11 @@ export async function saveFinishingData(order: ProductionOrder, updatedBatches: 
     return { success: false, error: 'لا توجد باتشات' };
   }
 
+  // Ensure sequential barcodes for finished variants
+  const { order: barcodedOrder } = ensureOrderFinishingBarcodes(order, updatedBatches);
+
   const orderToSave = {
-    ...order,
-    batches: updatedBatches,
+    ...barcodedOrder,
     updatedAt: new Date().toISOString()
   };
 
@@ -904,48 +892,22 @@ export async function approveBatchIroning(order: ProductionOrder, batchId: strin
 }
 
 export async function approveAllIroning(order: ProductionOrder, user: string = 'المستخدم الحالي'): Promise<CommandResult<ProductionOrder>> {
-  if (order.batches) {
-    for (const b of order.batches) {
-      if (b.ironingData?.status !== 'مكتمل') {
-        const err = checkBatchReadyForIroning(b);
-        if (err) return { success: false, error: err };
-      }
-    }
-  }
   if (!order.batches || order.batches.length === 0) {
-    return { success: false, error: 'لا توجد باتشات' };
+    return { success: false, error: 'لا توجد باتشات للاعتماد' };
   }
   
-  let hasError = false;
-  let errorMessage = '';
-
-  const updatedBatches = order.batches.map(batch => {
-    if (batch.ironingData?.status === 'مكتمل') return batch;
-    
-    if (!batch.ironingData || batch.ironingData.actualCostPerPiece === undefined || batch.ironingData.actualCostPerPiece === null) {
-      hasError = true;
-      errorMessage = `التكلفة الفعلية مفقودة للباتش ${batch.batchNumber}`;
-      return batch;
-    }
-
-    return {
-      ...batch,
-      ironingData: {
-        ...batch.ironingData,
-        status: 'مكتمل' as const,
-        approvedBy: user,
-        approvedAt: new Date().toISOString()
-      }
+  const unapprovedBatches = order.batches.filter(b => b.ironingData?.status !== 'مكتمل');
+  if (unapprovedBatches.length > 0) {
+    return { 
+      success: false, 
+      error: `لا يمكن اعتماد مرحلة المكواة بالكامل قبل اعتماد جميع باتشاتها أولاً (متبقي ${unapprovedBatches.length} باتش لم يعتمد).` 
     };
-  });
-
-  if (hasError) {
-    return { success: false, error: errorMessage };
   }
   
   const updatedOrder = { 
     ...order, 
-    batches: updatedBatches,
+    ironingApprovedBy: user,
+    ironingApprovedAt: new Date().toISOString(),
     status: 'المكواة مكتملة' as import('../types').OrderStatus
   };
   
@@ -993,6 +955,18 @@ export async function approvePacking(
   if (!savedResult.success) return { success: false, error: savedResult.error || 'تعذر اعتماد التغليف.' };
   const verifiedOrder = await getOrderById(order.id);
   if (!verifiedOrder) return { success: false, error: 'فشل استرجاع الأمر.' };
+
+  try {
+    recordSystemApproval({
+      actionType: 'production_stage_pack',
+      documentId: order.id,
+      documentNumber: order.orderNumber,
+      title: `اعتماد مرحلة التعبئة والتغليف والباركود لأمر ${order.orderNumber}`,
+      details: `تم اعتماد تغليف المنتجات التامة وتوليد الباركود ونقلها لمخزن المنتجات الجاهزة بواسطة ${user}`,
+      costCenter: order.styleName || 'قسم التعبئة والتغليف',
+    });
+  } catch (err) {}
+
   return { success: true, data: verifiedOrder };
 }
 

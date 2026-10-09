@@ -44,13 +44,8 @@ export const SewingWorkOrder = forwardRef<HTMLDivElement, Props>(({ order, batch
 
       {/* Operational Instructions for Sewing */}
       <PrintInstructions
-        title="تعليمات تشغيل صالة الخياطة ومواصفات التجميع"
-        instructions={[
-          'مطابقة عينة البروفا (Gold Sample) المعتمدة من حيث تسلسل مراحل التشغيل.',
-          'الالتزام بمعيار عدد الغرز في البوصة (SPI) ونوع ونمرة الخيوط المحددة للموديل.',
-          'تثبيت تكتات العناية وتكت المقاس والبراند في الأماكن والمسافات الهندسية المحددة.',
-          'فحص أول قطعة على الخط واعتمادها من مراقب الجودة قبل استكمال تشغيل باقي الباتش.'
-        ]}
+        title="تعليمات تشغيل صالة الخياطة"
+        instructions={order.sewingInstructions}
         type="quality"
       />
 

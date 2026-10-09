@@ -59,13 +59,10 @@ export const PrintEmbroideryWorkOrder = forwardRef<HTMLDivElement, Props>(({ ord
 
       {/* Operational Instructions */}
       <PrintInstructions
-        title="تعليمات تشغيل الطباعة / التطريز والجودة الفنية"
+        title="تعليمات تشغيل الطباعة / التطريز"
         instructions={[
           batch.printDetails?.notes ? `ملاحظات الطباعة: ${batch.printDetails.notes}` : '',
           batch.embroideryDetails?.notes ? `ملاحظات التطريز: ${batch.embroideryDetails.notes}` : '',
-          'عمل عينة مطابقة وتجربة ألوان الصباغة وثبات الأحبار/الخيوط قبل البدء في إنتاج كامل الباتش.',
-          'التأكد من دقة موضع السنترة على القطعة وفقاً للعلامات المحددة بالباترون.',
-          'فحص القطع بنسبة 100% للتأكد من خلوها من عيوب التلطيخ أو قطع الخيوط قبل التسليم.'
         ].filter(Boolean)}
         type="quality"
       />

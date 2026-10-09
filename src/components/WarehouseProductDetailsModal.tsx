@@ -13,6 +13,7 @@ import {
   User,
   Tag,
   CheckCircle2,
+  Barcode
 } from "lucide-react";
 
 interface WarehouseProductDetailsModalProps {
@@ -51,6 +52,12 @@ export const WarehouseProductDetailsModal: React.FC<WarehouseProductDetailsModal
                 <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-white/20 text-white border border-white/30 backdrop-blur-xs">
                   معتمد بالمخزن التام
                 </span>
+                {(item.primaryBarcode || order.barcode) && (
+                  <span className="text-xs font-mono font-black px-2.5 py-0.5 rounded-full bg-indigo-950/50 text-indigo-200 border border-indigo-300/40 backdrop-blur-xs flex items-center gap-1 shadow-xs" title="كود الباركود التسلسلي المعتمد">
+                    <Barcode className="w-3.5 h-3.5" />
+                    <span>{item.primaryBarcode || order.barcode}</span>
+                  </span>
+                )}
                 {batchNumber && (
                   <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-emerald-900/40 text-emerald-100 border border-emerald-400/30">
                     باتش {batchNumber}
@@ -243,6 +250,55 @@ export const WarehouseProductDetailsModal: React.FC<WarehouseProductDetailsModal
               </div>
             </div>
           </div>
+
+          {/* Barcodes Section: Sequential Barcodes attached to order variants */}
+          {item.barcodes && item.barcodes.length > 0 && (
+            <div className="bg-indigo-50/40 rounded-xl border border-indigo-100 p-4 space-y-3">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <Barcode className="w-4 h-4 text-indigo-600" />
+                  <h4 className="font-bold text-slate-800 text-xs">
+                    أكواد الباركود التسلسلية المعتمدة (مرافقة للأمر بالمخزن وفواتير البيع):
+                  </h4>
+                </div>
+                <span className="text-[11px] font-mono font-bold text-indigo-700 bg-white border border-indigo-200 px-2 py-0.5 rounded-full">
+                  {item.barcodes.length} كود تسلسلي
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+                {item.colors.map(color => {
+                  return item.sizes.map(size => {
+                    const qty = item.matrix[color]?.[size] || 0;
+                    const code = item.barcodeMap[`${size}_${color}`] || item.primaryBarcode;
+                    if (!code && qty === 0) return null;
+                    return (
+                      <div
+                        key={`${color}-${size}`}
+                        className="p-2.5 rounded-lg border border-slate-200 bg-white shadow-2xs flex items-center justify-between text-xs"
+                      >
+                        <div>
+                          <div className="font-bold text-slate-800">
+                            {color} / مقاس {size}
+                          </div>
+                          <div className="text-[10px] text-slate-500">
+                            الكمية: {qty} قطعة
+                          </div>
+                        </div>
+                        {code ? (
+                          <span className="font-mono font-black text-indigo-900 bg-indigo-50 border border-indigo-200 px-2 py-1 rounded text-[11px]">
+                            {code}
+                          </span>
+                        ) : (
+                          <span className="text-slate-400 text-[10px]">-</span>
+                        )}
+                      </div>
+                    );
+                  });
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Packing Invoices list if any */}
           {item.invoices && item.invoices.length > 0 && (

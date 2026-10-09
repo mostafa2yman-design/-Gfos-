@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { ProductionOrder, Variant, MaterialInstance, AccessoryInstance } from "../types";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Toast } from "./ui/Toast";
+import { useNotification } from "../context/NotificationContext";
 import { OrderBasicInfo } from "./form/OrderBasicInfo";
 import { SizeCard } from "./form/SizeCard";
 import { OrderSummary } from "./form/OrderSummary";
@@ -56,6 +57,7 @@ export function ProductionOrderForm({
   onBack,
   isViewOnly = false,
 }: ProductionOrderFormProps) {
+  const { notifySuccess, notifyError } = useNotification();
   const [order, setOrder] = useState<ProductionOrder>({
     id: crypto.randomUUID(),
     orderNumber: "",
@@ -333,11 +335,17 @@ export function ProductionOrderForm({
     if (validate()) {
       const result = await Cmd.saveDraft(order);
       if (result.success) {
+        const orderNum = result.data?.orderNumber || order.orderNumber || '';
+        notifySuccess(
+          `تم حفظ أمر الإنتاج ${orderNum ? `(رقم: ${orderNum})` : ''} كمسودة بنجاح`,
+          "حفظ أمر الإنتاج"
+        );
         setSuccess("تم حفظ الأمر كمسودة بنجاح.");
         setError(null);
         if (result.data) setOrder(result.data);
         if (onOrderSaved) onOrderSaved(order.id);
       } else {
+        notifyError(result.error || "حدث خطأ أثناء حفظ أمر الإنتاج", "خطأ في الحفظ");
         setError(result.error || "حدث خطأ");
       }
     }
@@ -354,12 +362,18 @@ export function ProductionOrderForm({
           const result = await Cmd.approveProductionOrder(order);
           if (result.success) {
             setConfirmConfig(null);
+            const orderNum = result.data?.orderNumber || order.orderNumber || '';
+            notifySuccess(
+              `تم اعتماد أمر الإنتاج ${orderNum ? `(رقم: ${orderNum})` : ''} وقائمة المواد (BOM) بنجاح`,
+              "اعتماد أمر الإنتاج"
+            );
             setSuccess("تم اعتماد أمر الإنتاج والخامات بنجاح.");
             setError(null);
             if (result.data) setOrder(result.data);
             onOrderApproved(order.id);
           } else {
             setConfirmConfig(null);
+            notifyError(result.error || "حدث خطأ أثناء الاعتماد", "فشل الاعتماد");
             setError(result.error || "حدث خطأ أثناء الاعتماد");
           }
         },
@@ -821,6 +835,8 @@ export function ProductionOrderForm({
                 standardFinishingCostPerPiece={order.standardFinishingCostPerPiece}
                 standardIroningCostPerPiece={order.standardIroningCostPerPiece}
                 sellingPrice={order.sellingPrice}
+                cuttingInstructions={order.cuttingInstructions}
+                sewingInstructions={order.sewingInstructions}
                 finishingInstructions={order.finishingInstructions}
                 ironingInstructions={order.ironingInstructions}
                 packingInstructions={order.packingInstructions}

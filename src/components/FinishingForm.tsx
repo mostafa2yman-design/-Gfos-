@@ -6,8 +6,9 @@ import { LaborProfile } from "../types";
 import * as Cmd from "../lib/productionOrderCommands";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Toast } from "./ui/Toast";
-import { Check, Save, Sparkles, Printer, CheckSquare, Settings2, Copy } from "lucide-react";
+import { Check, Save, Sparkles, Printer, CheckSquare, Settings2, Copy, Barcode } from "lucide-react";
 import { FinishingWorkOrderPrint } from "./print/workorders/FinishingWorkOrderPrint";
+import { FinishingBarcodeModal } from "./barcode/FinishingBarcodeModal";
 import { eventBus } from "../lib/events/eventBus";
 
 interface Props {
@@ -28,6 +29,7 @@ export const FinishingForm: React.FC<Props> = ({ orderId, onSaved }) => {
     onConfirm: () => void;
   } | null>(null);
   const [toastConfig, setToastConfig] = useState<{ message: string; type: "success" | "error"; } | null>(null);
+  const [barcodeModalConfig, setBarcodeModalConfig] = useState<{ isOpen: boolean; batchId?: string } | null>(null);
   
   const [printing, setPrinting] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
@@ -135,6 +137,8 @@ export const FinishingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                 setOrder(approveResult.data);
                 setBatches(approveResult.data.batches || []);
               }
+              window.dispatchEvent(new CustomEvent('gfos_storage_update'));
+              window.dispatchEvent(new CustomEvent('finished_goods_updated'));
               onSaved();
             } else {
               setToastConfig({ message: approveResult.error || "حدث خطأ أثناء الاعتماد.", type: "error" });
@@ -147,6 +151,8 @@ export const FinishingForm: React.FC<Props> = ({ orderId, onSaved }) => {
           setOrder(savedResult.data);
           setBatches(savedResult.data.batches || []);
         }
+        window.dispatchEvent(new CustomEvent('gfos_storage_update'));
+        window.dispatchEvent(new CustomEvent('finished_goods_updated'));
         onSaved();
       }
     } else {
@@ -206,6 +212,8 @@ export const FinishingForm: React.FC<Props> = ({ orderId, onSaved }) => {
             setOrder(approveResult.data);
             setBatches(approveResult.data.batches || []);
           }
+          window.dispatchEvent(new CustomEvent('gfos_storage_update'));
+          window.dispatchEvent(new CustomEvent('finished_goods_updated'));
           onSaved();
         } else {
           setToastConfig({ message: approveResult.error || "حدث خطأ أثناء الاعتماد.", type: "error" });
@@ -242,10 +250,20 @@ export const FinishingForm: React.FC<Props> = ({ orderId, onSaved }) => {
             </p>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => setBarcodeModalConfig({ isOpen: true, batchId: undefined })}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-all font-bold text-sm shadow-sm cursor-pointer hover:shadow"
+              title="طباعة ملصقات الباركود للمقاسات والألوان (المقاس، اللون، النوع، الرقم، الاسم)"
+            >
+              <Barcode className="w-4 h-4" />
+              طباعة ملصقات الباركود
+            </button>
+
             <button
               onClick={handlePrintAll}
-              className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors font-medium text-sm"
+              className="flex items-center gap-2 px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors font-medium text-sm cursor-pointer"
             >
               <Printer className="w-4 h-4" />
               طباعة أمر التشغيل الشامل
@@ -289,6 +307,69 @@ export const FinishingForm: React.FC<Props> = ({ orderId, onSaved }) => {
         )}
 
         <div className="p-6 space-y-6">
+          {batches.length > 0 && (
+            <div className="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden mb-6">
+              <div className="bg-slate-50 px-6 py-4 border-b border-slate-200">
+                <h3 className="text-lg font-bold text-slate-800">ملخص أمر التشطيب</h3>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm text-right">
+                  <thead className="bg-slate-50 text-slate-700">
+                    <tr>
+                      <th className="px-4 py-3 font-bold border-b">باتش</th>
+                      <th className="px-4 py-3 font-bold border-b">المسئول / العامل</th>
+                      <th className="px-4 py-3 font-bold border-b text-center">المطلوب (المستلم من الخياطة)</th>
+                      <th className="px-4 py-3 font-bold border-b text-center">الفعلي (المشطب)</th>
+                      <th className="px-4 py-3 font-bold border-b text-center">النقص</th>
+                      <th className="px-4 py-3 font-bold border-b text-center">السعر / قطعة</th>
+                      <th className="px-4 py-3 font-bold border-b text-center">الحالة</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {batches.map(batch => {
+                      const fData = batch.finishingData;
+                      let bReq = 0;
+                      let bAct = 0;
+                      
+                      if (batch.sewingData?.actualQuantities && batch.sewingData.actualQuantities.length > 0) {
+                        batch.sewingData.actualQuantities.forEach(sq => bReq += (sq.actualQuantity || 0));
+                      }
+                      if (bReq === 0) {
+                        batch.sizes.forEach(bs => bs.variants.forEach(v => bReq += v.quantity));
+                      }
+                      
+                      fData?.actualQuantities?.forEach(v => bAct += (v.actualQuantity || 0));
+                      const bMiss = bReq - bAct;
+                      const worker = fData?.workerName || "—";
+                      const price = fData?.actualCostPerPiece !== undefined && fData?.actualCostPerPiece !== null 
+                        ? Number(fData.actualCostPerPiece).toFixed(2) 
+                        : "—";
+                      const isComplete = fData?.status === 'مكتمل';
+                      
+                      return (
+                        <tr key={batch.id}>
+                          <td className="px-4 py-3 font-bold">{batch.batchNumber}</td>
+                          <td className="px-4 py-3 text-slate-600">{worker}</td>
+                          <td className="px-4 py-3 text-center font-bold text-slate-700">{bReq}</td>
+                          <td className="px-4 py-3 text-center text-indigo-700 font-bold">{bAct}</td>
+                          <td className="px-4 py-3 text-center text-amber-600 font-bold">{bMiss > 0 ? bMiss : "—"}</td>
+                          <td className="px-4 py-3 text-center text-emerald-700 font-bold">{price}</td>
+                          <td className="px-4 py-3 text-center">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-bold ${
+                              isComplete ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'
+                            }`}>
+                              {fData?.status || 'لم يبدأ'}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
           {batches.map((batch) => {
             const fData = batch.finishingData;
             if (!fData) return null;
@@ -315,6 +396,16 @@ export const FinishingForm: React.FC<Props> = ({ orderId, onSaved }) => {
                   </div>
 
                   <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setBarcodeModalConfig({ isOpen: true, batchId: batch.id })}
+                      className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-slate-700 bg-white border border-slate-300 rounded-lg hover:bg-indigo-50 hover:text-indigo-700 hover:border-indigo-300 transition-colors shadow-xs cursor-pointer"
+                      title="طباعة ملصقات الباركود لهذا الباتش فقط"
+                    >
+                      <Barcode className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>باركود الباتش</span>
+                    </button>
+
                     {fData.status === 'مكتمل' ? (
                       <span className="flex items-center gap-1.5 px-3 py-1 text-sm font-bold text-emerald-700 bg-emerald-50 border border-emerald-300 rounded-lg shadow-xs">
                         <Check className="w-4 h-4 text-emerald-600 stroke-[2.5]" />
@@ -548,6 +639,17 @@ export const FinishingForm: React.FC<Props> = ({ orderId, onSaved }) => {
       
       </div>
       
+      {/* Finishing Barcode Modal */}
+      {barcodeModalConfig?.isOpen && order && (
+        <FinishingBarcodeModal
+          isOpen={barcodeModalConfig.isOpen}
+          onClose={() => setBarcodeModalConfig(null)}
+          order={order}
+          batches={batches}
+          initialBatchId={barcodeModalConfig.batchId}
+        />
+      )}
+
       {/* Hidden Print Container */}
       {printing && order && (
         <div className="hidden print:block print:w-full">

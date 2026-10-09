@@ -20,15 +20,6 @@ export const ProductionOrderPrint = forwardRef<HTMLDivElement, Props>(({ order, 
     grandTotalQty += Number(v.quantity) || 0;
   }));
 
-  // Total standard costs calculation
-  const totalStandardCost = (
-    (order.standardCutCostPerPiece || 0) +
-    (order.printEmbroideryStandardCost || 0) +
-    (order.standardSewingCostPerPiece || 0) +
-    (order.standardFinishingCostPerPiece || 0) +
-    (order.standardIroningCostPerPiece || 0)
-  );
-
   return (
     <PrintDocument ref={ref} showInPreview={showInPreview}>
       <PrintHeader
@@ -167,48 +158,22 @@ export const ProductionOrderPrint = forwardRef<HTMLDivElement, Props>(({ order, 
         </PrintSection>
       </div>
 
-      {/* 3. Standard Cost Structure */}
-      <PrintSection title="4. التكاليف المعيارية للمراحل الصناعية (للقطعة الواحدة)" avoidBreak>
-        <div className="grid grid-cols-6 gap-2 text-center text-[9.5px]">
-          <div className="border border-slate-300 rounded p-1.5 bg-slate-50">
-            <span className="text-slate-600 block mb-0.5">معيار القص:</span>
-            <span className="font-bold text-slate-900">{order.standardCutCostPerPiece ? `${order.standardCutCostPerPiece} ج.م` : '—'}</span>
-          </div>
-          <div className="border border-slate-300 rounded p-1.5 bg-slate-50">
-            <span className="text-slate-600 block mb-0.5">الطباعة والتطريز:</span>
-            <span className="font-bold text-slate-900">{order.printEmbroideryStandardCost ? `${order.printEmbroideryStandardCost} ج.م` : '—'}</span>
-          </div>
-          <div className="border border-slate-300 rounded p-1.5 bg-slate-50">
-            <span className="text-slate-600 block mb-0.5">معيار الخياطة:</span>
-            <span className="font-bold text-slate-900">{order.standardSewingCostPerPiece ? `${order.standardSewingCostPerPiece} ج.م` : '—'}</span>
-          </div>
-          <div className="border border-slate-300 rounded p-1.5 bg-slate-50">
-            <span className="text-slate-600 block mb-0.5">معيار التشطيب:</span>
-            <span className="font-bold text-slate-900">{order.standardFinishingCostPerPiece ? `${order.standardFinishingCostPerPiece} ج.م` : '—'}</span>
-          </div>
-          <div className="border border-slate-300 rounded p-1.5 bg-slate-50">
-            <span className="text-slate-600 block mb-0.5">معيار المكواة:</span>
-            <span className="font-bold text-slate-900">{order.standardIroningCostPerPiece ? `${order.standardIroningCostPerPiece} ج.م` : '—'}</span>
-          </div>
-          <div className="border border-indigo-300 rounded p-1.5 bg-indigo-50/50">
-            <span className="text-indigo-800 font-bold block mb-0.5">إجمالي التشغيل:</span>
-            <span className="font-black text-indigo-900">{totalStandardCost > 0 ? `${totalStandardCost} ج.م` : '—'}</span>
-          </div>
-        </div>
-      </PrintSection>
-
-      {/* 4. Operational Instructions */}
-      <div className="grid grid-cols-3 gap-2 mb-3">
+      {/* Operational Instructions for Departments */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-3">
         <PrintInstructions
-          title="تعليمات التشطيب والفرز"
+          title="ملاحظات قص"
+          instructions={order.cuttingInstructions}
+        />
+        <PrintInstructions
+          title="ملاحظات خياطة"
+          instructions={order.sewingInstructions}
+        />
+        <PrintInstructions
+          title="ملاحظات تشطيب"
           instructions={order.finishingInstructions}
         />
         <PrintInstructions
-          title="تعليمات الكي والبخار"
-          instructions={order.ironingInstructions}
-        />
-        <PrintInstructions
-          title="تعليمات التغليف والتجهيز"
+          title="ملاحظات تغليف وتخزين"
           instructions={order.packingInstructions}
         />
       </div>

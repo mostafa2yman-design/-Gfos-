@@ -152,6 +152,7 @@ export interface FinishingVariantData {
   size: string;
   color: string;
   actualQuantity?: number; quantity?: number; // Actual quantity finished
+  barcode?: string; // كود الباركود التسلسلي المولد للمقاس واللون (مثال: PM-00001)
 }
 
 export interface FinishingData {
@@ -239,6 +240,9 @@ export interface ProductionOrder {
   createdAt: string;
   updatedAt: string;
   
+  barcode?: string; // كود الباركود الرئيسي للمنتج/الأمر
+  barcodes?: Record<string, string>; // خريطة أكواد الباركود للمقاسات والألوان (variantId -> barcode)
+  
   // V0.4 Versioning and Independent Stages
   version?: number;
   stageStatuses?: {
@@ -263,12 +267,20 @@ export interface ProductionOrder {
   prepApprovedAt?: string;
   printEmbroideryApprovedBy?: string;
   printEmbroideryApprovedAt?: string;
+  sewingApprovedBy?: string;
+  sewingApprovedAt?: string;
+  finishingApprovedBy?: string;
+  finishingApprovedAt?: string;
+  ironingApprovedBy?: string;
+  ironingApprovedAt?: string;
   printEmbroideryStandardCost?: number;
   standardSewingCostPerPiece?: number;
   standardFinishingCostPerPiece?: number;
   standardCutCostPerPiece?: number;
   standardIroningCostPerPiece?: number;
   sellingPrice?: number;
+  cuttingInstructions?: string;
+  sewingInstructions?: string;
   finishingInstructions?: string;
   ironingInstructions?: string;
   packingInstructions?: string;
@@ -316,102 +328,248 @@ export interface AccountNode {
   parentId?: string;
   description?: string;
   isActive: boolean;
+  level?: number;
+  nature?: 'debit' | 'credit';
+  isWipOrManufacturing?: boolean;
 }
 
 export interface CustomerSupplier {
   id: string;
   type: 'customer' | 'supplier' | 'both';
   name: string;
+  code?: string;
+  category?: string;
   contactPerson?: string;
   phone?: string;
+  whatsapp?: string;
   email?: string;
   address?: string;
+  city?: string;
   taxId?: string;
+  commercialReg?: string;
   isActive: boolean;
   linkedAccountId?: string;
+  linkedAccountCode?: string;
+  creditLimit?: number;
+  paymentTerms?: string;
+  openingBalance?: number;
+  openingBalanceType?: 'debit' | 'credit';
+  bankName?: string;
+  bankAccount?: string;
+  iban?: string;
+  salesperson?: string;
+  discountPercentage?: number;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface MaterialItem {
   id: string;
-  type: 'fabric' | 'accessory';
+  type: 'fabric' | 'accessory' | 'packaging' | 'operating_supply' | string;
   name: string;
   code?: string;
+  barcode?: string;
+  subCategory?: string;
   unit: string;
   defaultCost?: number;
+  sellingPrice?: number;
   isActive: boolean;
-  linkedExpenseAccountId?: string; 
+  linkedAccountId?: string;
+  linkedExpenseAccountId?: string;
+  minStockAlert?: number;
+  reorderPoint?: number;
+  warehouseLocation?: string;
+  openingStockQty?: number;
+  openingStockValue?: number;
+  fabricWeight?: number;
+  width?: string;
+  color?: string;
+  composition?: string;
+  preferredSupplierId?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface LaborProfile {
   id: string;
   name: string;
+  code?: string;
+  nationalId?: string;
   role: string;
-  phone?: string;
-  baseSalary?: number;
-  isActive: boolean;
-  linkedAccountId?: string;
+  departmentId?: string;
   operationalGroupId?: string;
-  salaryType?: 'يومية' | 'بالقطعة';
+  skillLevel?: string;
+  phone?: string;
+  address?: string;
+  city?: string;
+  hireDate?: string;
+  baseSalary?: number;
+  pieceRate?: number;
+  salaryType?: 'يومية' | 'بالقطعة' | 'شهري' | 'بالساعة';
   salaryPeriod?: 'يومي' | 'أسبوعي' | 'شهري';
   dailyWorkingHours?: number;
+  isActive: boolean;
+  linkedAccountId?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface OperationalGroup {
   id: string;
   name: string;
+  code?: string;
   type: 'internal' | 'external';
   specialty: string;
   contactPerson?: string;
   phone?: string;
+  departmentId?: string;
+  machinesCount?: number;
+  dailyCapacity?: number;
   isActive: boolean;
   linkedAccountId?: string;
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Department {
   id: string;
   name: string;
+  code?: string;
+  type?: 'production' | 'service' | 'sales' | 'admin' | string;
+  managerName?: string;
+  location?: string;
+  costCenterCode?: string;
+  linkedAccountId?: string;
   description?: string;
-  createdAt: string;
-}
-
-// --- Purchases & Procurement Types ---
-
-export interface PurchaseInvoiceItem {
-  id: string;
-  materialId: string;
-  materialName: string;
-  materialType: 'fabric' | 'accessory' | 'packaging' | 'other' | string;
-  unit: string;
-  quantity: number;
-  unitPrice: number;
-  discount: number;
-  total: number;
-  notes?: string;
-}
-
-export type PurchasePaymentMethod = 'cash' | 'credit' | 'bank' | 'cheque';
-export type PurchasePaymentStatus = 'paid' | 'partial' | 'unpaid';
-
-export interface PurchaseInvoice {
-  id: string;
-  invoiceNumber: string;
-  date: string; // YYYY-MM-DD
-  supplierId: string;
-  supplierName: string;
-  supplierPhone?: string;
-  paymentMethod: PurchasePaymentMethod;
-  paymentStatus: PurchasePaymentStatus;
-  referenceNumber?: string;
-  notes?: string;
-  items: PurchaseInvoiceItem[];
-  subtotal: number;
-  discountTotal: number;
-  taxPercent: number;
-  taxAmount: number;
-  grandTotal: number;
-  paidAmount: number;
-  remainingAmount: number;
-  receiptStatus?: 'received' | 'pending';
   createdAt: string;
   updatedAt?: string;
 }
+
+// --- Purchases & Procurement Types ---
+export * from './types/purchases';
+
+// --- Users & Permissions (RBAC) Types ---
+
+export type UserRole = 
+  | 'admin' 
+  | 'production_manager' 
+  | 'quality_supervisor' 
+  | 'warehouse_keeper' 
+  | 'accountant' 
+  | 'cutter' 
+  | 'custom';
+
+export type PermissionKey =
+  // Dashboard
+  | 'dashboard.view'
+  // Production Orders
+  | 'production.view'
+  | 'production.create'
+  | 'production.edit'
+  | 'production.delete'
+  | 'production.print'
+  // Stages
+  | 'stage.cut'
+  | 'stage.prep'
+  | 'stage.sewing'
+  | 'stage.finishing'
+  | 'stage.quality'
+  | 'stage.packing'
+  // Warehouses
+  | 'warehouse.raw_materials.view'
+  | 'warehouse.raw_materials.manage'
+  | 'warehouse.finished_goods.view'
+  | 'warehouse.finished_goods.manage'
+  // Purchases
+  | 'purchases.view'
+  | 'purchases.create'
+  | 'purchases.edit'
+  | 'purchases.delete'
+  // Sales
+  | 'sales.view'
+  | 'sales.create'
+  | 'sales.edit'
+  | 'sales.delete'
+  // Accounting & Costing
+  | 'accounting.chart_of_accounts'
+  | 'accounting.customers_suppliers'
+  | 'accounting.materials_catalog'
+  | 'accounting.labor_rates'
+  | 'accounting.view_financials'
+  // Admin & Settings
+  | 'admin.users_management'
+  | 'admin.system_settings';
+
+export interface AppUser {
+  id: string;
+  username: string;
+  fullName: string;
+  email?: string;
+  phone?: string;
+  password?: string;
+  avatar?: string;
+  role: UserRole;
+  roleTitle: string;
+  department: string;
+  isActive: boolean;
+  permissions: Record<PermissionKey, boolean>;
+  createdAt: string;
+  lastLogin?: string;
+}
+
+export interface ApprovalStamp {
+  userId: string;
+  userName: string;
+  userRole?: string;
+  roleTitle?: string;
+  department?: string;
+  approvedAt: string; // ISO string
+  approvedDate: string; // YYYY-MM-DD
+  approvedTime: string; // HH:mm:ss
+  notes?: string;
+}
+
+export type AuditActionCategory = 
+  | 'production'  // إنتاج وتشغيل
+  | 'cut'         // قص وتفصيل
+  | 'prep'        // تجهيز مستلزمات
+  | 'print'       // طباعة وتطريز
+  | 'sew'         // خياطة وتجميع
+  | 'finish'      // فنش وكي
+  | 'packing'     // تغليف ومخازن
+  | 'sales'       // مبيعات وتسليم
+  | 'purchases'   // مشتريات وتوريد
+  | 'treasury'    // إيرادات ومصروفات
+  | 'accounting'  // قيود وحسابات
+  | 'admin';      // إدارة وأمان
+
+export interface AuditLogEntry {
+  id: string;
+  actionKey: string;
+  actionTitle: string;
+  category: AuditActionCategory;
+  categoryLabel: string;
+  entityType: 'order' | 'batch' | 'sales_invoice' | 'sales_return' | 'purchase_invoice' | 'purchase_return' | 'treasury' | 'journal' | 'warehouse' | 'user' | 'system';
+  entityId?: string;
+  entityNumber?: string;
+  timestamp: string; // ISO format
+  date: string;      // YYYY-MM-DD
+  time: string;      // HH:mm:ss
+  user: {
+    userId: string;
+    userName: string;
+    userRole: UserRole | string;
+    roleTitle: string;
+    department: string;
+  };
+  details: string;
+  notes?: string;
+  status: 'approved' | 'completed' | 'cancelled';
+}
+
+export * from './types/sales';
+export * from './types/incomeStatement';

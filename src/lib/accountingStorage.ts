@@ -1,4 +1,5 @@
 import { AccountNode, CustomerSupplier, MaterialItem, LaborProfile, OperationalGroup, Department } from '../types';
+import { MANUFACTURING_CHART_OF_ACCOUNTS, isLegacyOrIncompleteChartOfAccounts } from './manufacturingChartOfAccounts';
 
 const ACCOUNTS_KEY = 'accounting_accounts_v1';
 const CUSTOMERS_KEY = 'accounting_customers_v1';
@@ -22,8 +23,21 @@ function saveItems<T>(key: string, items: T[]): void {
   localStorage.setItem(key, JSON.stringify(items));
 }
 
-export const getAccounts = () => getItems<AccountNode>(ACCOUNTS_KEY);
+export const getAccounts = (): AccountNode[] => {
+  const items = getItems<AccountNode>(ACCOUNTS_KEY);
+  if (items.length === 0 || isLegacyOrIncompleteChartOfAccounts(items)) {
+    saveAccounts(MANUFACTURING_CHART_OF_ACCOUNTS);
+    return MANUFACTURING_CHART_OF_ACCOUNTS;
+  }
+  return items;
+};
+
 export const saveAccounts = (items: AccountNode[]) => saveItems(ACCOUNTS_KEY, items);
+
+export const resetAccountsToManufacturingCOA = (): AccountNode[] => {
+  saveAccounts(MANUFACTURING_CHART_OF_ACCOUNTS);
+  return MANUFACTURING_CHART_OF_ACCOUNTS;
+};
 
 export const getCustomersSuppliers = () => {
   const items = getItems<CustomerSupplier>(CUSTOMERS_KEY);
@@ -120,7 +134,10 @@ export const getMaterials = () => {
   }
   return items;
 };
-export const saveMaterials = (items: MaterialItem[]) => saveItems(MATERIALS_KEY, items);
+export const saveMaterials = (items: MaterialItem[]) => {
+  saveItems(MATERIALS_KEY, items);
+  window.dispatchEvent(new CustomEvent('raw_materials_updated'));
+};
 
 export const getLabor = () => getItems<LaborProfile>(LABOR_KEY);
 export const saveLabor = (items: LaborProfile[]) => saveItems(LABOR_KEY, items);

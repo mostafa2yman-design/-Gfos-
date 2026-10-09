@@ -46,31 +46,32 @@ export const PrepWorkOrderPrint = forwardRef<HTMLDivElement, Props>(({ order }, 
               <table>
                 <thead>
                   <tr>
-                    <th>الصنف (إكسسوار)</th>
-                    <th className="text-center w-24">الوحدة</th>
-                    <th className="text-center w-36">الكمية المطلوبة (معياري)</th>
-                    <th className="text-center w-36">المنصرف الفعلي</th>
-                    <th className="text-center">ملاحظات التجهيز</th>
+                    <th>اسم الاكسسوار او الصنف المطلوب</th>
+                    <th>الاكسسوار الفعلى المنصرف</th>
+                    <th className="text-center w-28">المطلوب للقطعه</th>
+                    <th className="text-center w-32">العدد المطلوب تجهيزه</th>
                   </tr>
                 </thead>
                 <tbody>
                   {order.accessories && order.accessories.length > 0 ? (
-                    order.accessories.map((acc, i) => (
-                      <tr key={i}>
-                        <td className="font-medium">{acc.name}</td>
-                        <td className="text-center text-slate-600">{acc.unit}</td>
-                        <td className="text-center font-bold text-slate-800">
-                          {acc.standardMethod === 'موحد' ? (acc.unifiedStandard * batchQty).toFixed(2) : 'حسب المقاس'}
-                        </td>
-                        <td className="text-center font-bold text-indigo-900">
-                          {acc.standardMethod === 'موحد' ? (acc.unifiedStandard * batchQty).toFixed(2) : ''}
-                        </td>
-                        <td className="text-center text-slate-400"></td>
-                      </tr>
-                    ))
+                    order.accessories.map((acc, i) => {
+                      const prepItem = batch.accessoriesPrep?.find(p => p.accessoryId === acc.id || p.accessoryName === acc.name);
+                      const actualName = prepItem?.actualAccessoryName || acc.name;
+                      const standardPerPiece = acc.standardMethod === 'موحد' ? `${acc.unifiedStandard} (${acc.unit})` : 'حسب المقاس';
+                      const requiredTotal = acc.standardMethod === 'موحد' ? (acc.unifiedStandard * batchQty).toFixed(2) : '—';
+
+                      return (
+                        <tr key={i}>
+                          <td className="font-semibold">{acc.name}</td>
+                          <td className="font-medium text-slate-800">{actualName}</td>
+                          <td className="text-center text-slate-700">{standardPerPiece}</td>
+                          <td className="text-center font-bold text-indigo-950 bg-slate-50/50">{requiredTotal}</td>
+                        </tr>
+                      );
+                    })
                   ) : (
                     <tr>
-                      <td colSpan={5} className="text-center text-slate-500 py-1.5">لا توجد إكسسوارات مسجلة</td>
+                      <td colSpan={4} className="text-center text-slate-500 py-1.5">لا توجد إكسسوارات مسجلة</td>
                     </tr>
                   )}
                 </tbody>

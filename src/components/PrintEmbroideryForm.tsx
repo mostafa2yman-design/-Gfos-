@@ -265,10 +265,22 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
       return;
     }
 
+    const totalBatches = batches.length;
+    const approvedBatches = batches.filter(b => b.printEmbroideryStatus === 'مكتمل' || !!b.printApprovedBy).length;
+    const allBatchesApproved = totalBatches > 0 && approvedBatches === totalBatches;
+
+    if (!allBatchesApproved) {
+      setToastConfig({
+        message: `لا يمكن اعتماد كامل مرحلة الطباعة والتطريز إلا بعد اعتماد جميع الباتشات أولاً. (تم اعتماد ${approvedBatches} من أصل ${totalBatches} باتش)`,
+        type: "error",
+      });
+      return;
+    }
+
     setConfirmConfig({
       isOpen: true,
       message:
-        "هل أنت متأكد من اعتماد بيانات الطباعة والتطريز؟ لن تتمكن من تعديلها لاحقاً.",
+        "هل أنت متأكد من اعتماد بيانات الطباعة والتطريز بالكامل للأمر؟ لن تتمكن من تعديلها لاحقاً.",
       onConfirm: async () => {
         const orderToApprove = { ...order, batches };
         const saveResult = await Cmd.savePrintEmbroideryData(orderToApprove, batches);
@@ -285,7 +297,7 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
         if (result.success) {
           setConfirmConfig(null);
           setToastConfig({
-            message: "تم اعتماد المرحلة بنجاح.",
+            message: "تم اعتماد مرحلة الطباعة والتطريز بالكامل بنجاح.",
             type: "success",
           });
           onSaved();
@@ -308,6 +320,10 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
       setPrintingBatchId(null);
     }, 100);
   };
+
+  const totalBatches = batches.length;
+  const approvedBatches = batches.filter(b => b.printEmbroideryStatus === 'مكتمل' || !!b.printApprovedBy).length;
+  const allBatchesApproved = totalBatches > 0 && approvedBatches === totalBatches;
 
   return (
     <>
@@ -373,13 +389,24 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
                   <Save className="w-4 h-4" />
                   حفظ
                 </button>
-                <button
-                  onClick={handleApprove}
-                  className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm font-medium text-sm flex-1 md:flex-none"
-                >
-                  <Check className="w-4 h-4" />
-                  اعتماد
-                </button>
+                {allBatchesApproved ? (
+                  <button
+                    onClick={handleApprove}
+                    className="flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition-colors shadow-sm font-medium text-sm flex-1 md:flex-none"
+                  >
+                    <Check className="w-4 h-4" />
+                    اعتماد المرحلة بالكامل
+                  </button>
+                ) : (
+                  <button
+                    onClick={handleApprove}
+                    className="flex items-center justify-center gap-2 bg-slate-100 text-slate-400 border border-slate-300 px-4 py-2 rounded-lg cursor-not-allowed font-medium text-sm shadow-xs flex-1 md:flex-none"
+                    title={`يجب اعتماد جميع الباتشات أولاً (متبقي ${totalBatches - approvedBatches} باتش لم يعتمد)`}
+                  >
+                    <Check className="w-4 h-4 text-slate-400" />
+                    اعتماد المرحلة بالكامل ({approvedBatches} من {totalBatches} معتمد)
+                  </button>
+                )}
               </>
             )}
             {isReadOnly && (
@@ -406,14 +433,25 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
               >
                 <div className="bg-slate-50 p-4 border-b border-slate-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
                   <div>
-                    <h4 className="font-bold text-slate-800 text-lg">
-                      {batch.batchNumber}
-                    </h4>
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-bold text-slate-800 text-lg">
+                        {batch.batchNumber}
+                      </h4>
+                      {batch.printEmbroideryStatus === 'مكتمل' || batch.printApprovedBy ? (
+                        <span className="bg-emerald-100 text-emerald-800 text-xs px-2.5 py-0.5 rounded-full font-bold border border-emerald-300">
+                          معتمد
+                        </span>
+                      ) : (
+                        <span className="bg-amber-100 text-amber-800 text-xs px-2.5 py-0.5 rounded-full font-bold border border-amber-300">
+                          قيد التشغيل
+                        </span>
+                      )}
+                    </div>
                     <p className="text-sm text-slate-500 mt-1">
                       إجمالي الكمية: {totalQuantity} قطعة
                     </p>
                   </div>
-                  <div className="flex items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-3">
                     <span className="text-sm font-medium text-slate-700 whitespace-nowrap">
                       نوع التنفيذ:
                     </span>
@@ -425,8 +463,8 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
                           e.target.value as PrintEmbroideryExecutionType,
                         )
                       }
-                      disabled={isReadOnly}
-                      className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 min-w-[200px]"
+                      disabled={isReadOnly || batch.printEmbroideryStatus === 'مكتمل' || !!batch.printApprovedBy}
+                      className="px-3 py-1.5 border border-slate-300 rounded-lg text-sm bg-white focus:ring-2 focus:ring-indigo-500 min-w-[180px]"
                     >
                       <option value="" disabled>
                         اختر التنفيذ...
@@ -438,6 +476,16 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
                       <option value="تطريز">تطريز</option>
                       <option value="طباعة + تطريز">طباعة + تطريز</option>
                     </select>
+                    {!isReadOnly && batch.printEmbroideryStatus !== 'مكتمل' && !batch.printApprovedBy && (
+                      <button
+                        type="button"
+                        onClick={() => handleApproveBatch(batch.id)}
+                        className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors shadow-xs"
+                      >
+                        <Check className="w-4 h-4" />
+                        اعتماد الباتش
+                      </button>
+                    )}
                     <button
                       onClick={() => handlePrintBatch(batch.id)}
                       className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded hover:text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm"
@@ -445,7 +493,7 @@ export const PrintEmbroideryForm: React.FC<Props> = ({ orderId, onSaved }) => {
                       <Printer className="w-4 h-4" />
                       طباعة أمر الطباعة
                     </button>
-                    {!isReadOnly && batches.length > 1 && (
+                    {!isReadOnly && batch.printEmbroideryStatus !== 'مكتمل' && !batch.printApprovedBy && batches.length > 1 && (
                       <button
                         onClick={() => handleCopyDetails(batch.id)}
                         className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded hover:text-indigo-600 hover:bg-indigo-50 transition-colors shadow-sm"

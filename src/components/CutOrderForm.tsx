@@ -12,7 +12,7 @@ import { CutWorkOrderPrint } from "./print/CutWorkOrderPrint";
 import * as Cmd from "../lib/productionOrderCommands";
 import { ConfirmDialog } from "./ui/ConfirmDialog";
 import { Toast } from "./ui/Toast";
-import { Check, Save, Printer } from "lucide-react";
+import { Check, Save, Printer, Scissors } from "lucide-react";
 import { calculateFabricAnalysis } from "../lib/fabricUtils";
 import { FabricSummary } from "./FabricSummary";
 
@@ -263,38 +263,64 @@ export function CutOrderForm({ orderId, onSaved }: CutOrderFormProps) {
         </div>
       </div>
 
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 flex flex-col md:flex-row gap-4">
+      {order.cuttingInstructions && (
+        <div className="bg-amber-50 p-4 rounded-xl border border-amber-200 mb-6">
+          <h4 className="font-bold text-amber-900 text-sm mb-1 flex items-center gap-1.5">
+            <Scissors className="w-4 h-4 text-amber-700" />
+            تعليمات وتشغيل صالة القص
+          </h4>
+          <p className="text-amber-800 text-sm whitespace-pre-wrap">{order.cuttingInstructions}</p>
+        </div>
+      )}
+
+      <div className="bg-white p-4 rounded-xl shadow-sm border border-slate-200 mb-6 flex flex-col md:flex-row gap-4">
+        {/* نوع خامة القماش المطلوبة */}
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-slate-700 mb-1">نوع خامة القماش المطلوبة بالأمر</label>
+          <div className="w-full px-3 py-2 bg-indigo-50/70 border border-indigo-200 rounded-lg text-indigo-950 font-bold text-sm flex items-center justify-between min-h-[42px]">
+            <span>
+              {order.materials && order.materials.length > 0 
+                ? order.materials[0].name 
+                : (fabricSummary?.primaryFabric?.name || 'غير محددة في أمر الإنتاج')}
+            </span>
+            <span className="text-xs font-semibold text-indigo-700 bg-indigo-100/80 px-2 py-0.5 rounded border border-indigo-200">
+              المطلوب
+            </span>
+          </div>
+        </div>
+
+        {/* اختيار الخامة الفعلية المستخدمة */}
+        <div className="flex-1">
+          <label className="block text-sm font-medium text-slate-700 mb-1">الخامة الفعلية المستخدمة في القص</label>
+          <select
+            value={cutData.actualFabricName || ''}
+            disabled={isReadOnly}
+            onChange={(e) => setCutData(prev => prev ? { ...prev, actualFabricName: e.target.value } : prev)}
+            className={`w-full px-3 py-2 border rounded-lg appearance-none font-medium ${isReadOnly ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-white border-slate-300 focus:ring-2 focus:ring-indigo-500'}`}
+          >
+            <option value="">اختر الخامة الفعلية المستخدمة...</option>
+            {fabrics.map(f => (
+              <option key={f.id} value={f.name}>{f.name}</option>
+            ))}
+          </select>
+        </div>
+
+        {/* عامل القص */}
         <div className="flex-1">
           <label className="block text-sm font-medium text-slate-700 mb-1">عامل القص</label>
           <select
             value={cutData.cutterName || ''}
             disabled={isReadOnly}
             onChange={(e) => setCutData(prev => prev ? { ...prev, cutterName: e.target.value } : prev)}
-            className={`w-full px-3 py-2 border rounded-lg appearance-none ${isReadOnly ? 'bg-slate-100 text-slate-600' : 'bg-white focus:ring-2 focus:ring-indigo-500'}`}
+            className={`w-full px-3 py-2 border rounded-lg appearance-none ${isReadOnly ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-white border-slate-300 focus:ring-2 focus:ring-indigo-500'}`}
           >
             <option value="">اختر عامل القص...</option>
-            
             {Array.from(new Set(laborList.map(l => l.role || 'غير محدد'))).map(role => (
               <optgroup key={role} label={role}>
                 {laborList.filter(l => (l.role || 'غير محدد') === role).map(l => (
                   <option key={l.id} value={l.name}>{l.name}</option>
                 ))}
               </optgroup>
-            ))}
-
-          </select>
-        </div>
-        <div className="flex-1">
-          <label className="block text-sm font-medium text-slate-700 mb-1">الخامة المستخدمة فعلياً</label>
-          <select
-            value={cutData.actualFabricName || ''}
-            disabled={isReadOnly}
-            onChange={(e) => setCutData(prev => prev ? { ...prev, actualFabricName: e.target.value } : prev)}
-            className={`w-full px-3 py-2 border rounded-lg appearance-none ${isReadOnly ? 'bg-slate-100 text-slate-600' : 'bg-white focus:ring-2 focus:ring-indigo-500'}`}
-          >
-            <option value="">اختر الخامة...</option>
-            {fabrics.map(f => (
-              <option key={f.id} value={f.name}>{f.name}</option>
             ))}
           </select>
         </div>
